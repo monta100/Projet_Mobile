@@ -14,6 +14,9 @@ class AppColors {
   static const Color textColor = Color(0xFF263238);
 }
 
+// === AJOUT ===
+enum FilterPeriod { day, week, month, all }
+
 class RepasListScreen extends StatefulWidget {
   const RepasListScreen({Key? key}) : super(key: key);
   @override
@@ -31,6 +34,11 @@ class _RepasListScreenState extends State<RepasListScreen>
   late AnimationController _fabAnimationController;
   late AnimationController _headerAnimationController;
   String _selectedFilter = 'Tous';
+
+  // === AJOUT VARIABLES FILTRE DATE & TRI ===
+  FilterPeriod _dateScope = FilterPeriod.all;
+  DateTime _anchorDate = DateTime.now();
+  bool _sortDesc = true;
 
   @override
   void initState() {
@@ -69,8 +77,90 @@ class _RepasListScreenState extends State<RepasListScreen>
       locale: const Locale('fr', 'FR'),
     );
     if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _anchorDate = picked;
+        _dateScope = FilterPeriod.day; // focus sur la journée choisie
+      });
     }
+  }
+
+  // === AJOUT: Résumé période actuelle ===
+  String _currentPeriodLabel() {
+    if (_dateScope == FilterPeriod.all) return 'Toutes les dates';
+    final d = _anchorDate;
+    switch (_dateScope) {
+      case FilterPeriod.day:
+        return _fmtDate(d);
+      case FilterPeriod.week:
+        final start = d.subtract(Duration(days: d.weekday - 1));
+        final end = start.add(const Duration(days: 6));
+        return 'Semaine du ${_fmtDate(start)} au ${_fmtDate(end)}';
+      case FilterPeriod.month:
+        return 'Mois de ${_monthName(d.month)} ${d.year}';
+      case FilterPeriod.all:
+        return 'Toutes les dates';
+    }
+  }
+
+  String _fmtDate(DateTime dt) =>
+      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+  String _monthName(int m) {
+    const noms = [
+      'Janvier',
+      'Février',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Août',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'Décembre',
+    ];
+    return noms[m - 1];
+  }
+
+  // === AJOUT: Filtrage logique ===
+  List<Repas> _applyFilters(List<Repas> input) {
+    final typeFilter = _selectedFilter;
+    DateTime start;
+    DateTime end;
+    if (_dateScope == FilterPeriod.day) {
+      start = DateTime(_anchorDate.year, _anchorDate.month, _anchorDate.day);
+      end = start.add(const Duration(days: 1));
+    } else if (_dateScope == FilterPeriod.week) {
+      start = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
+      start = DateTime(start.year, start.month, start.day);
+      end = start.add(const Duration(days: 7));
+    } else if (_dateScope == FilterPeriod.month) {
+      start = DateTime(_anchorDate.year, _anchorDate.month, 1);
+      end = DateTime(_anchorDate.year, _anchorDate.month + 1, 1);
+    } else {
+      start = DateTime.fromMillisecondsSinceEpoch(0);
+      end = DateTime(2500);
+    }
+
+    final filtered = input.where((repas) {
+      // Type
+      if (typeFilter != 'Tous' && repas.type != typeFilter) return false;
+
+      // Date string -> DateTime si nécessaire
+      final DateTime d = repas.date;
+      if (_dateScope != FilterPeriod.all) {
+        if (d.isBefore(start) || !d.isBefore(end)) return false;
+      }
+      return true;
+    }).toList();
+
+    // Tri par date
+    filtered.sort(
+      (a, b) => _sortDesc ? b.date.compareTo(a.date) : a.date.compareTo(b.date),
+    );
+
+    return filtered;
   }
 
   void _showAddRepasDialog() {
@@ -101,9 +191,22 @@ class _RepasListScreenState extends State<RepasListScreen>
     return SliverAppBar(
       actions: [
         IconButton(
-          icon: const Icon(Icons.calendar_today, color: Colors.white),
+          icon: const Icon(Icons.swap_vert, color: Colors.white),
+          tooltip: 'Trier (date)',
+          onPressed: () => setState(() => _sortDesc = !_sortDesc),
+        ),
+        IconButton(
+          icon: const Icon(Icons.calendar_month, color: Colors.white),
           onPressed: () => _selectDate(context),
           tooltip: 'Filtrer par date',
+        ),
+        IconButton(
+          icon: const Icon(Icons.clear_all, color: Colors.white),
+          tooltip: 'Réinitialiser filtres date',
+          onPressed: () => setState(() {
+            _dateScope = FilterPeriod.all;
+            _selectedDate = null;
+          }),
         ),
       ],
       expandedHeight: 120,
@@ -171,42 +274,119 @@ class _RepasListScreenState extends State<RepasListScreen>
       'Dîner',
       'Collation',
     ];
+    // ...existing code...
+
+    // === AJOUT: seconde rangée pour plage temporelle + label période ===
     return SliverToBoxAdapter(
-      child: Container(
-        height: 60,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: filters.length,
-          itemBuilder: (context, index) {
-            final filter = filters[index];
-            final isSelected = _selectedFilter == filter;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 12),
-              child: FilterChip(
-                label: Text(filter),
-                selected: isSelected,
-                onSelected: (_) => setState(() => _selectedFilter = filter),
-                backgroundColor: Colors.white,
-                selectedColor: AppColors.primaryColor.withOpacity(0.1),
-                checkmarkColor: AppColors.primaryColor,
-                labelStyle: TextStyle(
-                  color: isSelected
-                      ? AppColors.primaryColor
-                      : AppColors.textColor.withOpacity(0.7),
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                side: BorderSide(
-                  color: isSelected
-                      ? AppColors.primaryColor
-                      : Colors.grey[300]!,
-                ),
-              ),
-            );
-          },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Rangée types
+          Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: filters.length,
+              itemBuilder: (context, index) {
+                final filter = filters[index];
+                final isSelected = _selectedFilter == filter;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 12),
+                  child: FilterChip(
+                    label: Text(filter),
+                    selected: isSelected,
+                    onSelected: (_) => setState(() => _selectedFilter = filter),
+                    backgroundColor: Colors.white,
+                    selectedColor: AppColors.primaryColor.withOpacity(0.1),
+                    checkmarkColor: AppColors.primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected
+                          ? AppColors.primaryColor
+                          : AppColors.textColor.withOpacity(0.7),
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                    side: BorderSide(
+                      color: isSelected
+                          ? AppColors.primaryColor
+                          : Colors.grey[300]!,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Rangée période
+          SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              children: [
+                _buildPeriodChip(FilterPeriod.day, 'Jour'),
+                _buildPeriodChip(FilterPeriod.week, 'Semaine'),
+                _buildPeriodChip(FilterPeriod.month, 'Mois'),
+                _buildPeriodChip(FilterPeriod.all, 'Tout'),
+                const SizedBox(width: 12),
+                _buildPeriodSummaryBadge(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // === AJOUT Widgets utilitaires période ===
+  Widget _buildPeriodChip(FilterPeriod period, String label) {
+    final isSelected = _dateScope == period;
+    return Container(
+      margin: const EdgeInsets.only(right: 12),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (_) => setState(() => _dateScope = period),
+        backgroundColor: Colors.white,
+        selectedColor: AppColors.accentColor.withOpacity(0.15),
+        labelStyle: TextStyle(
+          color: isSelected ? AppColors.accentColor : AppColors.textColor,
+          fontWeight: FontWeight.w600,
         ),
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: isSelected ? AppColors.accentColor : Colors.grey[300]!,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodSummaryBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primaryColor.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.filter_alt, size: 18, color: AppColors.primaryColor),
+          const SizedBox(width: 6),
+          Text(
+            _currentPeriodLabel(),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -228,7 +408,7 @@ class _RepasListScreenState extends State<RepasListScreen>
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const SliverFillRemaining(child: _EmptyState());
           }
-          final repasList = snapshot.data!;
+          final repasList = _applyFilters(snapshot.data!); // <= AJOUT filtre
           return SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
               final repas = repasList[index];

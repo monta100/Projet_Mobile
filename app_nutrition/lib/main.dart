@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Screens/main_navigation_screen.dart';
 
 void main() {
@@ -14,7 +15,20 @@ class MyApp extends StatelessWidget {
       title: 'App Nutrition',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        // (Option) personnalisation thème du DatePicker
+        datePickerTheme: const DatePickerThemeData(
+          headerBackgroundColor: Color(0xFF43A047),
+          headerForegroundColor: Colors.white,
+        ),
       ),
+      debugShowCheckedModeBanner: false,
+      locale: const Locale('fr', 'FR'),
+      supportedLocales: const [Locale('fr', 'FR'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const MainNavigationScreen(),
     );
   }

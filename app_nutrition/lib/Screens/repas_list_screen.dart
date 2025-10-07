@@ -1,28 +1,31 @@
-// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use
+// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, no_leading_underscores_for_local_identifiers
 
 import 'package:flutter/material.dart';
-import '../services/repas_service.dart';
+import '../Services/repas_service.dart';
 import '../Entites/repas.dart';
-
-import 'recette_with_ingredients_screen.dart'; // ✅ Nouveau composant moderne
+import 'recette_with_ingredients_screen.dart';
+import '../Services/nutrition_ai_service.dart';
 
 class AppColors {
-  static const Color primaryColor = Color(0xFF43A047); // vert foncé élégant
-  static const Color secondaryColor = Color(0xFF66BB6A); // vert clair
-  static const Color accentColor = Color(0xFFFFA726); // orange vif
-  static const Color backgroundColor = Color(0xFFF4F6F8); // gris très clair
-  static const Color textColor = Color(0xFF263238); // bleu-gris foncé
+  static const Color primaryColor = Color(0xFF43A047);
+  static const Color secondaryColor = Color(0xFF66BB6A);
+  static const Color accentColor = Color(0xFFFFA726);
+  static const Color backgroundColor = Color(0xFFF4F6F8);
+  static const Color textColor = Color(0xFF263238);
 }
 
 class RepasListScreen extends StatefulWidget {
   const RepasListScreen({Key? key}) : super(key: key);
-
   @override
   _RepasListScreenState createState() => _RepasListScreenState();
 }
 
 class _RepasListScreenState extends State<RepasListScreen>
     with TickerProviderStateMixin {
+  DateTime? _selectedDate;
+  final NutritionAIService _nutritionService = NutritionAIService();
+  bool _isCalculatingCalories = false; // (réservé futur)
+  double? _estimatedCalories; // (réservé futur)
   final RepasService _repasService = RepasService();
   late Future<List<Repas>> _repasList;
   late AnimationController _fabAnimationController;
@@ -57,6 +60,19 @@ class _RepasListScreenState extends State<RepasListScreen>
     });
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2023),
+      lastDate: DateTime(2100),
+      locale: const Locale('fr', 'FR'),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
   void _showAddRepasDialog() {
     _fabAnimationController.forward();
     showModalBottomSheet(
@@ -83,8 +99,14 @@ class _RepasListScreenState extends State<RepasListScreen>
 
   Widget _buildCustomAppBar() {
     return SliverAppBar(
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.calendar_today, color: Colors.white),
+          onPressed: () => _selectDate(context),
+          tooltip: 'Filtrer par date',
+        ),
+      ],
       expandedHeight: 120,
-      floating: false,
       pinned: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
@@ -149,7 +171,6 @@ class _RepasListScreenState extends State<RepasListScreen>
       'Dîner',
       'Collation',
     ];
-
     return SliverToBoxAdapter(
       child: Container(
         height: 60,
@@ -161,18 +182,13 @@ class _RepasListScreenState extends State<RepasListScreen>
           itemBuilder: (context, index) {
             final filter = filters[index];
             final isSelected = _selectedFilter == filter;
-
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 12),
               child: FilterChip(
                 label: Text(filter),
                 selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedFilter = filter;
-                  });
-                },
+                onSelected: (_) => setState(() => _selectedFilter = filter),
                 backgroundColor: Colors.white,
                 selectedColor: AppColors.primaryColor.withOpacity(0.1),
                 checkmarkColor: AppColors.primaryColor,
@@ -212,16 +228,75 @@ class _RepasListScreenState extends State<RepasListScreen>
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const SliverFillRemaining(child: _EmptyState());
           }
-
           final repasList = snapshot.data!;
           return SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
               final repas = repasList[index];
-              return AnimatedContainer(
-                duration: Duration(milliseconds: 300 + (index * 100)),
-                curve: Curves.easeOutBack,
-                margin: const EdgeInsets.only(bottom: 16),
-                child: _buildRepasCard(repas, index),
+              return Dismissible(
+                key: ValueKey(repas.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                confirmDismiss: (_) async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: const Text('Supprimer ce repas ?'),
+                      content: const Text(
+                        'Voulez-vous vraiment supprimer ce repas ? Cette action est irréversible.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Annuler'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                          ),
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text(
+                            'Supprimer',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  return confirm ?? false;
+                },
+                onDismissed: (_) async {
+                  await _repasService.deleteRepas(repas.id!);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Repas "${repas.nom}" supprimé avec succès.',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                  _loadRepas();
+                },
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: 300 + (index * 100)),
+                  curve: Curves.easeOutBack,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: _buildRepasCard(repas, index),
+                ),
               );
             }, childCount: repasList.length),
           );
@@ -235,13 +310,8 @@ class _RepasListScreenState extends State<RepasListScreen>
       [AppColors.primaryColor, AppColors.secondaryColor],
       [AppColors.secondaryColor, AppColors.accentColor],
       [AppColors.accentColor, AppColors.primaryColor],
-      [
-        AppColors.primaryColor.withOpacity(0.8),
-        AppColors.secondaryColor.withOpacity(0.8),
-      ],
     ];
     final cardColors = colors[index % colors.length];
-
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
@@ -413,64 +483,197 @@ class _RepasListScreenState extends State<RepasListScreen>
 
   Widget _buildAddRepasModal() {
     final nomController = TextEditingController();
-    final typeController = TextEditingController();
-    final caloriesController = TextEditingController();
+    String selectedType = 'Déjeuner';
+    bool isCalculating = false;
+    double? estimatedCalories;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
+    return StatefulBuilder(
+      builder: (context, setStateModal) {
+        Future<void> _calculateCalories() async {
+          final dish = nomController.text.trim();
+          if (dish.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Veuillez entrer un nom de repas.")),
+            );
+            return;
+          }
+          setStateModal(() {
+            isCalculating = true;
+            estimatedCalories = null;
+          });
+          final kcal = await _nutritionService.estimateCalories(dish);
+          setStateModal(() {
+            isCalculating = false;
+            estimatedCalories = kcal > 0 ? kcal : null;
+          });
+        }
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Ajouter un nouveau repas',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textColor,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                _buildCustomTextField(
+                  nomController,
+                  'Nom du repas',
+                  Icons.restaurant,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: AppColors.primaryColor.withOpacity(0.3),
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    value: selectedType,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      labelText: "Type de repas",
+                      prefixIcon: Icon(
+                        Icons.category,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Petit-déjeuner',
+                        child: Text('🥐 Petit-déjeuner'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Déjeuner',
+                        child: Text('🍽️ Déjeuner'),
+                      ),
+                      DropdownMenuItem(value: 'Dîner', child: Text('🌙 Dîner')),
+                      DropdownMenuItem(
+                        value: 'Collation',
+                        child: Text('🍎 Collation'),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setStateModal(() => selectedType = value!),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: isCalculating ? null : _calculateCalories,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.local_fire_department,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    isCalculating
+                        ? 'Calcul en cours...'
+                        : 'Calculer les calories',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (estimatedCalories != null)
+                  AnimatedOpacity(
+                    opacity: 1,
+                    duration: const Duration(milliseconds: 600),
+                    child: Text(
+                      'Calories estimées : ${estimatedCalories!.toStringAsFixed(0)} kcal',
+                      style: const TextStyle(
+                        color: AppColors.accentColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                _buildCustomButton('Ajouter le repas', () async {
+                  final nom = nomController.text.trim();
+                  if (nom.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Veuillez remplir tous les champs obligatoires.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  final calories = estimatedCalories ?? 0;
+                  final newRepas = Repas(
+                    nom: nom,
+                    type: selectedType,
+                    date: DateTime.now(),
+                    caloriesTotales: calories,
+                    utilisateurId: 1,
+                  );
+                  await _repasService.insertRepas(newRepas);
+                  _loadRepas();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.green[600],
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      content: Row(
+                        children: const [
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Repas ajouté avec succès ! 🎉',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Ajouter un nouveau repas',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textColor,
-              ),
-            ),
-            const SizedBox(height: 30),
-            _buildCustomTextField(
-              nomController,
-              'Nom du repas',
-              Icons.restaurant,
-            ),
-            const SizedBox(height: 20),
-            _buildCustomTextField(
-              typeController,
-              'Type de repas',
-              Icons.category,
-            ),
-            const SizedBox(height: 20),
-            _buildCustomTextField(
-              caloriesController,
-              'Calories',
-              Icons.local_fire_department,
-              isNumber: true,
-            ),
-            const Spacer(),
-            _buildCustomButton('Ajouter le repas', () async {
-              // Implementation for adding repas
-              Navigator.pop(context);
-            }),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -479,6 +682,7 @@ class _RepasListScreenState extends State<RepasListScreen>
     String label,
     IconData icon, {
     bool isNumber = false,
+    Function(String)? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -488,7 +692,8 @@ class _RepasListScreenState extends State<RepasListScreen>
       child: TextField(
         controller: controller,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        style: TextStyle(color: AppColors.textColor),
+        onChanged: onChanged,
+        style: const TextStyle(color: AppColors.textColor),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: AppColors.textColor.withOpacity(0.7)),
@@ -537,32 +742,6 @@ class _RepasListScreenState extends State<RepasListScreen>
     );
   }
 
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Une erreur est survenue',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            error,
-            style: TextStyle(color: AppColors.textColor.withOpacity(0.6)),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showRepasOptions(Repas repas) {
     showModalBottomSheet(
       context: context,
@@ -595,8 +774,6 @@ class _RepasListScreenState extends State<RepasListScreen>
                 ),
               ),
               const SizedBox(height: 24),
-
-              // ✅ Redirection vers notre nouvel écran unifié
               _buildOptionButton(
                 'Recettes & Ingrédients',
                 Icons.restaurant_menu,
@@ -605,30 +782,151 @@ class _RepasListScreenState extends State<RepasListScreen>
                   Navigator.pop(context);
                   Navigator.push(
                     context,
-                  MaterialPageRoute(
-  builder: (context) => RecetteWithIngredientsScreen(
-    repasId: repas.id!, // ✅ on passe bien l'ID du repas courant
-  ),
-),
-
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          RecetteWithIngredientsScreen(repasId: repas.id!),
+                    ),
                   );
                 },
               ),
-
               const SizedBox(height: 12),
               _buildOptionButton(
-                'Détails du repas',
-                Icons.info_outline,
-                AppColors.primaryColor,
+                'Modifier le repas',
+                Icons.edit,
+                AppColors.secondaryColor,
                 () {
                   Navigator.pop(context);
-                  _showRepasDetails(repas);
+                  _showEditRepasModal(repas);
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              _buildOptionButton(
+                'Supprimer le repas',
+                Icons.delete_outline,
+                Colors.redAccent,
+                () {
+                  Navigator.pop(context);
+                  _confirmDeleteRepas(repas.id!);
+                },
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showEditRepasModal(Repas repas) {
+    final nomController = TextEditingController(text: repas.nom);
+    final typeController = TextEditingController(text: repas.type);
+    final caloriesController = TextEditingController(
+      text: repas.caloriesTotales.toString(),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Modifier le repas',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 30),
+              _buildCustomTextField(
+                nomController,
+                'Nom du repas',
+                Icons.restaurant,
+              ),
+              const SizedBox(height: 20),
+              _buildCustomTextField(
+                typeController,
+                'Type de repas',
+                Icons.category,
+              ),
+              const SizedBox(height: 20),
+              _buildCustomTextField(
+                caloriesController,
+                'Calories',
+                Icons.local_fire_department,
+                isNumber: true,
+              ),
+              const Spacer(),
+              _buildCustomButton('Enregistrer les modifications', () async {
+                final updatedRepas = repas.copyWith(
+                  nom: nomController.text.trim(),
+                  type: typeController.text.trim(),
+                  caloriesTotales:
+                      double.tryParse(caloriesController.text) ??
+                      repas.caloriesTotales,
+                );
+                await _repasService.updateRepas(updatedRepas);
+                _loadRepas();
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Repas modifié avec succès !')),
+                );
+              }),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteRepas(int repasId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Supprimer le repas'),
+        content: const Text(
+          'Êtes-vous sûr de vouloir supprimer ce repas ? Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () async {
+              await _repasService.deleteRepas(repasId);
+              Navigator.pop(context);
+              _loadRepas();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Repas supprimé avec succès !')),
+              );
+            },
+            child: const Text(
+              'Supprimer',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -682,94 +980,9 @@ class _RepasListScreenState extends State<RepasListScreen>
     );
   }
 
-  void _showRepasDetails(Repas repas) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Colors.white,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primaryColor, AppColors.secondaryColor],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  _getRepasIcon(repas.type),
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                repas.nom,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildDetailRow('Type', repas.type),
-              const SizedBox(height: 8),
-              _buildDetailRow(
-                'Calories',
-                '${repas.caloriesTotales.toInt()} kcal',
-              ),
-              const SizedBox(height: 8),
-              _buildDetailRow(
-                'Date',
-                repas.date.toLocal().toString().split(' ')[0],
-              ),
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primaryColor,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 12,
-                  ),
-                ),
-                child: const Text('Fermer', style: TextStyle(fontSize: 16)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          '$label:',
-          style: TextStyle(
-            color: AppColors.textColor.withOpacity(0.7),
-            fontSize: 16,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: AppColors.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Text('Erreur : $error', style: const TextStyle(color: Colors.red)),
     );
   }
 
@@ -789,7 +1002,6 @@ class _RepasListScreenState extends State<RepasListScreen>
 
 class _LoadingAnimation extends StatefulWidget {
   const _LoadingAnimation();
-
   @override
   __LoadingAnimationState createState() => __LoadingAnimationState();
 }
@@ -797,7 +1009,6 @@ class _LoadingAnimation extends StatefulWidget {
 class __LoadingAnimationState extends State<_LoadingAnimation>
     with TickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -817,7 +1028,7 @@ class __LoadingAnimationState extends State<_LoadingAnimation>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (context, child) {
+      builder: (_, __) {
         return Container(
           width: 50,
           height: 50,
@@ -825,13 +1036,13 @@ class __LoadingAnimationState extends State<_LoadingAnimation>
             shape: BoxShape.circle,
             gradient: SweepGradient(
               colors: [Colors.transparent, AppColors.primaryColor],
-              stops: [0.0, 1.0],
+              stops: const [0.0, 1.0],
               transform: GradientRotation(_controller.value * 2 * 3.14159),
             ),
           ),
           child: Container(
             margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.backgroundColor,
               shape: BoxShape.circle,
             ),
@@ -844,7 +1055,6 @@ class __LoadingAnimationState extends State<_LoadingAnimation>
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
-
   @override
   Widget build(BuildContext context) {
     return Center(

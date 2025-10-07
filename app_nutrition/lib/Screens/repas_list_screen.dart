@@ -1,4 +1,4 @@
-// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, no_leading_underscores_for_local_identifiers
+// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, prefer_final_fields
 
 import 'package:flutter/material.dart';
 import '../Services/repas_service.dart';
@@ -39,6 +39,9 @@ class _RepasListScreenState extends State<RepasListScreen>
   FilterPeriod _dateScope = FilterPeriod.all;
   DateTime _anchorDate = DateTime.now();
   bool _sortDesc = true;
+
+  // === AJOUT : Objectif journalier ===
+  static const double _dailyGoal = 2000; // Objectif journalier
 
   @override
   void initState() {
@@ -181,9 +184,52 @@ class _RepasListScreenState extends State<RepasListScreen>
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: CustomScrollView(
-        slivers: [_buildCustomAppBar(), _buildFilterChips(), _buildRepasList()],
+        slivers: [
+          _buildCustomAppBar(),
+          _buildTodayCaloriesSliver(), // <== AJOUT
+          _buildFilterChips(),
+          _buildRepasList(),
+        ],
       ),
       floatingActionButton: _buildCustomFAB(),
+    );
+  }
+
+  // === AJOUT : Sliver bannière total calories du jour ===
+  Widget _buildTodayCaloriesSliver() {
+    return SliverToBoxAdapter(
+      child: FutureBuilder<List<Repas>>(
+        future: _repasList,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 140,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          final list = snapshot.data ?? [];
+          final today = DateTime.now();
+          final totalToday = list
+              .where(
+                (r) =>
+                    r.date.year == today.year &&
+                    r.date.month == today.month &&
+                    r.date.day == today.day,
+              )
+              .fold<double>(0, (s, r) => s + r.caloriesTotales);
+
+          final progress = (totalToday / _dailyGoal).clamp(0, 1);
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+            child: _TodayCaloriesBanner(
+              total: totalToday,
+              goal: _dailyGoal,
+              progress: progress.toDouble(),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -649,16 +695,16 @@ class _RepasListScreenState extends State<RepasListScreen>
             ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(30),
-            onTap: _showAddRepasDialog,
-            child: const Icon(Icons.add, color: Colors.white, size: 28),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(30),
+              onTap: _showAddRepasDialog,
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
+            ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildAddRepasModal() {
@@ -1275,4 +1321,216 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+/// === AJOUT : Widget bannière calories ===
+class _TodayCaloriesBanner extends StatelessWidget {
+  final double total;
+  final double goal;
+  final double progress;
+  const _TodayCaloriesBanner({
+    required this.total,
+    required this.goal,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (progress * 100).clamp(0, 100).toStringAsFixed(0);
+    return Container(
+      height: 150, // ↑ hauteur légèrement augmentée
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF43A047), Color(0xFF66BB6A), Color(0xFFFFA726)],
+          stops: [0.0, 0.55, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.10),
+            offset: const Offset(0, 12),
+            blurRadius: 28,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Décor bulles
+          Positioned(
+            top: -18,
+            right: -18,
+            child: _softCircle(110, Colors.white.withOpacity(.08)),
+          ),
+          Positioned(
+            bottom: -10,
+            left: -10,
+            child: _softCircle(80, Colors.white.withOpacity(.07)),
+          ),
+          // CHANGEMENT: remplacement de Positioned(... bottom:22 ...) par simple Padding
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 84,
+                  height: 84,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: progress),
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return CustomPaint(
+                        painter: _CaloriesRingPainter(value),
+                        child: Center(
+                          child: Text(
+                            '$pct%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              letterSpacing: -.5,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Total aujourd\'hui',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: .3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: total),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) => Text(
+                          '${value.toStringAsFixed(0)} kcal',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progress > 1 ? 1 : progress,
+                          minHeight: 6, // ↓ réduit
+                          backgroundColor: Colors.white.withOpacity(.25),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            progress >= 1 ? Colors.orangeAccent : Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Objectif: ${goal.toStringAsFixed(0)} kcal',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 14,
+            child: Row(
+              children: const [
+                Icon(Icons.local_fire_department, color: Colors.white, size: 22),
+                SizedBox(width: 4),
+                Text('🔥', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _softCircle(double size, Color c) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: c,
+      boxShadow: [BoxShadow(color: c, blurRadius: 40, spreadRadius: 10)],
+    ),
+  );
+}
+
+/// === AJOUT : Painter pour anneau progressif ===
+class _CaloriesRingPainter extends CustomPainter {
+  final double progress;
+  _CaloriesRingPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = 8.0;
+    final rect = Offset.zero & size;
+    final center = rect.center;
+    final radius = (size.shortestSide / 2) - stroke / 2;
+
+    final bg = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = Colors.white.withOpacity(.25)
+      ..strokeCap = StrokeCap.round;
+
+    final fg = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..shader = SweepGradient(
+        startAngle: -3.14 / 2,
+        endAngle: 3.14 * 1.5,
+        colors: const [
+          Color(0xFFFFF59D),
+          Color(0xFFFFCC80),
+          Color(0xFFFFA726),
+          Color(0xFFFFF59D),
+        ],
+        stops: const [0.0, .35, .7, 1.0],
+        transform: const GradientRotation(-3.14 / 2),
+      ).createShader(rect)
+      ..strokeCap = StrokeCap.round;
+
+    // Fond
+    canvas.drawCircle(center, radius, bg);
+
+    // Arc progressif
+    final sweep = progress.clamp(0, 1) * 3.14159 * 2;
+    final path = Path()
+      ..addArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -3.14159 / 2,
+        sweep,
+      );
+    canvas.drawPath(path, fg);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CaloriesRingPainter old) =>
+      old.progress != progress;
 }

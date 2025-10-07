@@ -1,15 +1,58 @@
 import 'package:sqflite/sqflite.dart';
 import '../Services/database_helper.dart';
 import '../Entites/repas.dart';
+
 class RepasService {
   final dbHelper = DatabaseHelper();
+
+  // ID utilisateur par défaut
+  static const int _defaultUserId = 1;
+
+  // Résout un userId valide
+  Future<int> _resolveUserId(Database db, int? providedId) async {
+    if (providedId != null) {
+      final exists = await db.query(
+        'utilisateurs',
+        where: 'id = ?',
+        whereArgs: [providedId],
+        limit: 1,
+      );
+      if (exists.isNotEmpty) return providedId;
+    }
+
+    final staticUser = await db.query(
+      'utilisateurs',
+      where: 'id = ?',
+      whereArgs: [_defaultUserId],
+      limit: 1,
+    );
+    if (staticUser.isNotEmpty) return _defaultUserId;
+
+    final anyUser = await db.query('utilisateurs', limit: 1);
+    if (anyUser.isNotEmpty) return anyUser.first['id'] as int;
+
+    final newId = await db.insert('utilisateurs', {
+      'nom': 'User',
+      'prenom': 'Demo',
+      'email': 'demo_${DateTime.now().millisecondsSinceEpoch}@app.com',
+      'mot_de_passe': '1234',
+      'role': 'utilisateur',
+    });
+    return newId;
+  }
 
   // 🟢 Ajouter un repas
   Future<int> insertRepas(Repas repas) async {
     final db = await dbHelper.database;
+    final data = repas.toMap();
+
+    int? providedId = data['utilisateur_id'] as int?;
+    final resolvedId = await _resolveUserId(db, providedId);
+    data['utilisateur_id'] = resolvedId;
+
     return await db.insert(
       Repas.tableName,
-      repas.toMap(),
+      data,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -48,11 +91,7 @@ class RepasService {
   // 🔴 Supprimer un repas
   Future<int> deleteRepas(int id) async {
     final db = await dbHelper.database;
-    return await db.delete(
-      Repas.tableName,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete(Repas.tableName, where: 'id = ?', whereArgs: [id]);
   }
 
   // ⚪ Supprimer tous les repas d’un utilisateur (optionnel)

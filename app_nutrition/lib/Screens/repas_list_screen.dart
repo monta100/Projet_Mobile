@@ -1,8 +1,10 @@
-// ignore_for_file: use_super_parameters, library_private_types_in_public_api
+// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use
 
 import 'package:flutter/material.dart';
 import '../services/repas_service.dart';
 import '../Entites/repas.dart';
+
+import 'recette_with_ingredients_screen.dart'; // ✅ Nouveau composant moderne
 
 class AppColors {
   static const Color primaryColor = Color(0xFF43A047); // vert foncé élégant
@@ -264,7 +266,7 @@ class _RepasListScreenState extends State<RepasListScreen>
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => _showRepasDetails(repas),
+              onTap: () => _showRepasOptions(repas),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -288,7 +290,7 @@ class _RepasListScreenState extends State<RepasListScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            repas.nom ?? 'Repas sans nom',
+                            repas.nom,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -304,31 +306,64 @@ class _RepasListScreenState extends State<RepasListScreen>
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${repas.caloriesTotales.toInt()} kcal',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${repas.caloriesTotales.toInt()} kcal',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.restaurant_menu,
+                                      size: 12,
+                                      color: Colors.white.withOpacity(0.8),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Options',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.8),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                     Icon(
-                      Icons.arrow_forward_ios,
+                      Icons.more_vert,
                       color: Colors.white.withOpacity(0.7),
-                      size: 16,
+                      size: 20,
                     ),
                   ],
                 ),
@@ -528,13 +563,132 @@ class _RepasListScreenState extends State<RepasListScreen>
     );
   }
 
+  void _showRepasOptions(Repas repas) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                repas.nom,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ✅ Redirection vers notre nouvel écran unifié
+              _buildOptionButton(
+                'Recettes & Ingrédients',
+                Icons.restaurant_menu,
+                AppColors.accentColor,
+                () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                  MaterialPageRoute(
+  builder: (context) => RecetteWithIngredientsScreen(
+    repasId: repas.id!, // ✅ on passe bien l'ID du repas courant
+  ),
+),
+
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+              _buildOptionButton(
+                'Détails du repas',
+                Icons.info_outline,
+                AppColors.primaryColor,
+                () {
+                  Navigator.pop(context);
+                  _showRepasDetails(repas);
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionButton(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textColor,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.arrow_forward_ios, color: color, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showRepasDetails(Repas repas) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             color: Colors.white,
@@ -542,39 +696,80 @@ class _RepasListScreenState extends State<RepasListScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primaryColor, AppColors.secondaryColor],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  _getRepasIcon(repas.type),
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 20),
               Text(
-                repas.nom ?? 'Repas',
+                repas.nom,
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textColor,
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Type: ${repas.type}',
-                style: TextStyle(color: AppColors.textColor),
+              _buildDetailRow('Type', repas.type),
+              const SizedBox(height: 8),
+              _buildDetailRow(
+                'Calories',
+                '${repas.caloriesTotales.toInt()} kcal',
               ),
-              Text(
-                'Calories: ${repas.caloriesTotales.toInt()} kcal',
-                style: TextStyle(color: AppColors.textColor),
+              const SizedBox(height: 8),
+              _buildDetailRow(
+                'Date',
+                repas.date.toLocal().toString().split(' ')[0],
               ),
-              Text(
-                'Date: ${repas.date.toLocal().toString().split(' ')[0]}',
-                style: TextStyle(color: AppColors.textColor),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primaryColor,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 12,
+                  ),
                 ),
-                child: const Text('Fermer'),
+                child: const Text('Fermer', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '$label:',
+          style: TextStyle(
+            color: AppColors.textColor.withOpacity(0.7),
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: AppColors.textColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 

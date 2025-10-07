@@ -1,11 +1,13 @@
 // ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, prefer_final_fields
 
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../Services/repas_service.dart';
 import '../Entites/repas.dart';
 import 'recette_with_ingredients_screen.dart';
 import '../Services/nutrition_ai_service.dart';
 
+// --- Palette de couleurs et Thème ---
 class AppColors {
   static const Color primaryColor = Color(0xFF43A047);
   static const Color secondaryColor = Color(0xFF66BB6A);
@@ -14,9 +16,9 @@ class AppColors {
   static const Color textColor = Color(0xFF263238);
 }
 
-// === AJOUT ===
 enum FilterPeriod { day, week, month, all }
 
+// --- Écran principal ---
 class RepasListScreen extends StatefulWidget {
   const RepasListScreen({Key? key}) : super(key: key);
   @override
@@ -25,686 +27,514 @@ class RepasListScreen extends StatefulWidget {
 
 class _RepasListScreenState extends State<RepasListScreen>
     with TickerProviderStateMixin {
-  DateTime? _selectedDate;
-  final NutritionAIService _nutritionService = NutritionAIService();
-  bool _isCalculatingCalories = false; // (réservé futur)
-  double? _estimatedCalories; // (réservé futur)
   final RepasService _repasService = RepasService();
+  final NutritionAIService _nutritionService = NutritionAIService();
   late Future<List<Repas>> _repasList;
-  late AnimationController _fabAnimationController;
-  late AnimationController _headerAnimationController;
-  String _selectedFilter = 'Tous';
 
-  // === AJOUT VARIABLES FILTRE DATE & TRI ===
+  // États des filtres et du tri
+  String _selectedFilterType = 'Tous';
   FilterPeriod _dateScope = FilterPeriod.all;
   DateTime _anchorDate = DateTime.now();
   bool _sortDesc = true;
 
-  // === AJOUT : Objectif journalier ===
-  static const double _dailyGoal = 2000; // Objectif journalier
+  // Contrôleurs d'animation
+  late AnimationController _fabController;
+  late AnimationController _listAnimationController;
+
+  static const double _dailyGoal = 2000;
 
   @override
   void initState() {
     super.initState();
-    _loadRepas();
-    _fabAnimationController = AnimationController(
+    _fabController = AnimationController(
+      vsync: this,
       duration: const Duration(milliseconds: 300),
-      vsync: this,
     );
-    _headerAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+    _listAnimationController = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 500),
     );
-    _headerAnimationController.forward();
+    _loadRepas();
   }
 
   @override
   void dispose() {
-    _fabAnimationController.dispose();
-    _headerAnimationController.dispose();
+    _fabController.dispose();
+    _listAnimationController.dispose();
     super.dispose();
   }
 
   void _loadRepas() {
     setState(() {
       _repasList = _repasService.getAllRepas();
+      _listAnimationController.forward(from: 0.0);
     });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
+  // --- Logique de filtrage et de tri ---
+  List<Repas> _applyFilters(List<Repas> input) {
+    DateTime start, end;
+    switch (_dateScope) {
+      case FilterPeriod.day:
+        start = DateTime(_anchorDate.year, _anchorDate.month, _anchorDate.day);
+        end = start.add(const Duration(days: 1));
+        break;
+      case FilterPeriod.week:
+        start = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
+        start = DateTime(start.year, start.month, start.day);
+        end = start.add(const Duration(days: 7));
+        break;
+      case FilterPeriod.month:
+        start = DateTime(_anchorDate.year, _anchorDate.month, 1);
+        end = DateTime(_anchorDate.year, _anchorDate.month + 1, 1);
+        break;
+      case FilterPeriod.all:
+        start = DateTime.fromMillisecondsSinceEpoch(0);
+        end = DateTime(3000);
+    }
+
+    final filtered = input.where((repas) {
+      final isTypeMatch =
+          _selectedFilterType == 'Tous' || repas.type == _selectedFilterType;
+      final isDateMatch =
+          _dateScope == FilterPeriod.all ||
+          (!repas.date.isBefore(start) && repas.date.isBefore(end));
+      return isTypeMatch && isDateMatch;
+    }).toList();
+
+    filtered.sort(
+      (a, b) => _sortDesc ? b.date.compareTo(a.date) : a.date.compareTo(b.date),
+    );
+    return filtered;
+  }
+
+  // --- Construction de l'UI ---
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundColor,
+      body: RefreshIndicator(
+        onRefresh: () async => _loadRepas(),
+        color: AppColors.primaryColor,
+        child: CustomScrollView(
+          slivers: [
+            _buildHeaderSliver(),
+            _buildDateFilterSliver(),
+            _buildTypeFilterSliver(),
+            _buildRepasList(),
+          ],
+        ),
+      ),
+      floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Widget _buildHeaderSliver() {
+    return SliverAppBar(
+      expandedHeight: 240.0,
+      pinned: true,
+      stretch: true,
+      backgroundColor: AppColors.backgroundColor,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [StretchMode.zoomBackground],
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primaryColor, AppColors.secondaryColor],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: -80,
+                right: -80,
+                child: Icon(
+                  Icons.restaurant,
+                  size: 200,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Mes Repas',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Suivez votre nutrition au quotidien',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Spacer(),
+                      _buildTodayCaloriesSliver(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodayCaloriesSliver() {
+    return FutureBuilder<List<Repas>>(
+      future: _repasList,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+        final today = DateTime.now();
+        final totalToday = (snapshot.data ?? [])
+            .where(
+              (r) =>
+                  r.date.year == today.year &&
+                  r.date.month == today.month &&
+                  r.date.day == today.day,
+            )
+            .fold<double>(0, (s, r) => s + r.caloriesTotales);
+        final progress = (totalToday / _dailyGoal).clamp(0.0, 1.0);
+
+        return _TodayCaloriesBanner(
+          total: totalToday,
+          goal: _dailyGoal,
+          progress: progress,
+        );
+      },
+    );
+  }
+
+  Widget _buildDateFilterSliver() {
+    String label;
+    if (_dateScope == FilterPeriod.all) {
+      label = 'Toutes les dates';
+    } else {
+      final d = _anchorDate;
+      if (_dateScope == FilterPeriod.day)
+        label = _fmtDate(d);
+      else if (_dateScope == FilterPeriod.week) {
+        final start = d.subtract(Duration(days: d.weekday - 1));
+        final end = start.add(const Duration(days: 6));
+        label = 'Sem. ${_fmtDate(start)} - ${_fmtDate(end)}';
+      } else {
+        label = '${_monthName(d.month)} ${d.year}';
+      }
+    }
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.calendar_today,
+                color: AppColors.textColor.withOpacity(0.7),
+              ),
+              onPressed: _selectDate,
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.swap_vert,
+                color: AppColors.textColor.withOpacity(0.7),
+              ),
+              onPressed: () => setState(() => _sortDesc = !_sortDesc),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeFilterSliver() {
+    final types = ['Tous', 'Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collation'];
+    final periods = {
+      FilterPeriod.day: 'Jour',
+      FilterPeriod.week: 'Semaine',
+      FilterPeriod.month: 'Mois',
+      FilterPeriod.all: 'Tout',
+    };
+
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _SliverFilterDelegate(
+        child: Container(
+          color: AppColors.backgroundColor,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            children: [
+              ...types.map(
+                (type) => _buildFilterChip(
+                  type,
+                  isSelected: _selectedFilterType == type,
+                  onSelected: () => setState(() => _selectedFilterType = type),
+                ),
+              ),
+              const VerticalDivider(width: 24, indent: 8, endIndent: 8),
+              ...periods.entries.map(
+                (entry) => _buildFilterChip(
+                  entry.value,
+                  isSelected: _dateScope == entry.key,
+                  isAccent: true,
+                  onSelected: () => setState(() => _dateScope = entry.key),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepasList() {
+    return FutureBuilder<List<Repas>>(
+      future: _repasList,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverFillRemaining(
+            child: Center(child: _LoadingAnimation()),
+          );
+        }
+        if (snapshot.hasError) {
+          return SliverFillRemaining(
+            child: _buildErrorState(snapshot.error.toString()),
+          );
+        }
+        final repasList = _applyFilters(snapshot.data ?? []);
+        if (repasList.isEmpty) {
+          return const SliverFillRemaining(child: _EmptyState());
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              return AnimatedBuilder(
+                animation: _listAnimationController,
+                builder: (context, child) {
+                  final delay = (index * 100).clamp(0, 500);
+                  final animation = CurvedAnimation(
+                    parent: _listAnimationController,
+                    curve: Interval(
+                      (delay / 1000),
+                      1.0,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
+                  return FadeTransition(
+                    opacity: animation,
+                    child: Transform.translate(
+                      offset: Offset(0, 50 * (1 - animation.value)),
+                      child: child,
+                    ),
+                  );
+                },
+                child: _buildRepasCard(repasList[index]),
+              );
+            }, childCount: repasList.length),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRepasCard(Repas repas) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showRepasOptions(repas),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getRepasIcon(repas.type),
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        repas.nom,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${repas.type} • ${_fmtDate(repas.date)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textColor.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${repas.caloriesTotales.toInt()} kcal',
+                    style: const TextStyle(
+                      color: AppColors.accentColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Méthodes utilitaires et modales ---
+  Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2023),
-      lastDate: DateTime(2100),
+      initialDate: _anchorDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
       locale: const Locale('fr', 'FR'),
     );
-    if (picked != null && picked != _selectedDate) {
+    if (picked != null) {
       setState(() {
-        _selectedDate = picked;
         _anchorDate = picked;
-        _dateScope = FilterPeriod.day; // focus sur la journée choisie
+        _dateScope = FilterPeriod.day;
       });
     }
   }
 
-  // === AJOUT: Résumé période actuelle ===
-  String _currentPeriodLabel() {
-    if (_dateScope == FilterPeriod.all) return 'Toutes les dates';
-    final d = _anchorDate;
-    switch (_dateScope) {
-      case FilterPeriod.day:
-        return _fmtDate(d);
-      case FilterPeriod.week:
-        final start = d.subtract(Duration(days: d.weekday - 1));
-        final end = start.add(const Duration(days: 6));
-        return 'Semaine du ${_fmtDate(start)} au ${_fmtDate(end)}';
-      case FilterPeriod.month:
-        return 'Mois de ${_monthName(d.month)} ${d.year}';
-      case FilterPeriod.all:
-        return 'Toutes les dates';
-    }
-  }
-
   String _fmtDate(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-  String _monthName(int m) {
-    const noms = [
-      'Janvier',
-      'Février',
-      'Mars',
-      'Avril',
-      'Mai',
-      'Juin',
-      'Juillet',
-      'Août',
-      'Septembre',
-      'Octobre',
-      'Novembre',
-      'Décembre',
-    ];
-    return noms[m - 1];
+      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
+  String _monthName(int m) => [
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai',
+    'Juin',
+    'Juillet',
+    'Août',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre',
+  ][m - 1];
+
+  Widget _buildFilterChip(
+    String label, {
+    required bool isSelected,
+    required VoidCallback onSelected,
+    bool isAccent = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (_) => onSelected(),
+        backgroundColor: Colors.white,
+        selectedColor: isAccent
+            ? AppColors.accentColor.withOpacity(0.15)
+            : AppColors.primaryColor.withOpacity(0.1),
+        labelStyle: TextStyle(
+          color: isSelected
+              ? (isAccent ? AppColors.accentColor : AppColors.primaryColor)
+              : AppColors.textColor.withOpacity(0.7),
+          fontWeight: FontWeight.w600,
+        ),
+        side: BorderSide(
+          color: isSelected
+              ? (isAccent ? AppColors.accentColor : AppColors.primaryColor)
+              : Colors.grey[300]!,
+        ),
+      ),
+    );
   }
 
-  // === AJOUT: Filtrage logique ===
-  List<Repas> _applyFilters(List<Repas> input) {
-    final typeFilter = _selectedFilter;
-    DateTime start;
-    DateTime end;
-    if (_dateScope == FilterPeriod.day) {
-      start = DateTime(_anchorDate.year, _anchorDate.month, _anchorDate.day);
-      end = start.add(const Duration(days: 1));
-    } else if (_dateScope == FilterPeriod.week) {
-      start = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
-      start = DateTime(start.year, start.month, start.day);
-      end = start.add(const Duration(days: 7));
-    } else if (_dateScope == FilterPeriod.month) {
-      start = DateTime(_anchorDate.year, _anchorDate.month, 1);
-      end = DateTime(_anchorDate.year, _anchorDate.month + 1, 1);
-    } else {
-      start = DateTime.fromMillisecondsSinceEpoch(0);
-      end = DateTime(2500);
-    }
-
-    final filtered = input.where((repas) {
-      // Type
-      if (typeFilter != 'Tous' && repas.type != typeFilter) return false;
-
-      // Date string -> DateTime si nécessaire
-      final DateTime d = repas.date;
-      if (_dateScope != FilterPeriod.all) {
-        if (d.isBefore(start) || !d.isBefore(end)) return false;
-      }
-      return true;
-    }).toList();
-
-    // Tri par date
-    filtered.sort(
-      (a, b) => _sortDesc ? b.date.compareTo(a.date) : a.date.compareTo(b.date),
+  Widget _buildFAB() {
+    return FloatingActionButton(
+      onPressed: _showAddRepasDialog,
+      backgroundColor: AppColors.primaryColor,
+      child: const Icon(Icons.add, color: Colors.white),
+      elevation: 4,
+      shape: const CircleBorder(),
     );
-
-    return filtered;
   }
 
   void _showAddRepasDialog() {
-    _fabAnimationController.forward();
+    _fabController.forward();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _buildAddRepasModal(),
     ).then((_) {
-      _fabAnimationController.reverse();
+      _fabController.reverse();
       _loadRepas();
     });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          _buildCustomAppBar(),
-          _buildTodayCaloriesSliver(), // <== AJOUT
-          _buildFilterChips(),
-          _buildRepasList(),
-        ],
-      ),
-      floatingActionButton: _buildCustomFAB(),
-    );
-  }
-
-  // === AJOUT : Sliver bannière total calories du jour ===
-  Widget _buildTodayCaloriesSliver() {
-    return SliverToBoxAdapter(
-      child: FutureBuilder<List<Repas>>(
-        future: _repasList,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox(
-              height: 140,
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final list = snapshot.data ?? [];
-          final today = DateTime.now();
-          final totalToday = list
-              .where(
-                (r) =>
-                    r.date.year == today.year &&
-                    r.date.month == today.month &&
-                    r.date.day == today.day,
-              )
-              .fold<double>(0, (s, r) => s + r.caloriesTotales);
-
-          final progress = (totalToday / _dailyGoal).clamp(0, 1);
-
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-            child: _TodayCaloriesBanner(
-              total: totalToday,
-              goal: _dailyGoal,
-              progress: progress.toDouble(),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildCustomAppBar() {
-    return SliverAppBar(
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.swap_vert, color: Colors.white),
-          tooltip: 'Trier (date)',
-          onPressed: () => setState(() => _sortDesc = !_sortDesc),
-        ),
-        IconButton(
-          icon: const Icon(Icons.calendar_month, color: Colors.white),
-          onPressed: () => _selectDate(context),
-          tooltip: 'Filtrer par date',
-        ),
-        IconButton(
-          icon: const Icon(Icons.clear_all, color: Colors.white),
-          tooltip: 'Réinitialiser filtres date',
-          onPressed: () => setState(() {
-            _dateScope = FilterPeriod.all;
-            _selectedDate = null;
-          }),
-        ),
-      ],
-      expandedHeight: 120,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primaryColor, AppColors.secondaryColor],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(-1, 0),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: _headerAnimationController,
-                        curve: Curves.easeOutBack,
-                      ),
-                    ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const Text(
-                      'Mes Repas',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Gérez votre nutrition quotidienne',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChips() {
-    final filters = [
-      'Tous',
-      'Petit-déjeuner',
-      'Déjeuner',
-      'Dîner',
-      'Collation',
-    ];
-    // ...existing code...
-
-    // === AJOUT: seconde rangée pour plage temporelle + label période ===
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Rangée types
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: filters.length,
-              itemBuilder: (context, index) {
-                final filter = filters[index];
-                final isSelected = _selectedFilter == filter;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(right: 12),
-                  child: FilterChip(
-                    label: Text(filter),
-                    selected: isSelected,
-                    onSelected: (_) => setState(() => _selectedFilter = filter),
-                    backgroundColor: Colors.white,
-                    selectedColor: AppColors.primaryColor.withOpacity(0.1),
-                    checkmarkColor: AppColors.primaryColor,
-                    labelStyle: TextStyle(
-                      color: isSelected
-                          ? AppColors.primaryColor
-                          : AppColors.textColor.withOpacity(0.7),
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                    side: BorderSide(
-                      color: isSelected
-                          ? AppColors.primaryColor
-                          : Colors.grey[300]!,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Rangée période
-          SizedBox(
-            height: 56,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                _buildPeriodChip(FilterPeriod.day, 'Jour'),
-                _buildPeriodChip(FilterPeriod.week, 'Semaine'),
-                _buildPeriodChip(FilterPeriod.month, 'Mois'),
-                _buildPeriodChip(FilterPeriod.all, 'Tout'),
-                const SizedBox(width: 12),
-                _buildPeriodSummaryBadge(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // === AJOUT Widgets utilitaires période ===
-  Widget _buildPeriodChip(FilterPeriod period, String label) {
-    final isSelected = _dateScope == period;
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => setState(() => _dateScope = period),
-        backgroundColor: Colors.white,
-        selectedColor: AppColors.accentColor.withOpacity(0.15),
-        labelStyle: TextStyle(
-          color: isSelected ? AppColors.accentColor : AppColors.textColor,
-          fontWeight: FontWeight.w600,
-        ),
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: isSelected ? AppColors.accentColor : Colors.grey[300]!,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPeriodSummaryBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.primaryColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.filter_alt, size: 18, color: AppColors.primaryColor),
-          const SizedBox(width: 6),
-          Text(
-            _currentPeriodLabel(),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRepasList() {
-    return SliverPadding(
-      padding: const EdgeInsets.all(20),
-      sliver: FutureBuilder<List<Repas>>(
-        future: _repasList,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SliverFillRemaining(
-              child: Center(child: _LoadingAnimation()),
-            );
-          } else if (snapshot.hasError) {
-            return SliverFillRemaining(
-              child: _buildErrorState(snapshot.error.toString()),
-            );
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const SliverFillRemaining(child: _EmptyState());
-          }
-          final repasList = _applyFilters(snapshot.data!); // <= AJOUT filtre
-          return SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final repas = repasList[index];
-              return Dismissible(
-                key: ValueKey(repas.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                confirmDismiss: (_) async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      title: const Text('Supprimer ce repas ?'),
-                      content: const Text(
-                        'Voulez-vous vraiment supprimer ce repas ? Cette action est irréversible.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Annuler'),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                          ),
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text(
-                            'Supprimer',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                  return confirm ?? false;
-                },
-                onDismissed: (_) async {
-                  await _repasService.deleteRepas(repas.id!);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Repas "${repas.nom}" supprimé avec succès.',
-                      ),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                  _loadRepas();
-                },
-                child: AnimatedContainer(
-                  duration: Duration(milliseconds: 300 + (index * 100)),
-                  curve: Curves.easeOutBack,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: _buildRepasCard(repas, index),
-                ),
-              );
-            }, childCount: repasList.length),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildRepasCard(Repas repas, int index) {
-    final colors = [
-      [AppColors.primaryColor, AppColors.secondaryColor],
-      [AppColors.secondaryColor, AppColors.accentColor],
-      [AppColors.accentColor, AppColors.primaryColor],
-    ];
-    final cardColors = colors[index % colors.length];
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryColor.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: cardColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _showRepasOptions(repas),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Icon(
-                        _getRepasIcon(repas.type),
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            repas.nom,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            repas.type,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${repas.caloriesTotales.toInt()} kcal',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.restaurant_menu,
-                                      size: 12,
-                                      color: Colors.white.withOpacity(0.8),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Options',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.more_vert,
-                      color: Colors.white.withOpacity(0.7),
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomFAB() {
-    return ScaleTransition(
-      scale: Tween<double>(begin: 1.0, end: 0.8).animate(
-        CurvedAnimation(
-          parent: _fabAnimationController,
-          curve: Curves.easeInOut,
-        ),
-      ),
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.accentColor, AppColors.primaryColor],
-          ),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentColor.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(30),
-              onTap: _showAddRepasDialog,
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
-            ),
-          ),
-        ),
-      );
   }
 
   Widget _buildAddRepasModal() {
@@ -1207,9 +1037,7 @@ class _RepasListScreenState extends State<RepasListScreen>
   }
 
   Widget _buildErrorState(String error) {
-    return Center(
-      child: Text('Erreur : $error', style: const TextStyle(color: Colors.red)),
-    );
+    return Center(child: Text('Erreur: $error'));
   }
 
   IconData _getRepasIcon(String type) {
@@ -1221,62 +1049,168 @@ class _RepasListScreenState extends State<RepasListScreen>
       case 'dîner':
         return Icons.dinner_dining;
       default:
-        return Icons.restaurant;
+        return Icons.fastfood;
     }
   }
 }
 
-class _LoadingAnimation extends StatefulWidget {
-  const _LoadingAnimation();
+// --- Widgets de support ---
+class _SliverFilterDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  _SliverFilterDelegate({required this.child});
   @override
-  __LoadingAnimationState createState() => __LoadingAnimationState();
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(
+      elevation: shrinkOffset > 0 ? 4 : 0,
+      shadowColor: Colors.black.withOpacity(0.1),
+      child: child,
+    );
+  }
+
+  @override
+  double get maxExtent => 56.0;
+  @override
+  double get minExtent => 56.0;
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
+      true;
 }
 
-class __LoadingAnimationState extends State<_LoadingAnimation>
-    with TickerProviderStateMixin {
-  late AnimationController _controller;
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _TodayCaloriesBanner extends StatelessWidget {
+  final double total, goal, progress;
+  const _TodayCaloriesBanner({
+    required this.total,
+    required this.goal,
+    required this.progress,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) {
-        return Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: SweepGradient(
-              colors: [Colors.transparent, AppColors.primaryColor],
-              stops: const [0.0, 1.0],
-              transform: GradientRotation(_controller.value * 2 * 3.14159),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            height: 70,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: progress),
+              duration: const Duration(milliseconds: 800),
+              builder: (context, value, child) => CustomPaint(
+                painter: _CaloriesRingPainter(value),
+                child: Center(
+                  child: Text(
+                    '${(value * 100).toInt()}%',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textColor,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-          child: Container(
-            margin: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: AppColors.backgroundColor,
-              shape: BoxShape.circle,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "Total aujourd'hui",
+                  style: TextStyle(color: AppColors.textColor),
+                ),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: total),
+                  duration: const Duration(milliseconds: 800),
+                  builder: (context, value, child) => Text(
+                    '${value.toInt()} kcal',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Objectif: ${goal.toInt()} kcal',
+                  style: TextStyle(
+                    color: AppColors.textColor.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
+}
+
+class _CaloriesRingPainter extends CustomPainter {
+  final double progress;
+  _CaloriesRingPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = 6.0;
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..strokeWidth = stroke
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(
+      rect.center,
+      rect.width / 2 - stroke / 2,
+      paint..color = AppColors.primaryColor.withOpacity(0.1),
+    );
+
+    final angle = 2 * math.pi * progress;
+    final colors = [AppColors.accentColor, AppColors.primaryColor];
+    final gradient = SweepGradient(
+      colors: colors,
+      startAngle: -math.pi / 2,
+      endAngle: -math.pi / 2 + angle,
+      transform: GradientRotation(math.pi * 1.5),
+    );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: rect.center, radius: rect.width / 2 - stroke / 2),
+      -math.pi / 2,
+      angle,
+      false,
+      paint..shader = gradient.createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _LoadingAnimation extends StatelessWidget {
+  const _LoadingAnimation();
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: CircularProgressIndicator(color: AppColors.primaryColor),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
@@ -1287,250 +1221,23 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.restaurant_menu,
-              size: 60,
-              color: AppColors.primaryColor.withOpacity(0.6),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
+          Icon(Icons.no_food, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          const Text(
             'Aucun repas trouvé',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
               color: AppColors.textColor,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Commencez par ajouter votre premier repas',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textColor.withOpacity(0.6),
-            ),
+            'Ajoutez un repas pour commencer',
+            style: TextStyle(color: AppColors.textColor.withOpacity(0.6)),
           ),
         ],
       ),
     );
   }
-}
-
-/// === AJOUT : Widget bannière calories ===
-class _TodayCaloriesBanner extends StatelessWidget {
-  final double total;
-  final double goal;
-  final double progress;
-  const _TodayCaloriesBanner({
-    required this.total,
-    required this.goal,
-    required this.progress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = (progress * 100).clamp(0, 100).toStringAsFixed(0);
-    return Container(
-      height: 150, // ↑ hauteur légèrement augmentée
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF43A047), Color(0xFF66BB6A), Color(0xFFFFA726)],
-          stops: [0.0, 0.55, 1.0],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.10),
-            offset: const Offset(0, 12),
-            blurRadius: 28,
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Décor bulles
-          Positioned(
-            top: -18,
-            right: -18,
-            child: _softCircle(110, Colors.white.withOpacity(.08)),
-          ),
-          Positioned(
-            bottom: -10,
-            left: -10,
-            child: _softCircle(80, Colors.white.withOpacity(.07)),
-          ),
-          // CHANGEMENT: remplacement de Positioned(... bottom:22 ...) par simple Padding
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 84,
-                  height: 84,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: progress),
-                    duration: const Duration(milliseconds: 900),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) {
-                      return CustomPaint(
-                        painter: _CaloriesRingPainter(value),
-                        child: Center(
-                          child: Text(
-                            '$pct%',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                              letterSpacing: -.5,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Total aujourd\'hui',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: .3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: total),
-                        duration: const Duration(milliseconds: 900),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) => Text(
-                          '${value.toStringAsFixed(0)} kcal',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progress > 1 ? 1 : progress,
-                          minHeight: 6, // ↓ réduit
-                          backgroundColor: Colors.white.withOpacity(.25),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            progress >= 1 ? Colors.orangeAccent : Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Objectif: ${goal.toStringAsFixed(0)} kcal',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            top: 10,
-            right: 14,
-            child: Row(
-              children: const [
-                Icon(Icons.local_fire_department, color: Colors.white, size: 22),
-                SizedBox(width: 4),
-                Text('🔥', style: TextStyle(fontSize: 18)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _softCircle(double size, Color c) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: c,
-      boxShadow: [BoxShadow(color: c, blurRadius: 40, spreadRadius: 10)],
-    ),
-  );
-}
-
-/// === AJOUT : Painter pour anneau progressif ===
-class _CaloriesRingPainter extends CustomPainter {
-  final double progress;
-  _CaloriesRingPainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = 8.0;
-    final rect = Offset.zero & size;
-    final center = rect.center;
-    final radius = (size.shortestSide / 2) - stroke / 2;
-
-    final bg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..color = Colors.white.withOpacity(.25)
-      ..strokeCap = StrokeCap.round;
-
-    final fg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..shader = SweepGradient(
-        startAngle: -3.14 / 2,
-        endAngle: 3.14 * 1.5,
-        colors: const [
-          Color(0xFFFFF59D),
-          Color(0xFFFFCC80),
-          Color(0xFFFFA726),
-          Color(0xFFFFF59D),
-        ],
-        stops: const [0.0, .35, .7, 1.0],
-        transform: const GradientRotation(-3.14 / 2),
-      ).createShader(rect)
-      ..strokeCap = StrokeCap.round;
-
-    // Fond
-    canvas.drawCircle(center, radius, bg);
-
-    // Arc progressif
-    final sweep = progress.clamp(0, 1) * 3.14159 * 2;
-    final path = Path()
-      ..addArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -3.14159 / 2,
-        sweep,
-      );
-    canvas.drawPath(path, fg);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CaloriesRingPainter old) =>
-      old.progress != progress;
 }

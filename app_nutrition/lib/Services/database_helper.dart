@@ -11,7 +11,8 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'app_nutrition.db';
-  static const int _dbVersion = 3; // ✅ changée pour recréer la base
+  static const int _dbVersion =
+      7; // v7: finalise table recettes avec colonne utilisateur_id (rebuild propre)
 
   // --- Accès à la base ---
   Future<Database> get database async {
@@ -27,6 +28,7 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -69,15 +71,18 @@ class DatabaseHelper {
       )
     ''');
 
-    // Table recettes
+    // Table recettes (schéma final v7)
     await db.execute('''
       CREATE TABLE recettes(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT NOT NULL,
         description TEXT,
         calories REAL NOT NULL DEFAULT 0,
-        repas_id INTEGER NOT NULL,
-        FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE
+        repas_id INTEGER NULL,
+        publie INTEGER NOT NULL DEFAULT 0,
+        utilisateur_id INTEGER NULL,
+        FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
+        FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
       )
     ''');
 
@@ -100,8 +105,60 @@ class DatabaseHelper {
     );
     await db.execute('CREATE INDEX idx_recettes_repas ON recettes(repas_id)');
     await db.execute(
+      'CREATE INDEX idx_recettes_user ON recettes(utilisateur_id)',
+    );
+    await db.execute(
       'CREATE INDEX idx_ingredients_recette ON ingredients(recette_id)',
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 4) {
+      // Safely attempt to add column if not exists.
+      try {
+        await db.execute(
+          'ALTER TABLE recettes ADD COLUMN publie INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (_) {}
+    }
+    // Anciennes migrations (<5 et <6) remplacées par un rebuild unique en v7
+    if (oldVersion < 7) {
+      // Construire la table finale
+      await db.execute('''
+        CREATE TABLE recettes_new(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nom TEXT NOT NULL,
+          description TEXT,
+          calories REAL NOT NULL DEFAULT 0,
+          repas_id INTEGER NULL,
+          publie INTEGER NOT NULL DEFAULT 0,
+          utilisateur_id INTEGER NULL,
+          FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
+          FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
+        )
+      ''');
+      // Copier les données existantes (colonnes si présentes)
+      // On tente de sélectionner utilisateur_id si déjà existante, sinon NULL
+      try {
+        await db.execute('''
+          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
+          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), utilisateur_id FROM recettes
+        ''');
+      } catch (_) {
+        await db.execute('''
+          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
+          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), NULL FROM recettes
+        ''');
+      }
+      await db.execute('DROP TABLE recettes');
+      await db.execute('ALTER TABLE recettes_new RENAME TO recettes');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_recettes_repas ON recettes(repas_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_recettes_user ON recettes(utilisateur_id)',
+      );
+    }
   }
 
   // --- Méthodes génériques ---

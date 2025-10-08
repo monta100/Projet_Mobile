@@ -1,4 +1,3 @@
-
 class Recette {
   static const String tableName = 'recettes';
 
@@ -6,14 +5,19 @@ class Recette {
   final String nom;
   final String? description;
   final double calories;
-  final int repasId;
+  final int? repasId; // nullable: recette indépendante ou liée à un repas
+  final int publie; // 0 = brouillon, 1 = publié
+  final int?
+  utilisateurId; // auteur de la recette (peut être null pour anciennes données)
 
   Recette({
     this.id,
     required this.nom,
     this.description,
     required this.calories,
-    required this.repasId,
+    this.repasId,
+    this.publie = 0,
+    this.utilisateurId,
   });
 
   Recette copyWith({
@@ -22,6 +26,8 @@ class Recette {
     String? description,
     double? calories,
     int? repasId,
+    int? publie,
+    int? utilisateurId,
   }) {
     return Recette(
       id: id ?? this.id,
@@ -29,6 +35,8 @@ class Recette {
       description: description ?? this.description,
       calories: calories ?? this.calories,
       repasId: repasId ?? this.repasId,
+      publie: publie ?? this.publie,
+      utilisateurId: utilisateurId ?? this.utilisateurId,
     );
   }
 
@@ -38,6 +46,8 @@ class Recette {
     'description': description,
     'calories': calories,
     'repas_id': repasId,
+    'publie': publie,
+    'utilisateur_id': utilisateurId,
   };
 
   factory Recette.fromMap(Map<String, dynamic> map) => Recette(
@@ -45,8 +55,8 @@ class Recette {
     nom: map['nom'] as String,
     description: map['description'] as String?,
     calories: (map['calories'] as num).toDouble(),
-    repasId: map['repas_id'] as int,
+    repasId: map['repas_id'] as int?,
+    publie: (map['publie'] as int?) ?? 0,
+    utilisateurId: map['utilisateur_id'] as int?,
   );
-
- 
 }

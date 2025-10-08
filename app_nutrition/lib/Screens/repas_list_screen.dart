@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../Services/repas_service.dart';
 import '../Entites/repas.dart';
-import 'recette_with_ingredients_screen.dart';
 import '../Services/nutrition_ai_service.dart';
+import 'recettes_global_screen.dart';
 
 // --- Palette de couleurs et Thème ---
 class AppColors {
@@ -148,6 +148,22 @@ class _RepasListScreenState extends State<RepasListScreen>
           ),
           child: Stack(
             children: [
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  tooltip: 'Bibliothèque Recettes',
+                  icon: const Icon(Icons.menu_book, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RecettesGlobalScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
               Positioned(
                 bottom: -80,
                 right: -80,
@@ -830,22 +846,7 @@ class _RepasListScreenState extends State<RepasListScreen>
                 ),
               ),
               const SizedBox(height: 24),
-              _buildOptionButton(
-                'Recettes & Ingrédients',
-                Icons.restaurant_menu,
-                AppColors.accentColor,
-                () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          RecetteWithIngredientsScreen(repasId: repas.id!),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
+              // Navigation vers recettes retirée (séparation des domaines)
               _buildOptionButton(
                 'Modifier le repas',
                 Icons.edit,

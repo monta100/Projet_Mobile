@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import '../Theme/app_colors.dart' as theme_colors;
 import 'repas_list_screen.dart';
-import 'recette_with_ingredients_screen.dart'; // ✅ le nouvel écran moderne
+import 'my_recettes_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({Key? key}) : super(key: key);
@@ -18,13 +18,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   late PageController _pageController;
   late AnimationController _animationController;
 
-  final List<Widget> _screens = [
-    const RepasListScreen(),
-    // ⚠️ On ne met pas de repasId ici, ce sera passé dynamiquement depuis RepasListScreen
-    const RecetteWithIngredientsScreen(
-      repasId: 1, // valeur par défaut si tu veux tester
-    ),
-  ];
+  final List<Widget> _screens = const [RepasListScreen(), MyRecettesScreen()];
 
   final List<NavigationItem> _navigationItems = [
     NavigationItem(
@@ -34,9 +28,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       color: theme_colors.AppColors.primaryColor,
     ),
     NavigationItem(
-      icon: Icons.restaurant_menu,
-      activeIcon: Icons.restaurant_menu,
-      label: 'Recettes',
+      icon: Icons.menu_book_outlined,
+      activeIcon: Icons.menu_book,
+      label: 'Mes Recettes',
       color: theme_colors.AppColors.accentColor,
     ),
   ];

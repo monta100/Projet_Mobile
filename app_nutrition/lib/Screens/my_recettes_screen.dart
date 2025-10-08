@@ -22,14 +22,27 @@ class MyRecettesScreen extends StatefulWidget {
 
 class _MyRecettesScreenState extends State<MyRecettesScreen> {
   final RecetteService _service = RecetteService();
+  final TextEditingController _searchController = TextEditingController();
   static const int _currentUserId = 1;
   late Future<List<Recette>> _future;
   bool _showOnlyDrafts = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _load();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _load() {
@@ -92,9 +105,9 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   }
 
   double _aspectFor(int crossAxisCount) {
-    if (crossAxisCount <= 2) return 0.66;
-    if (crossAxisCount == 3) return 0.72;
-    return 0.82;
+    if (crossAxisCount <= 2) return 0.8;
+    if (crossAxisCount == 3) return 0.85;
+    return 0.9;
   }
 
   @override
@@ -102,60 +115,136 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mes Recettes'),
-        actions: [
-          IconButton(
-            tooltip: _showOnlyDrafts ? 'Voir toutes' : 'Voir brouillons',
-            icon: Icon(
-              _showOnlyDrafts ? Icons.filter_alt_off : Icons.filter_alt,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primaryColor,
+                AppColors.accentColor.withOpacity(0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            onPressed: () => setState(() => _showOnlyDrafts = !_showOnlyDrafts),
           ),
-        ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateRecette,
         backgroundColor: AppColors.primaryColor,
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
-      body: FutureBuilder<List<Recette>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final list = (snapshot.data ?? [])
-              .where((r) => !_showOnlyDrafts || r.publie == 0)
-              .toList();
-          if (list.isEmpty) {
-            return const _Empty();
-          }
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth < 500
-                  ? 2
-                  : constraints.maxWidth < 800
-                  ? 3
-                  : 4;
-              final aspect = _aspectFor(crossAxisCount);
-              return GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: aspect,
-                ),
-                itemCount: list.length,
-                itemBuilder: (context, i) => _RecetteCard(
-                  recette: list[i],
-                  onTogglePublish: () => _togglePublish(list[i]),
-                  onDelete: () => _deleteRecette(list[i]),
-                  onEdit: () => _showEditRecette(list[i]),
-                ),
-              );
-            },
-          );
-        },
+      body: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: FutureBuilder<List<Recette>>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final allRecettes = snapshot.data ?? [];
+                final filteredList = allRecettes.where((r) {
+                  final matchesSearch = r.nom.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
+                  );
+                  final matchesFilter = !_showOnlyDrafts || r.publie == 0;
+                  return matchesSearch && matchesFilter;
+                }).toList();
+
+                if (filteredList.isEmpty) {
+                  return const _Empty();
+                }
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final crossAxisCount = constraints.maxWidth < 500
+                        ? 2
+                        : constraints.maxWidth < 800
+                        ? 3
+                        : 4;
+                    final aspect = _aspectFor(crossAxisCount);
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: aspect,
+                      ),
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, i) => _RecetteCard(
+                        recette: filteredList[i],
+                        onTogglePublish: () => _togglePublish(filteredList[i]),
+                        onDelete: () => _deleteRecette(filteredList[i]),
+                        onEdit: () => _showEditRecette(filteredList[i]),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryColor,
+            AppColors.accentColor.withOpacity(0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Rechercher une recette...',
+              prefixIcon: const Icon(Icons.search, color: Colors.white),
+              hintStyle: const TextStyle(color: Colors.white70),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.2),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              const Text(
+                'Voir les brouillons',
+                style: TextStyle(color: Colors.white),
+              ),
+              Switch(
+                value: _showOnlyDrafts,
+                onChanged: (value) {
+                  setState(() {
+                    _showOnlyDrafts = value;
+                  });
+                },
+                activeColor: AppColors.accentColor,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -182,137 +271,148 @@ class _RecetteCard extends StatelessWidget {
         ? recette.imageUrl!
         : _UnsplashHelper.urlFor(recette.nom);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final imageH = constraints.maxHeight * 0.42;
-        return Card(
-          elevation: 6,
-          shadowColor: Colors.black12,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          color: Colors.white,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            splashColor: AppColors.primaryColor.withOpacity(0.08),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RecetteDetailsScreen(recette: recette),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RecetteDetailsScreen(recette: recette),
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Hero(
-                          tag: 'recette-image-${recette.id}',
-                          child: Text(
-                            recette.nom,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15.5,
-                              color: AppColors.textColor,
-                              height: 1.15,
-                            ),
-                          ),
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            onEdit();
-                          } else if (value == 'delete') {
-                            onDelete();
-                          }
-                        },
-                        itemBuilder: (BuildContext context) =>
-                            <PopupMenuEntry<String>>[
-                              const PopupMenuItem<String>(
-                                value: 'edit',
-                                child: ListTile(
-                                  leading: Icon(Icons.edit),
-                                  title: Text('Modifier'),
-                                ),
-                              ),
-                              const PopupMenuItem<String>(
-                                value: 'delete',
-                                child: ListTile(
-                                  leading: Icon(Icons.delete),
-                                  title: Text('Supprimer'),
-                                ),
-                              ),
-                            ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      height: imageH,
-                      width: double.infinity,
-
-                      child: Image.network(
-                        effectiveUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey,
-                          ),
+                  Hero(
+                    tag: 'recette-image-${recette.id}',
+                    child: Image.network(
+                      effectiveUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') onEdit();
+                        if (value == 'delete') onDelete();
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Modifier'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Supprimer'),
+                        ),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.more_vert,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.8),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: Text(
+                        recette.nom,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          shadows: [
+                            Shadow(blurRadius: 2, color: Colors.black54),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.local_fire_department,
+                        color: Colors.orange[700],
                         size: 16,
-                        color: Colors.orange,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${recette.calories.toStringAsFixed(0)} kcal',
-                        style: const TextStyle(
-                          fontSize: 12.5,
+                        style: TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.orange,
+                          color: Colors.orange[800],
                         ),
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
+                  GestureDetector(
+                    onTap: onTogglePublish,
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
+                        horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: isPublished
-                            ? Colors.green.withOpacity(0.12)
-                            : Colors.grey.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
+                            ? Colors.green.withOpacity(0.15)
+                            : Colors.grey.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         isPublished ? 'Publiée' : 'Brouillon',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                           color: isPublished
                               ? Colors.green[800]
                               : Colors.grey[700],
@@ -323,9 +423,9 @@ class _RecetteCard extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }

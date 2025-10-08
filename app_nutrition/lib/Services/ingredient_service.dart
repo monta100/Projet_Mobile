@@ -49,4 +49,34 @@ class IngredientService {
     final db = await dbHelper.database;
     return await db.delete('ingredients', where: 'id = ?', whereArgs: [id]);
   }
+
+  // Supprimer tous les ingrédients d'une recette
+  Future<int> deleteIngredientsByRecette(int recetteId) async {
+    final db = await dbHelper.database;
+    return await db.delete(
+      'ingredients',
+      where: 'recette_id = ?',
+      whereArgs: [recetteId],
+    );
+  }
+
+  // Mettre à jour une liste d'ingrédients pour une recette
+  Future<void> updateIngredientsForRecette(
+    int recetteId,
+    List<Ingredient> ingredients,
+  ) async {
+    final db = await dbHelper.database;
+    await db.transaction((txn) async {
+      // D'abord, supprimer les anciens ingrédients
+      await txn.delete(
+        'ingredients',
+        where: 'recette_id = ?',
+        whereArgs: [recetteId],
+      );
+      // Ensuite, insérer les nouveaux
+      for (final ingredient in ingredients) {
+        await txn.insert('ingredients', ingredient.toMap());
+      }
+    });
+  }
 }

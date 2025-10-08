@@ -97,8 +97,12 @@ class RecetteService {
   }
 
   // Supprimer une recette
+  // Supprimer une recette
   Future<int> deleteRecette(int id) async {
     final db = await dbHelper.database;
+    // On supprime d'abord les ingrédients associés pour éviter les orphelins
+    await db.delete('ingredients', where: 'recette_id = ?', whereArgs: [id]);
+    // Ensuite on supprime la recette
     return await db.delete('recettes', where: 'id = ?', whereArgs: [id]);
   }
 }

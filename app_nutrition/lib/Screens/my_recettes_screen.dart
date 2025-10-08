@@ -10,6 +10,7 @@ import '../Services/ingredient_service.dart';
 import '../Services/nutrition_ai_service.dart';
 import '../Entites/recette.dart';
 import '../Entites/ingredient.dart';
+import 'recette_details_screen.dart';
 import '../Theme/app_colors.dart';
 
 class MyRecettesScreen extends StatefulWidget {
@@ -194,7 +195,14 @@ class _RecetteCard extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(22),
             splashColor: AppColors.primaryColor.withOpacity(0.08),
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RecetteDetailsScreen(recette: recette),
+                ),
+              );
+            },
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -203,15 +211,18 @@ class _RecetteCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          recette.nom,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15.5,
-                            color: AppColors.textColor,
-                            height: 1.15,
+                        child: Hero(
+                          tag: 'recette-image-${recette.id}',
+                          child: Text(
+                            recette.nom,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15.5,
+                              color: AppColors.textColor,
+                              height: 1.15,
+                            ),
                           ),
                         ),
                       ),

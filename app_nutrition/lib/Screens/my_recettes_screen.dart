@@ -1,4 +1,10 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, prefer_interpolation_to_compose_strings
+
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../Services/image_ai_service.dart';
 import '../Services/recette_service.dart';
 import '../Services/ingredient_service.dart';
 import '../Services/nutrition_ai_service.dart';
@@ -15,7 +21,7 @@ class MyRecettesScreen extends StatefulWidget {
 
 class _MyRecettesScreenState extends State<MyRecettesScreen> {
   final RecetteService _service = RecetteService();
-  static const int _currentUserId = 1; // TODO: inject real user later
+  static const int _currentUserId = 1;
   late Future<List<Recette>> _future;
   bool _showOnlyDrafts = false;
 
@@ -45,6 +51,12 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
       builder: (_) =>
           _AddRecetteModal(utilisateurId: _currentUserId, onSaved: _load),
     );
+  }
+
+  double _aspectFor(int crossAxisCount) {
+    if (crossAxisCount <= 2) return 0.66;
+    if (crossAxisCount == 3) return 0.72;
+    return 0.82;
   }
 
   @override
@@ -86,13 +98,14 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
                   : constraints.maxWidth < 800
                   ? 3
                   : 4;
+              final aspect = _aspectFor(crossAxisCount);
               return GridView.builder(
                 padding: const EdgeInsets.all(12),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 0.95,
+                  childAspectRatio: aspect,
                 ),
                 itemCount: list.length,
                 itemBuilder: (context, i) => _RecetteCard(
@@ -116,78 +129,139 @@ class _RecetteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPublished = recette.publie == 1;
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {}, // TODO: open edit/details
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    final effectiveUrl =
+        (recette.imageUrl != null && recette.imageUrl!.isNotEmpty)
+        ? recette.imageUrl!
+        : _UnsplashHelper.urlFor(recette.nom);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageH = constraints.maxHeight * 0.42;
+        return Card(
+          elevation: 6,
+          shadowColor: Colors.black12,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          color: Colors.white,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            splashColor: AppColors.primaryColor.withOpacity(0.08),
+            onTap: () {},
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      recette.nom,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          recette.nom,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15.5,
+                            color: AppColors.textColor,
+                            height: 1.15,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: onTogglePublish,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: isPublished
+                                ? Colors.green.withOpacity(0.16)
+                                : Colors.grey.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            isPublished ? Icons.public : Icons.public_off,
+                            size: 19,
+                            color: isPublished
+                                ? Colors.green[700]
+                                : Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      height: imageH,
+                      width: double.infinity,
+                      
+                      child: Image.network(
+                        effectiveUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: isPublished ? 'Dépublier' : 'Publier',
-                    icon: Icon(
-                      isPublished ? Icons.public : Icons.public_off,
-                      color: isPublished ? Colors.green : Colors.grey,
-                      size: 20,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${recette.calories.toStringAsFixed(0)} kcal',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isPublished
+                            ? Colors.green.withOpacity(0.12)
+                            : Colors.grey.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        isPublished ? 'Publiée' : 'Brouillon',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isPublished
+                              ? Colors.green[800]
+                              : Colors.grey[700],
+                        ),
+                      ),
                     ),
-                    onPressed: onTogglePublish,
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${recette.calories.toStringAsFixed(0)} kcal',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.orange[700],
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isPublished
-                        ? Colors.green.withOpacity(0.15)
-                        : Colors.grey.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isPublished ? 'Publiée' : 'Brouillon',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isPublished ? Colors.green[800] : Colors.grey[700],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -224,6 +298,7 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
   final RecetteService _recetteService = RecetteService();
   final IngredientService _ingredientService = IngredientService();
   final NutritionAIService _aiService = NutritionAIService();
+  final ImageAIService _imageService = ImageAIService();
 
   final _nomCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -231,30 +306,9 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
   final List<IngredientInputRow> _rows = [IngredientInputRow()];
   static const List<String> _units = ['g', 'kg', 'ml', 'L', 'pièce'];
 
-  // --- Tables locales (fallback seulement) ---
-  static const Map<String, double> _kcalPer100g = {
-    'riz': 360,
-    'poulet': 165,
-    'poulet blanc': 165,
-    'huile': 884,
-    'huile olive': 884,
-    'tomate': 18,
-    'pomme': 52,
-    'banane': 89,
-    'sucre': 400,
-    'farine': 364,
-    'beurre': 717,
-    'fromage': 402,
-    'carotte': 41,
-    'oignon': 40,
-    'poivron': 31,
-  };
-  static const Map<String, double> _pieceToGrams = {
-    'tomate': 120,
-    'pomme': 150,
-    'banane': 120,
-    'oeuf': 60,
-  };
+  String? _selectedImageUrl;
+  File? _pickedImageFile;
+  bool _loadingPreview = false;
 
   double get _totalCalories =>
       _rows.fold(0, (sum, r) => sum + (r.calories ?? 0));
@@ -270,62 +324,52 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
     setState(() => _rows.removeAt(i));
   }
 
-  Future<void> _estimateRowCalories(int index) async {
-    final row = _rows[index];
-    if (!_validRow(row) || row.isEstimating) return;
-    setState(() => row.isEstimating = true);
-    final name = row.nom.text.trim().toLowerCase();
-    // 1. API d'abord
-    double apiValue = await _aiService.estimateCalories(name);
-    double? kcal;
-    if (apiValue > 0) {
-      // On prend la valeur brute API (priorité utilisateur)
-      kcal = apiValue;
-    } else {
-      // 2. Fallback local avec quantités
-      final qty = double.tryParse(row.quantite.text.trim()) ?? 0;
-      kcal = _estimateLocal(name, qty, row.unite!);
-      // 3. Si encore null/zero -> 0 explicite
-      if (kcal == null || kcal == 0) kcal = 0;
-    }
-    setState(() {
-      row.calories = kcal;
-      row.isEstimating = false;
-    });
-  }
-
-  Future<void> _estimateAll() async {
-    for (int i = 0; i < _rows.length; i++) {
-      if (_rows[i].calories == null) {
-        await _estimateRowCalories(i);
-      }
-    }
-  }
-
-  double? _estimateLocal(String name, double qty, String unit) {
-    if (qty <= 0) return 0;
-    final base = _kcalPer100g[name];
-    final grams = _toGrams(qty, unit, name);
-    if (base == null) return 0;
-    return (base / 100.0) * grams;
-  }
-
-  double _toGrams(double qty, String unit, String name) {
-    switch (unit) {
-      case 'g':
-        return qty;
-      case 'kg':
-        return qty * 1000;
-      case 'ml':
-        return qty; // densité ~1
-      case 'L':
-        return qty * 1000;
-      case 'pièce':
-        final w = _pieceToGrams[name] ?? 100;
-        return qty * w;
-      default:
-        return qty;
-    }
+  Future<void> _showImageOptions() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image, color: AppColors.primaryColor),
+              title: const Text('Importer depuis la galerie'),
+              onTap: () async {
+                Navigator.pop(context);
+                final picker = ImagePicker();
+                final picked = await picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (picked != null) {
+                  setState(() {
+                    _pickedImageFile = File(picked.path);
+                    _selectedImageUrl = null;
+                  });
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.auto_awesome, color: Colors.orange),
+              title: const Text('Générer avec IA (Unsplash)'),
+              onTap: () async {
+                Navigator.pop(context);
+                setState(() => _loadingPreview = true);
+                final url = await _imageService.generateImage(
+                  _nomCtrl.text.trim(),
+                );
+                setState(() {
+                  _selectedImageUrl = url;
+                  _pickedImageFile = null;
+                  _loadingPreview = false;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -335,15 +379,49 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
       );
       return;
     }
+
+    double aiCalories = 0;
+    try {
+      aiCalories = await _aiService.estimateCalories(_nomCtrl.text.trim());
+    } catch (_) {
+      aiCalories = 0;
+    }
+    final totalCalories = aiCalories > 0 ? aiCalories : _totalCalories;
+
+    // Remplace ton bloc actuel par ceci 👇
+
+    // ===== Image finale =====
+    String? imageUrl;
+
+    // Si l'utilisateur a importé une image depuis la galerie
+    if (_pickedImageFile != null) {
+      // Dans une vraie app tu uploaderais ce fichier vers ton backend ou Firebase Storage,
+      // mais ici on utilise l'image IA si on ne fait pas d'upload réel.
+      imageUrl = await _imageService.generateImage(_nomCtrl.text.trim());
+    } else {
+      // Sinon, on garde l’image IA choisie manuellement ou on en régénère une
+      imageUrl =
+          _selectedImageUrl ??
+          await _imageService.generateImage(_nomCtrl.text.trim());
+    }
+
+    // ✅ Sécurité : fallback en cas d’échec de l’API
+    if (imageUrl == null || imageUrl.isEmpty) {
+      imageUrl = _UnsplashHelper.urlFor(_nomCtrl.text.trim());
+    }
+
     final recette = Recette(
       nom: _nomCtrl.text.trim(),
       description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-      calories: _totalCalories,
-      repasId: null, // recette indépendante
+      calories: totalCalories,
+      repasId: null,
       utilisateurId: widget.utilisateurId,
       publie: 0,
+      imageUrl: imageUrl,
     );
+
     final recetteId = await _recetteService.insertRecette(recette);
+
     for (final r in _rows.where(_validRow)) {
       await _ingredientService.insertIngredient(
         Ingredient(
@@ -356,58 +434,45 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
         ),
       );
     }
+
     Navigator.pop(context);
     widget.onSaved();
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.95,
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Nouvelle Recette',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textColor,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildField(_nomCtrl, 'Nom de la recette', Icons.restaurant_menu),
-            const SizedBox(height: 12),
-            _buildField(_descCtrl, 'Description', Icons.description),
-            const SizedBox(height: 20),
-            _buildCaloriesSummary(),
-            const Divider(height: 40),
-            _buildIngredientsHeader(),
-            const SizedBox(height: 12),
-            ..._buildIngredientRows(),
-            const SizedBox(height: 12),
-            _buildAddIngredientButton(),
-            const SizedBox(height: 28),
-            _buildSaveButton(),
-          ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          aiCalories > 0
+              ? '✅ Calories IA: ${aiCalories.toStringAsFixed(0)} kcal'
+              : '✅ Recette enregistrée (calories locales)',
         ),
       ),
     );
   }
+
+  // ------------------ UI ------------------
+
+  Widget _buildField(
+    TextEditingController ctrl,
+    String label,
+    IconData icon, {
+    bool isNum = false,
+  }) => Container(
+    decoration: BoxDecoration(
+      color: Colors.grey[50],
+      border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: TextField(
+      controller: ctrl,
+      keyboardType: isNum ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: AppColors.primaryColor),
+        labelText: label,
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.all(16),
+      ),
+    ),
+  );
 
   Widget _buildCaloriesSummary() => Container(
     padding: const EdgeInsets.all(16),
@@ -425,7 +490,7 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Calories totales (auto)',
+                'Calories totales (IA ou locale)',
                 style: TextStyle(
                   color: AppColors.textColor.withOpacity(0.7),
                   fontSize: 12,
@@ -466,103 +531,23 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
     final row = _rows[index];
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 360;
-          final caloric = Container(
-            height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primaryColor.withOpacity(0.15),
-              ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 3, child: _smallField(row.nom, 'Nom', Icons.eco)),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 2,
+            child: _smallField(
+              row.quantite,
+              'Quantité',
+              Icons.scale,
+              isNum: true,
             ),
-            child: row.isEstimating
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    row.calories?.toStringAsFixed(0) ?? '-',
-                    style: TextStyle(
-                      color: AppColors.textColor.withOpacity(0.6),
-                    ),
-                  ),
-          );
-          final estimateBtn = SizedBox(
-            height: 56,
-            width: 40,
-            child: IconButton(
-              tooltip: 'Estimer',
-              icon: Icon(
-                row.isEstimating ? Icons.hourglass_bottom : Icons.flash_on,
-                size: 20,
-                color: AppColors.accentColor,
-              ),
-              onPressed: () => _estimateRowCalories(index),
-            ),
-          );
-          final removeBtn = SizedBox(
-            height: 56,
-            width: 40,
-            child: IconButton(
-              tooltip: 'Supprimer',
-              icon: const Icon(Icons.close, size: 20, color: Colors.redAccent),
-              onPressed: () => _removeRow(index),
-            ),
-          );
-          if (isNarrow) {
-            final fieldWidth = (constraints.maxWidth / 2) - 14;
-            return Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                SizedBox(
-                  width: fieldWidth,
-                  child: _smallField(row.nom, 'Nom', Icons.eco),
-                ),
-                SizedBox(
-                  width: fieldWidth,
-                  child: _smallField(
-                    row.quantite,
-                    'Quantité',
-                    Icons.scale,
-                    isNum: true,
-                  ),
-                ),
-                SizedBox(width: fieldWidth, child: _unitDropdown(row)),
-                SizedBox(width: fieldWidth, child: caloric),
-                estimateBtn,
-                removeBtn,
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 3, child: _smallField(row.nom, 'Nom', Icons.eco)),
-              const SizedBox(width: 4),
-              Expanded(
-                flex: 2,
-                child: _smallField(
-                  row.quantite,
-                  'Quantité',
-                  Icons.scale,
-                  isNum: true,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(flex: 2, child: _unitDropdown(row)),
-              const SizedBox(width: 4),
-              Expanded(flex: 2, child: caloric),
-              estimateBtn,
-              removeBtn,
-            ],
-          );
-        },
+          ),
+          const SizedBox(width: 4),
+          Expanded(flex: 2, child: _unitDropdown(row)),
+        ],
       ),
     );
   });
@@ -609,58 +594,17 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
           vertical: 14,
         ),
       ),
-      onChanged: (_) => setState(() {}),
     ),
   );
 
   Widget _buildAddIngredientButton() => Align(
     alignment: Alignment.centerLeft,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextButton.icon(
-          onPressed: _addRow,
-          icon: const Icon(
-            Icons.add_circle_outline,
-            color: AppColors.primaryColor,
-          ),
-          label: const Text(
-            'Ajouter un ingrédient',
-            style: TextStyle(color: AppColors.primaryColor),
-          ),
-        ),
-        const SizedBox(width: 12),
-        TextButton.icon(
-          onPressed: _estimateAll,
-          icon: const Icon(Icons.flash_auto, color: AppColors.accentColor),
-          label: const Text(
-            'Tout estimer',
-            style: TextStyle(color: AppColors.accentColor),
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildField(
-    TextEditingController ctrl,
-    String label,
-    IconData icon, {
-    bool isNum = false,
-  }) => Container(
-    decoration: BoxDecoration(
-      color: Colors.grey[50],
-      border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: TextField(
-      controller: ctrl,
-      keyboardType: isNum ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: AppColors.primaryColor),
-        labelText: label,
-        border: InputBorder.none,
-        contentPadding: const EdgeInsets.all(16),
+    child: TextButton.icon(
+      onPressed: _addRow,
+      icon: const Icon(Icons.add_circle_outline, color: AppColors.primaryColor),
+      label: const Text(
+        'Ajouter un ingrédient',
+        style: TextStyle(color: AppColors.primaryColor),
       ),
     ),
   );
@@ -695,6 +639,129 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
       ),
     ),
   );
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  _buildField(_nomCtrl, 'Nom de la recette', Icons.fastfood),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    _descCtrl,
+                    'Description (optionnel)',
+                    Icons.notes,
+                  ),
+                  const SizedBox(height: 18),
+                  GestureDetector(
+                    onTap: _showImageOptions,
+                    child: Container(
+                      width: double.infinity,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primaryColor.withOpacity(0.2),
+                        ),
+                      ),
+                      child: _pickedImageFile != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.file(
+                                _pickedImageFile!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              ),
+                            )
+                          : _selectedImageUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.network(
+                                _selectedImageUrl!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              ),
+                            )
+                          : Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(
+                                    Icons.add_a_photo,
+                                    color: AppColors.primaryColor,
+                                    size: 32,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Ajouter une image',
+                                    style: TextStyle(
+                                      color: AppColors.primaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildCaloriesSummary(),
+                  const SizedBox(height: 18),
+                  _buildIngredientsHeader(),
+                  const SizedBox(height: 10),
+                  ..._buildIngredientRows(),
+                  _buildAddIngredientButton(),
+                  const SizedBox(height: 24),
+                  _buildSaveButton(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Helper Unsplash fallback
+class _UnsplashHelper {
+  static String urlFor(String name) {
+    final base = name.trim().isEmpty
+        ? 'healthy,food'
+        : '${name.toLowerCase()},food,meal,healthy';
+    final sig = name.hashCode & 0xFFFF;
+    return 'https://source.unsplash.com/512x512/?${Uri.encodeComponent(base)}&sig=$sig';
+  }
 }
 
 class IngredientInputRow {

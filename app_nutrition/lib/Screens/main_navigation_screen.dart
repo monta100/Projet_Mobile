@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../Theme/app_colors.dart' as theme_colors;
 import 'repas_list_screen.dart';
 import 'my_recettes_screen.dart';
+import 'recettes_global_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({Key? key}) : super(key: key);
@@ -18,7 +19,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   late PageController _pageController;
   late AnimationController _animationController;
 
-  final List<Widget> _screens = const [RepasListScreen(), MyRecettesScreen()];
+  final List<Widget> _screens = const [
+    RepasListScreen(),
+    MyRecettesScreen(),
+    RecettesGlobalScreen(),
+  ];
 
   final List<NavigationItem> _navigationItems = [
     NavigationItem(
@@ -32,6 +37,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       activeIcon: Icons.menu_book,
       label: 'Mes Recettes',
       color: theme_colors.AppColors.accentColor,
+    ),
+    NavigationItem(
+      icon: Icons.public_outlined,
+      activeIcon: Icons.public,
+      label: 'Global',
+      color: Colors.teal,
     ),
   ];
 

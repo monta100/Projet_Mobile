@@ -10,9 +10,9 @@ class DatabaseHelper {
   static Database? _database;
 
   // --- Configuration ---
-  static const String _dbName = 'app_nutrition.db';
-  static const int _dbVersion =
-      7; // v7: finalise table recettes avec colonne utilisateur_id (rebuild propre)
+  static const String _dbName = 'app_nutrition10.db';
+  static const int _dbVersion = 9;
+  // v7: finalise table recettes avec colonne utilisateur_id (rebuild propre)
 
   // --- Accès à la base ---
   Future<Database> get database async {
@@ -80,6 +80,7 @@ class DatabaseHelper {
         calories REAL NOT NULL DEFAULT 0,
         repas_id INTEGER NULL,
         publie INTEGER NOT NULL DEFAULT 0,
+        imageUrl TEXT,          
         utilisateur_id INTEGER NULL,
         FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
         FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL

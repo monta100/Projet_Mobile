@@ -185,43 +185,72 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
                     : Colors.white;
                 final textColor = isUser ? Colors.white : Colors.black87;
 
+                // Nouvelle bulle avec avatar
                 return FadeInUp(
                   duration: const Duration(milliseconds: 300),
-                  child: Align(
-                    alignment: isUser
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: Container(
-                      margin: EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: isUser ? 40 : 8,
-                      ),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(20),
-                          topRight: const Radius.circular(20),
-                          bottomLeft: Radius.circular(isUser ? 20 : 0),
-                          bottomRight: Radius.circular(isUser ? 0 : 20),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12.withOpacity(0.08),
-                            blurRadius: 6,
-                            offset: const Offset(2, 3),
+                  child: Row(
+                    mainAxisAlignment: isUser
+                        ? MainAxisAlignment.end
+                        : MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (!isUser)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0, bottom: 2),
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Colors.white,
+                            child: Text("🍊", style: TextStyle(fontSize: 20)),
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        msg["text"] ?? "",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: textColor,
-                          height: 1.45,
+                        ),
+                      Flexible(
+                        child: Container(
+                          margin: EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 2,
+                          ),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(20),
+                              topRight: const Radius.circular(20),
+                              bottomLeft: Radius.circular(isUser ? 20 : 0),
+                              bottomRight: Radius.circular(isUser ? 0 : 20),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12.withOpacity(0.08),
+                                blurRadius: 6,
+                                offset: const Offset(2, 3),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            msg["text"] ?? "",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: textColor,
+                              height: 1.45,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      if (isUser)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0, bottom: 2),
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor:
+                                theme_colors.AppColors.primaryColor,
+                            child: Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               },

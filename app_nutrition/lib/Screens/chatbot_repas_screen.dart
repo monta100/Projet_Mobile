@@ -264,6 +264,33 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
             child: SafeArea(
               child: Row(
                 children: [
+                  // Bouton suggestion de plat
+                  IconButton(
+                    icon: Icon(
+                      Icons.lightbulb_outline,
+                      color: Colors.orange.shade400,
+                    ),
+                    tooltip: "Idée de plat",
+                    onPressed: () async {
+                      setState(() {
+                        _isTyping = true;
+                      });
+                      final response = await _brain.process(
+                        "suggestion de plat",
+                      );
+                      setState(() {
+                        _isTyping = false;
+                        _messages.add({"sender": "bot", "text": response});
+                      });
+                      Future.delayed(const Duration(milliseconds: 200), () {
+                        _scrollController.animateTo(
+                          _scrollController.position.maxScrollExtent + 200,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOut,
+                        );
+                      });
+                    },
+                  ),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),

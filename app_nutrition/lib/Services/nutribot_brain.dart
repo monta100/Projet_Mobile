@@ -82,12 +82,15 @@ class NutriBotBrain {
             text.contains("suggestion")) &&
         !_containsAny(text, ["jai", "mange", "ajoute", "ajouter"])) {
       _lastIntent = "repas";
+      String moment = _momentDeJournee();
+      String prompt =
+          "Propose une idée de plat équilibré pour $moment avec une courte description, les calories et la liste des ingrédients (nom, quantité, unité). Formate la réponse en texte lisible, pas en JSON.";
       final idea = await _openRouter.processUserMessage(
-        "Propose trois idees de repas equilibres petit dejeuner dejeuner diner avec calories",
-        structured: true,
+        prompt,
+        structured: false,
       );
-      _mealOptions = _extraireRepasDepuisTexte(idea);
-      return "Voici quelques idees 👇\n${_mealOptions.join("\n")}\nLequel veux tu que j ajoute ?";
+      // Affichage élégant, pas d'ajout en base
+      return "✨ Idée de plat pour le $moment :\n\n$idea\n\nTu veux la recette complète ou une autre suggestion ?";
     }
 
     // 4) —— Demande de RECETTE (on parse et on formate proprement)

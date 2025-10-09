@@ -1,4 +1,6 @@
 // ignore_for_file: avoid_print
+
+import 'dart:convert';
 import '../Services/openrouter_service.dart';
 import '../Services/repas_service.dart';
 import '../Services/recette_service.dart';
@@ -10,119 +12,242 @@ class NutriBotBrain {
   final RepasService _repasService = RepasService();
   final RecetteService _recetteService = RecetteService();
 
-  String? _lastIntent; // "repas" / "recette" / "discussion"
+  String? _lastIntent;
   String? _lastSuggestion;
   String? _lastRecipeDetails;
+  double? _lastCalories;
+  List<Map<String, dynamic>>? _lastIngredients;
+  List<String> _mealOptions = [];
 
-  /// 🎯 Réponse intelligente
   Future<String> process(String userText) async {
-    final text = userText.toLowerCase();
+    final text = _normalizeText(userText.toLowerCase().trim());
 
-    // --- 1. Salutation ---
+    // 👋 Salutation
     if (text.contains("bonjour") || text.contains("salut")) {
-      return "👋 Hey ! Heureux de te revoir 😄. On cuisine quoi aujourd’hui ?";
+      return "👋 Salut ! Moi c est **Snacky 🍊**, ton coach nutrition et cuisine. Que veux tu faire aujourd hui ?";
     }
 
-    // --- 2. Demande d’un repas ---
-    if (text.contains("repas") || text.contains("manger")) {
-      _lastIntent = "repas";
-      final idea = await _openRouter.processUserMessage(
-          "Propose trois idées de repas équilibrés avec calories dans un ton amical et humain, pas en JSON.");
-      _lastSuggestion = "Repas suggéré";
-      return "🍽️ Voici ce que je te propose 👇\n\n$idea\n\nLequel te tente le plus ? 😋";
-    }
+    // 🍽️ Ajout de repas existant
+    if (text.contains("jai mange") ||
+        text.contains("j ai mange") ||
+        text.contains("jai pris") ||
+        text.contains("j ai pris") ||
+        text.contains("ajoute") ||
+        text.contains("ajouter") ||
+        text.contains("ajout")) {
+      final typeRepas = _detectTypeRepas(text);
+      final nomRepas = _extraireNomRepas(text);
 
-    // --- 3. Choix d’un plat simple (burger, salade, etc.) ---
-    if (_lastIntent == "repas" &&
-        (text.contains("burger") ||
-            text.contains("salade") ||
-            text.contains("poulet") ||
-            text.contains("riz") ||
-            text.contains("tajine") ||
-            text.contains("pâtes"))) {
-      _lastSuggestion = userText;
-      return "😋 Miam ! Le **${userText}** a l’air délicieux ! Tu veux que je l’ajoute à ton ${_momentDeJournee()} ?";
-    }
-
-    // --- 4. Confirmation d’ajout de repas ---
-    if (_lastIntent == "repas" &&
-        (text.contains("ajoute") ||
-            text.contains("ajouter") ||
-            text.contains("oui") ||
-            text.contains("vas-y"))) {
-      if (_lastSuggestion != null) {
-        await _repasService.insertRepas(Repas(
-          type: _momentDeJournee(),
+      if (nomRepas.isNotEmpty) {
+        final repas = Repas(
+          type: typeRepas,
           date: DateTime.now(),
-          nom: _lastSuggestion!,
-          caloriesTotales: 650,
+          nom: nomRepas,
+          caloriesTotales: _estimerCalories(nomRepas),
           utilisateurId: 1,
-        ));
-        final repasName = _lastSuggestion!;
-        _lastSuggestion = null;
-        return "💪 C’est noté ! J’ai ajouté **$repasName** à ton ${_momentDeJournee()} 🍊";
+        );
+        await _repasService.insertRepas(repas);
+        return "✅ Repas ajoute : **$nomRepas** dans *$typeRepas* (${repas.caloriesTotales} kcal)";
       } else {
-        return "Dis-moi juste le nom du repas à ajouter 😄";
+        return "Je nai pas compris le plat 😅 Peux tu reformuler (ex : j ai mange une pizza a midi)";
       }
     }
 
-    // --- 5. L’utilisateur veut une recette ---
-    if (text.contains("recette") || text.contains("préparer") || text.contains("cuisine")) {
-      _lastIntent = "recette";
-      final idea = await _openRouter.processUserMessage(
-          "Propose une recette tunisienne ou méditerranéenne avec son nom et une courte description amicale.");
-      final details = await _openRouter.processUserMessage(
-          "Décris étape par étape comment préparer la recette suivante : $idea. Utilise un ton humain et chaleureux.");
-      _lastSuggestion = idea.split('\n').first.trim();
-      _lastRecipeDetails = details;
+    // 🍱 Suggestions de repas
+    if ((text.contains("repas") ||
+            text.contains("idee") ||
+            text.contains("suggestion")) &&
+        !(text.contains("jai") ||
+            text.contains("mange") ||
+            text.contains("ajoute"))) {
+      _lastIntent = "repas";
 
-      return "🍳 Super idée ! Voici la recette de **${_lastSuggestion}** 👇\n\n$details\n\nSouhaites-tu que je l’enregistre dans ton carnet ? 😍";
+      final idea = await _openRouter.processUserMessage(
+        "Propose trois idees de repas equilibres petit dejeuner dejeuner diner avec calories",
+        structured: true,
+      );
+
+      _mealOptions = _extraireRepasDepuisTexte(idea);
+      return "Voici quelques idees 👇\n${_mealOptions.join("\n")}\nLequel veux tu que j ajoute ?";
     }
 
-    // --- 6. Ajout d’une recette existante ---
-    if ((_lastIntent == "recette" && (text.contains("ajoute") || text.contains("ajouter"))) ||
-        text.contains("ajouter cette recette")) {
-      if (_lastSuggestion != null && _lastRecipeDetails != null) {
-        await _recetteService.insertRecette(Recette(
+    // 👨‍🍳 Recherche de recette — affichage en paragraphe
+    if (text.contains("recette") ||
+        text.contains("preparer") ||
+        text.contains("cuisine")) {
+      _lastIntent = "recette";
+
+      final response = await _openRouter.processUserMessage(
+        "Cree une recette detaillee basee sur ${userText} au format JSON avec nom, description, calories et ingredients.",
+        structured: true,
+      );
+
+      String jsonCandidate = response
+          .replaceAll('""', '"')
+          .replaceAll("”", '"')
+          .replaceAll("“", '"')
+          .trim();
+
+      if (jsonCandidate.contains("{") && jsonCandidate.contains("}")) {
+        try {
+          final start = jsonCandidate.indexOf("{");
+          final end = jsonCandidate.lastIndexOf("}");
+          final jsonPart = jsonCandidate.substring(start, end + 1);
+
+          final Map<String, dynamic> recetteJson = jsonDecode(jsonPart);
+
+          final nom = recetteJson["nom"] ?? "Recette sans nom";
+          final description =
+              recetteJson["description"] ?? "Pas de description";
+          final calories = (recetteJson["calories"] ?? 0).toDouble();
+          final ingredients = List<Map<String, dynamic>>.from(
+            recetteJson["ingredients"] ?? [],
+          );
+
+          // Sauvegarde temporaire pour ajout
+          _lastSuggestion = nom;
+          _lastRecipeDetails = description;
+          _lastCalories = calories;
+          _lastIngredients = ingredients;
+
+          // Mise en forme paragraphe
+          String ingredientsText = ingredients.isEmpty
+              ? "Aucun ingrédient spécifié."
+              : ingredients
+                    .map(
+                      (ing) =>
+                          "- ${ing["nom"] ?? "?"} (${ing["quantite"] ?? "?"} ${ing["unite"] ?? ""} – ${ing["calories"] ?? 0} kcal)",
+                    )
+                    .join("\n");
+
+          return "🥗 **$nom (${calories.toStringAsFixed(0)} kcal)**\n$description\n\n**Ingrédients :**\n$ingredientsText\n\nSouhaites tu que je l ajoute a ton carnet ?";
+        } catch (e) {
+          print("Erreur parsing JSON: $e");
+        }
+      }
+
+      return "Voici une idee de recette : ${response.replaceAll(RegExp(r'[\{\}\[\]\"]'), '')}";
+    }
+
+    // 📖 Enregistrement ou ajout d'une recette
+    if (_lastIntent == "recette" &&
+        (text.contains("ajouter la") ||
+            text.contains("ajoute la") ||
+            text.contains("ajouter cette recette") ||
+            text.contains("oui") ||
+            text.contains("vas y"))) {
+      if (_lastSuggestion != null) {
+        final recette = Recette(
           nom: _lastSuggestion!,
-          description: _lastRecipeDetails!,
-          calories: 400,
-          publie: 0,
+          description: _lastRecipeDetails ?? "",
+          calories: _lastCalories ?? 400,
+          publie: 1,
           imageUrl: null,
           utilisateurId: 1,
-        ));
-        final recipeName = _lastSuggestion!;
-        _lastSuggestion = null;
-        _lastRecipeDetails = null;
-        return "🥰 Parfait ! J’ai ajouté ta recette **$recipeName** à ton carnet de cuisine 🍴";
+        );
+
+        await _recetteService.insertRecette(recette);
+        _resetContext();
+
+        return "✅ Recette ajoutee avec succes : **${recette.nom}** (${recette.calories} kcal)";
       } else {
-        return "Hmm je ne vois pas de recette en mémoire 🤔 veux-tu que je t’en propose une nouvelle ?";
+        return "Je nai pas de recette en memoire 😅 veux tu que je t en propose une ?";
       }
     }
 
-    // --- 7. Refus ---
+    // ❌ Refus
     if (text.contains("non") || text.contains("pas maintenant")) {
-      return "Aucun souci 😌. On garde ça pour plus tard. Tu veux juste discuter un peu ?";
+      _resetContext();
+      return "Pas de souci 😌 on garde ca pour plus tard.";
     }
 
-    // --- 8. Discussion libre ---
-    if (text.contains("merci")) {
-      return "Avec plaisir 🧡. Je suis toujours là pour papoter ou t’aider à bien manger 😄";
-    }
-    if (text.contains("fatigué")) {
-      return "💤 Tu devrais essayer un smoothie banane-avoine, c’est plein d’énergie douce 🍌💪";
-    }
-
-    // --- 9. Fallback général ---
-    final generic = await _openRouter.processUserMessage(userText);
-    return "🤗 $generic";
+    // Réponse libre IA
+    final generic = await _openRouter.processUserMessage(
+      userText,
+      structured: false,
+    );
+    return generic;
   }
 
-  /// 🕒 Déterminer le moment du jour
+  // 🕒 Moment du jour
   String _momentDeJournee() {
     final hour = DateTime.now().hour;
-    if (hour < 11) return "petit-déjeuner";
-    if (hour < 17) return "déjeuner";
-    return "dîner";
+    if (hour < 11) return "petit dejeuner";
+    if (hour < 17) return "dejeuner";
+    return "diner";
+  }
+
+  // 🔍 Type de repas
+  String _detectTypeRepas(String text) {
+    if (text.contains("matin") || text.contains("petit"))
+      return "petit dejeuner";
+    if (text.contains("dejeuner") || text.contains("midi")) return "dejeuner";
+    if (text.contains("diner") || text.contains("soir")) return "diner";
+    if (text.contains("collation") || text.contains("gouter"))
+      return "collation";
+    return _momentDeJournee();
+  }
+
+  // 🍔 Extraction propre du nom du repas
+  String _extraireNomRepas(String text) {
+    final cleaned = text
+        .replaceAll(RegExp(r'[^\w\s]'), '')
+        .replaceAll(
+          RegExp(
+            r'\b(jai|mange|pris|ajoute|repas|mes|mon|ma|le|la|les|un|une|du|de|dans|a|au|aux|ce|cette|soir|matin|midi)\b',
+          ),
+          '',
+        )
+        .trim();
+    return cleaned;
+  }
+
+  // 🔥 Calories estimées
+  double _estimerCalories(String nom) {
+    final n = nom.toLowerCase();
+    if (n.contains("burger")) return 800;
+    if (n.contains("pizza")) return 900;
+    if (n.contains("salade")) return 250;
+    if (n.contains("poulet")) return 600;
+    if (n.contains("pates") || n.contains("pasta")) return 700;
+    if (n.contains("smoothie")) return 300;
+    if (n.contains("couscous")) return 550;
+    if (n.contains("tacos")) return 750;
+    return 500;
+  }
+
+  // 🧩 Extraction de plusieurs repas
+  List<String> _extraireRepasDepuisTexte(String texte) {
+    final lines = texte.split('\n');
+    return lines
+        .where((line) => line.trim().isNotEmpty && line.contains("nom"))
+        .map((line) => line.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '').trim())
+        .toList();
+  }
+
+  int? _detectChoiceIndex(String text) {
+    if (text.contains("1")) return 0;
+    if (text.contains("2")) return 1;
+    if (text.contains("3")) return 2;
+    return null;
+  }
+
+  void _resetContext() {
+    _lastIntent = null;
+    _lastSuggestion = null;
+    _lastRecipeDetails = null;
+    _lastCalories = null;
+    _lastIngredients = null;
+    _mealOptions.clear();
+  }
+
+  String _normalizeText(String input) {
+    const accents = 'àâäãåáèéêëìíîïòóôöõùúûüçñ';
+    const sansAccents = 'aaaaaaeeeeiiiiooooouuuucn';
+    var output = input;
+    for (int i = 0; i < accents.length; i++) {
+      output = output.replaceAll(accents[i], sansAccents[i]);
+    }
+    return output;
   }
 }

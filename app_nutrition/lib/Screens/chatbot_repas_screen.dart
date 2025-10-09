@@ -2,9 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'dart:convert';
 import '../Services/openrouter_service.dart';
 import '../Theme/app_colors.dart' as theme_colors;
 import '../Services/nutribot_brain.dart';
+import '../Widgets/recipe_card.dart';
 
 class ChatbotRepasScreen extends StatefulWidget {
   const ChatbotRepasScreen({Key? key}) : super(key: key);
@@ -163,6 +165,21 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
 
                 final msg = _messages[index];
                 final isUser = msg["sender"] == "user";
+
+                // Check for special recipe card message
+                if (msg["sender"] == "bot" &&
+                    msg["text"]!.startsWith("RECIPE_CARD::")) {
+                  final jsonString = msg["text"]!.replaceFirst(
+                    "RECIPE_CARD::",
+                    "",
+                  );
+                  final recipeData = jsonDecode(jsonString);
+                  return FadeInUp(
+                    duration: const Duration(milliseconds: 300),
+                    child: RecipeCard(recipeData: recipeData),
+                  );
+                }
+
                 final bgColor = isUser
                     ? theme_colors.AppColors.primaryColor
                     : Colors.white;

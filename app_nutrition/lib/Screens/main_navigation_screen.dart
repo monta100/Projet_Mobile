@@ -5,6 +5,7 @@ import '../Theme/app_colors.dart' as theme_colors;
 import 'repas_list_screen.dart';
 import 'my_recettes_screen.dart';
 import 'recettes_global_screen.dart';
+import 'chatbot_repas_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({Key? key}) : super(key: key);
@@ -23,6 +24,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     RepasListScreen(),
     MyRecettesScreen(),
     RecettesGlobalScreen(),
+    ChatbotRepasScreen(), // 👈 ajouté ici
+
   ];
 
   final List<NavigationItem> _navigationItems = [
@@ -44,6 +47,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       label: 'Global',
       color: Colors.teal,
     ),
+     NavigationItem(
+    icon: Icons.smart_toy_outlined, // 🤖 icône de chatbot
+    activeIcon: Icons.smart_toy,
+    label: 'Assistant IA',
+    color: Colors.deepOrange, // couleur qui ressort bien
+  ),
   ];
 
   @override

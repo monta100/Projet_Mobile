@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, unused_field, dead_code
 
 import 'dart:convert';
 import '../Services/openrouter_service.dart';
@@ -76,6 +76,71 @@ class NutriBotBrain {
       return "Je nai pas compris le plat Peux tu reformuler ex jai mange une pizza a midi";
     }
 
+    // Ajout de la logique pour détecter les repas consommés hier et les ajouter correctement
+    if (text.contains("hier") &&
+        _containsAny(text, ["mange", "manger", "pris", "consomme"])) {
+      final typeRepas = _detectTypeRepas(text);
+      final nomRepas = _extraireNomRepas(text);
+
+      if (nomRepas.isNotEmpty && !_looksLikeGenericVerb(nomRepas)) {
+        final repas = Repas(
+          type: typeRepas,
+          date: DateTime.now().subtract(const Duration(days: 1)),
+          nom: nomRepas,
+          caloriesTotales: _estimerCalories(nomRepas),
+          utilisateurId: 1,
+        );
+        await _repasService.insertRepas(repas);
+        return "✅ Repas ajouté : **$nomRepas** dans *$typeRepas* (${repas.caloriesTotales} kcal) pour hier.";
+      }
+      return "Je n'ai pas compris le plat. Peux-tu reformuler, par exemple : 'j'ai mangé une pizza hier à midi' ?";
+    }
+
+    // 0b) ——— Questions sur repas ou calories d'une date ———
+    final dateRegExp = RegExp(
+      r"(hier|aujourd'hui|([0-9]{1,2})[/-]([0-9]{1,2})[/-]([0-9]{2,4}))",
+    );
+    if (dateRegExp.hasMatch(text) &&
+        (_containsAny(text, [
+          "mange",
+          "repas",
+          "calorie",
+          "calories",
+          "total",
+        ]))) {
+      DateTime date;
+      if (text.contains("hier")) {
+        date = DateTime.now().subtract(const Duration(days: 1));
+      } else if (text.contains("aujourd'hui")) {
+        date = DateTime.now();
+      } else {
+        final match = dateRegExp.firstMatch(text);
+        if (match != null && match.group(2) != null && match.group(3) != null) {
+          final day = int.parse(match.group(2)!);
+          final month = int.parse(match.group(3)!);
+          final year = match.group(4) != null && match.group(4)!.length == 4
+              ? int.parse(match.group(4)!)
+              : DateTime.now().year;
+          date = DateTime(year, month, day);
+        } else {
+          return "Je n'ai pas compris la date. Reformule ta question.";
+        }
+      }
+      // Récupère les repas de la date
+      final repasList = await _repasService.getRepasByDate(date);
+      if (repasList.isEmpty) {
+        return "Aucun repas trouvé pour cette date.";
+      }
+      final totalCalories = repasList.fold<double>(
+        0.0,
+        (sum, r) => sum + r.caloriesTotales,
+      );
+      final repasDetails = repasList
+          .map((r) => "- ${r.nom} (${r.caloriesTotales} kcal)")
+          .join("\n");
+      return "Voici tes repas du ${date.day}/${date.month}/${date.year} :\n$repasDetails\n\nTotal : $totalCalories kcal";
+    }
+
     // 3) —— Suggestions de repas
     if ((text.contains("repas") ||
             text.contains("idee") ||
@@ -105,7 +170,7 @@ class NutriBotBrain {
       final raw = await _openRouter.processUserMessage(
         "IMPORTANT: Réponds uniquement avec un objet JSON valide, sans aucun texte avant ou après. "
         "Crée une recette détaillée pour '${userText}'. "
-        "Le JSON doit avoir les clés suivantes: 'nom' (string), 'description' (string), 'calories' (nombre), et 'ingredients' (un tableau d'objets avec 'nom', 'quantite', 'unite', 'calories').",
+        "Le JSON doit avoir les clés suivantes: 'nom' (string), 'description' (string), 'calories' (nombre), 'ingredients' (un tableau d'objets avec 'nom', 'quantite', 'unite', 'calories'), et 'imageUrl' (string, une URL d'image libre de droit du plat ou null si indisponible).",
         structured: true,
       );
 
@@ -238,12 +303,21 @@ class NutriBotBrain {
         }
       }
       // 5. Ajout en base
+      // Extraction de l'image si présente dans la réponse IA
+      String? imageUrl;
+      final imageMatch = RegExp(
+        r'(https?://[^\s)]+\.(jpg|jpeg|png|webp|gif))',
+        caseSensitive: false,
+      ).firstMatch(ingText);
+      if (imageMatch != null) {
+        imageUrl = imageMatch.group(1);
+      }
       final recette = Recette(
         nom: nom,
         description: desc.trim(),
         calories: _estimerCalories(nom),
         publie: 1,
-        imageUrl: null,
+        imageUrl: imageUrl, // Ajout de l'image IA si trouvée
         utilisateurId: 1,
       );
       final recetteId = await _recetteService.insertRecette(recette);
@@ -273,6 +347,51 @@ class NutriBotBrain {
         _lastRecipeDetails = steps;
         return "🍽️ Voici les etapes pour **${_lastSuggestion}** 👇\n\n${_formatEtapes(steps)}\n\nDis simplement *ajouter la* pour l enregistrer";
       }
+    }
+
+    // 0b) ——— Questions sur repas ou calories d'une date ———
+    final dateReg = RegExp(
+      r"(hier|aujourd'hui|([0-9]{1,2})[/-]([0-9]{1,2})[/-]([0-9]{2,4}))",
+    );
+    if (dateReg.hasMatch(text) &&
+        (_containsAny(text, [
+          "mange",
+          "repas",
+          "calorie",
+          "calories",
+          "total",
+        ]))) {
+      DateTime date;
+      if (text.contains("hier")) {
+        date = DateTime.now().subtract(const Duration(days: 1));
+      } else if (text.contains("aujourd'hui")) {
+        date = DateTime.now();
+      } else {
+        final match = dateReg.firstMatch(text);
+        if (match != null && match.group(2) != null && match.group(3) != null) {
+          final day = int.parse(match.group(2)!);
+          final month = int.parse(match.group(3)!);
+          final year = match.group(4) != null && match.group(4)!.length == 4
+              ? int.parse(match.group(4)!)
+              : DateTime.now().year;
+          date = DateTime(year, month, day);
+        } else {
+          return "Je n'ai pas compris la date. Reformule ta question.";
+        }
+      }
+      // Récupère les repas de la date
+      final repasList = await _repasService.getRepasByDate(date);
+      if (repasList.isEmpty) {
+        return "Aucun repas trouvé pour cette date.";
+      }
+      final totalCalories = repasList.fold(
+        0,
+        (int sum, r) => sum + ((r.caloriesTotales ?? 0) as int),
+      );
+      final repasDetails = repasList
+          .map((r) => "- ${r.nom} (${r.caloriesTotales} kcal)")
+          .join("\n");
+      return "Voici tes repas du ${date.day}/${date.month}/${date.year} :\n$repasDetails\n\nTotal : $totalCalories kcal";
     }
 
     // 6) —— Refus
@@ -358,13 +477,19 @@ class NutriBotBrain {
       final ingredients = List<Map<String, dynamic>>.from(
         r["ingredients"] ?? [],
       );
+      final imageUrl = r["imageUrl"]?.toString();
 
       _lastSuggestion = nom;
       _lastRecipeDetails = description;
       _lastCalories = calories;
       _lastIngredients = ingredients;
 
-      return "Résumé de la recette :\n- Nom : $nom\n- Description : $description\n- Calories : ${calories.toStringAsFixed(0)}\n- Ingrédients : ${ingredients.isNotEmpty ? ingredients.map((i) => i['nom']).join(', ') : 'Aucun'}\n- Pour voir les étapes ou ajouter, dites 'oui' ou 'ajouter la'.";
+      // Affichage avec image si présente
+      String imageSection = imageUrl != null && imageUrl.isNotEmpty
+          ? "\n![Image du plat]($imageUrl)\n"
+          : "";
+
+      return "Résumé de la recette :\n- Nom : $nom\n- Description : $description\n- Calories : ${calories.toStringAsFixed(0)}\n$imageSection- Ingrédients : ${ingredients.isNotEmpty ? ingredients.map((i) => i['nom']).join(', ') : 'Aucun'}\n- Pour voir les étapes ou ajouter, dites 'oui' ou 'ajouter la'.";
     } catch (_) {
       // Fallback amélioré : on tente de générer description et ingrédients si manquants
       return null; // On gère ce cas dans process
@@ -445,14 +570,6 @@ class NutriBotBrain {
     if (n.contains("tacos")) return 750;
     if (n.contains("soupe")) return 400;
     return 500;
-  }
-
-  List<String> _extraireRepasDepuisTexte(String texte) {
-    final lines = texte.split('\n');
-    return lines
-        .where((l) => l.trim().isNotEmpty && l.contains("nom"))
-        .map((l) => l.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '').trim())
-        .toList();
   }
 
   void _resetContext() {

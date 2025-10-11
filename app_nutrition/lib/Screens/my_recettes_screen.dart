@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, prefer_interpolation_to_compose_strings
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, prefer_interpolation_to_compose_strings, unused_field
 
 import 'dart:io';
 import 'dart:async';
@@ -470,7 +470,12 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
   final _descCtrl = TextEditingController();
 
   final List<IngredientInputRow> _rows = [IngredientInputRow()];
-  static const List<String> _units = ['g', 'kg', 'ml', 'L', 'pièce'];
+  static const List<String> _defaultUnits = ['g', 'kg', 'ml', 'L', 'pièce'];
+  List<String> get _units {
+    final allUnits = _rows.map((r) => r.unite).whereType<String>().toSet();
+    final units = {..._defaultUnits, ...allUnits};
+    return units.toList();
+  }
 
   String? _selectedImageUrl;
   File? _pickedImageFile;
@@ -935,7 +940,12 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
   late final TextEditingController _descCtrl;
 
   final List<IngredientInputRow> _rows = [];
-  static const List<String> _units = ['g', 'kg', 'ml', 'L', 'pièce'];
+  static const List<String> _defaultUnits = ['g', 'kg', 'ml', 'L', 'pièce'];
+  List<String> get _units {
+    final allUnits = _rows.map((r) => r.unite).whereType<String>().toSet();
+    final units = {..._defaultUnits, ...allUnits};
+    return units.toList();
+  }
 
   String? _selectedImageUrl;
   File? _pickedImageFile;

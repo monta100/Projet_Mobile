@@ -77,6 +77,23 @@ class RepasService {
     return List.generate(maps.length, (i) => Repas.fromMap(maps[i]));
   }
 
+  // 🟢 Récupérer les repas d’un utilisateur pour une date donnée
+  Future<List<Repas>> getRepasByDate(
+    DateTime date, {
+    int? utilisateurId,
+  }) async {
+    final db = await dbHelper.database;
+    final userId = utilisateurId ?? _defaultUserId;
+    final start = DateTime(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+    final List<Map<String, dynamic>> maps = await db.query(
+      Repas.tableName,
+      where: 'utilisateur_id = ? AND date >= ? AND date < ?',
+      whereArgs: [userId, start.toIso8601String(), end.toIso8601String()],
+    );
+    return List.generate(maps.length, (i) => Repas.fromMap(maps[i]));
+  }
+
   // 🔵 Mettre à jour un repas
   Future<int> updateRepas(Repas repas) async {
     final db = await dbHelper.database;

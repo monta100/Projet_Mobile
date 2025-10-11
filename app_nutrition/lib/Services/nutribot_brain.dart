@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print, unused_field, dead_code
 
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../Services/openrouter_service.dart';
 import '../Services/repas_service.dart';
 import '../Services/recette_service.dart';
@@ -8,6 +9,7 @@ import '../Services/ingredient_service.dart';
 import '../Entites/repas.dart';
 import '../Entites/recette.dart';
 import '../Entites/ingredient.dart';
+import 'preferences_service.dart';
 
 class NutriBotBrain {
   final OpenRouterService _openRouter = OpenRouterService();
@@ -25,78 +27,196 @@ class NutriBotBrain {
   Future<String> process(String userText) async {
     final text = _normalizeText(userText.toLowerCase().trim());
 
+    // Diagnostic et conseils anti-fatigue
+    if (text.contains("fatigue") ||
+        text.contains("fatigué") ||
+        text.contains("tu as bien dormi") ||
+        text.contains("sommeil") ||
+        text.contains("je suis crevé") ||
+        text.contains("je suis epuisé")) {
+      return "🩺 Tu sembles fatigué. Voici quelques conseils pour éviter la fatigue :\n\n"
+          "- As-tu bien dormi cette nuit ? Essaie de dormir 7 à 8h.\n"
+          "- Bois suffisamment d'eau dans la journée.\n"
+          "- Prends des pauses régulières, surtout si tu travailles ou étudies.\n"
+          "- Privilégie des repas équilibrés et évite les excès de sucre.\n"
+          "- Si la fatigue persiste, consulte un professionnel de santé.\n";
+    }
+
+    // Gestion de toutes les humeurs utilisateur
+    final humeurMap = {
+      'heureux': [
+        "je suis heureux",
+        "je suis joyeux",
+        "je suis contente",
+        "je suis content",
+        "je suis ravi",
+        "je suis satisfait",
+        "je suis en forme",
+      ],
+      'triste': [
+        "je suis triste",
+        "j'ai le cafard",
+        "je suis déprimé",
+        "je suis malheureux",
+        "je suis malheureuse",
+      ],
+      'stressé': [
+        "je suis stressé",
+        "je suis stresse",
+        "je suis anxieux",
+        "je suis anxieuse",
+        "je suis tendu",
+        "je suis tendue",
+        "je suis sous pression",
+      ],
+      'motivé': [
+        "je suis motivé",
+        "je suis motive",
+        "je suis déterminé",
+        "je suis determine",
+        "je suis prêt",
+        "je suis prete",
+        "je suis pret",
+      ],
+      'fatigué': [
+        "je suis fatigue",
+        "je suis fatigué",
+        "je suis crevé",
+        "je suis epuisé",
+        "je suis ko",
+      ],
+      'malade': [
+        "je suis malade",
+        "je ne me sens pas bien",
+        "j'ai mal",
+        "je suis patraque",
+      ],
+      'amoureux': [
+        "je suis amoureux",
+        "je suis amoureuse",
+        "j'ai un crush",
+        "je suis en couple",
+      ],
+      'fier': [
+        "je suis fier",
+        "je suis fière",
+        "je suis satisfait",
+        "je suis satisfaite",
+      ],
+      'énervé': [
+        "je suis enerve",
+        "je suis énervé",
+        "je suis agacé",
+        "je suis agace",
+        "je suis furieux",
+        "je suis furieuse",
+      ],
+      'détendu': [
+        "je suis detendu",
+        "je suis détendu",
+        "je suis relax",
+        "je suis zen",
+        "je suis calme",
+      ],
+    };
+    for (final humeur in humeurMap.entries) {
+      for (final phrase in humeur.value) {
+        if (text.contains(
+          phrase
+              .replaceAll('é', 'e')
+              .replaceAll('è', 'e')
+              .replaceAll('ê', 'e')
+              .replaceAll('à', 'a')
+              .replaceAll('ô', 'o')
+              .replaceAll('û', 'u')
+              .replaceAll('ï', 'i')
+              .replaceAll('î', 'i')
+              .replaceAll('ç', 'c'),
+        )) {
+          await PreferencesService.saveMood(humeur.key);
+          switch (humeur.key) {
+            case 'heureux':
+              return "😊 Super, tu es de bonne humeur ! Je peux te proposer un plat festif ou léger si tu veux.";
+            case 'triste':
+              return "😢 J'ai noté que tu es triste. Un plat réconfortant ou un dessert pourrait te remonter le moral !";
+            case 'stressé':
+              return "😬 Tu sembles stressé. Prends une pause, respire, et pourquoi pas une tisane ou un encas sain ?";
+            case 'motivé':
+              return "💪 Génial, tu es motivé ! Je peux te suggérer un repas énergétique pour garder la forme.";
+            case 'fatigué':
+              return "😴 J'ai bien noté que tu es fatigué. Je te proposerai des repas réconfortants !";
+            case 'malade':
+              return "🤒 Tu ne te sens pas bien. Une soupe ou un plat léger pourrait t'aider à aller mieux.";
+            case 'amoureux':
+              return "😍 L'amour donne de l'appétit ! Tu veux une idée de repas à partager ?";
+            case 'fier':
+              return "🏅 Bravo pour ta fierté ! Tu mérites un bon repas pour célébrer.";
+            case 'énervé':
+              return "😡 Tu sembles énervé. Un plat apaisant ou une boisson chaude pourrait t'aider à te détendre.";
+            case 'détendu':
+              return "😌 Tu es détendu, parfait pour savourer un bon repas ou une collation relaxante.";
+            default:
+              return "J'ai bien noté ton humeur : ${humeur.key}.";
+          }
+        }
+      }
+    }
+
+    if (text.contains("quelle est mon humeur") || text.contains("mon humeur")) {
+      final mood = await PreferencesService.getMood();
+      if (mood != null && mood.isNotEmpty) {
+        return "🌈 Merci de partager comment tu te sens ! Aujourd'hui, tu es **$mood**. Si tu veux, je peux adapter mes conseils ou mes suggestions de repas à ton humeur 😊.";
+      } else {
+        return "Je n'ai pas encore enregistré ton humeur. Dis-moi comment tu te sens !";
+      }
+    }
+
+    // Gestion de l'humeur utilisateur
+    if (text.contains("je suis fatigue") || text.contains("je suis fatigué")) {
+      await PreferencesService.saveMood("fatigué");
+      return "😴 J'ai bien noté que tu es fatigué. Je te proposerai des repas réconfortants !";
+    }
+    if (text.contains("quelle est mon humeur") || text.contains("mon humeur")) {
+      final mood = await PreferencesService.getMood();
+      if (mood != null && mood.isNotEmpty) {
+        return "Ton humeur enregistrée est : $mood.";
+      } else {
+        return "Je n'ai pas encore enregistré ton humeur. Dis-moi comment tu te sens !";
+      }
+    }
+
+    // Gestion explicite de "j'ai faim"
+    if (text.contains("faim")) {
+      final lastMeal = await PreferencesService.getLastMealTime();
+      if (lastMeal != null) {
+        final minutesSinceLastMeal = DateTime.now()
+            .difference(lastMeal)
+            .inMinutes;
+        if (minutesSinceLastMeal < 120) {
+          return "🍽️ Tu viens de manger il y a moins de 2h ! Essaie d'attendre un peu avant de reprendre un repas.";
+        }
+      }
+      // Proposer une idée de snack ou repas léger
+      String moment = _momentDeJournee();
+      String prompt =
+          "Propose une idée de snack ou de repas léger pour $moment, avec une courte description, les calories et la liste des ingrédients (nom, quantité, unité). Formate la réponse en texte lisible, pas en JSON.";
+      final idea = await _openRouter.processUserMessage(
+        prompt,
+        structured: false,
+      );
+      // Reformater si l'IA retourne du JSON
+      final parsed = _tryParseAndFormatRecipeResponse(idea);
+      if (parsed != null) return parsed;
+      return "😋 Voici une idée pour toi :\n\n$idea\n\nTu veux la recette complète ou une autre suggestion ?";
+    }
+    await PreferencesService.resetMealCountIfNewDay();
+
     // 0) Salutation
     if (text.contains("bonjour") || text.contains("salut")) {
       return "👋 Salut c est Snacky 🍊 Que veux tu faire aujourd hui ?";
     }
 
-    // 1) —— Contexte RECETTE prioritaire quand l'utilisateur dit "ajouter" ——
-    if (_lastIntent == "recette" &&
-        (_containsAny(text, [
-          "ajouter la",
-          "ajoute la",
-          "ajouter cette recette",
-          "ajouter recette",
-          "ajoute recette",
-          "oui",
-          "vas y",
-        ]))) {
-      if (_lastSuggestion != null) {
-        final recette = Recette(
-          nom: _lastSuggestion!,
-          description: _lastRecipeDetails ?? "",
-          calories: _lastCalories ?? 400,
-          publie: 1,
-          imageUrl: null,
-          utilisateurId: 1,
-        );
-        await _recetteService.insertRecette(recette);
-        _resetContext();
-        return "Excellent choix ! Votre recette **${recette.nom}** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
-      }
-      return "Je n'ai pas de recette en mémoire. Voulez-vous que je vous en propose une ?";
-    }
-
-    // 2) —— Ajout d’un repas (jamais si on vient d’une recette) ——
-    if (_isMealAddSentence(text)) {
-      final typeRepas = _detectTypeRepas(text);
-      final nomRepas = _extraireNomRepas(text);
-
-      if (nomRepas.isNotEmpty && !_looksLikeGenericVerb(nomRepas)) {
-        final repas = Repas(
-          type: typeRepas,
-          date: DateTime.now(),
-          nom: nomRepas,
-          caloriesTotales: _estimerCalories(nomRepas),
-          utilisateurId: 1,
-        );
-        await _repasService.insertRepas(repas);
-        return "✅ Repas ajoute : **$nomRepas** dans *$typeRepas* (${repas.caloriesTotales} kcal)";
-      }
-      return "Je nai pas compris le plat Peux tu reformuler ex jai mange une pizza a midi";
-    }
-
-    // Ajout de la logique pour détecter les repas consommés hier et les ajouter correctement
-    if (text.contains("hier") &&
-        _containsAny(text, ["mange", "manger", "pris", "consomme"])) {
-      final typeRepas = _detectTypeRepas(text);
-      final nomRepas = _extraireNomRepas(text);
-
-      if (nomRepas.isNotEmpty && !_looksLikeGenericVerb(nomRepas)) {
-        final repas = Repas(
-          type: typeRepas,
-          date: DateTime.now().subtract(const Duration(days: 1)),
-          nom: nomRepas,
-          caloriesTotales: _estimerCalories(nomRepas),
-          utilisateurId: 1,
-        );
-        await _repasService.insertRepas(repas);
-        return "✅ Repas ajouté : **$nomRepas** dans *$typeRepas* (${repas.caloriesTotales} kcal) pour hier.";
-      }
-      return "Je n'ai pas compris le plat. Peux-tu reformuler, par exemple : 'j'ai mangé une pizza hier à midi' ?";
-    }
-
-    // 0b) ——— Questions sur repas ou calories d'une date ———
+    // Prioritize date-based queries
     final dateRegExp = RegExp(
       r"(hier|aujourd'hui|([0-9]{1,2})[/-]([0-9]{1,2})[/-]([0-9]{2,4}))",
     );
@@ -126,7 +246,7 @@ class NutriBotBrain {
           return "Je n'ai pas compris la date. Reformule ta question.";
         }
       }
-      // Récupère les repas de la date
+      // Fetch meals for the date
       final repasList = await _repasService.getRepasByDate(date);
       if (repasList.isEmpty) {
         return "Aucun repas trouvé pour cette date.";
@@ -139,6 +259,124 @@ class NutriBotBrain {
           .map((r) => "- ${r.nom} (${r.caloriesTotales} kcal)")
           .join("\n");
       return "Voici tes repas du ${date.day}/${date.month}/${date.year} :\n$repasDetails\n\nTotal : $totalCalories kcal";
+    }
+
+    // 1) —— Contexte RECETTE prioritaire quand l'utilisateur dit "ajouter" ——
+    if (_lastIntent == "recette" &&
+        (_containsAny(text, [
+          "ajouter la",
+          "ajoute la",
+          "ajouter cette recette",
+          "ajouter recette",
+          "ajoute recette",
+          "oui",
+          "vas y",
+        ]))) {
+      if (_lastSuggestion != null) {
+        final recette = Recette(
+          nom: _lastSuggestion!,
+          description: _lastRecipeDetails ?? "",
+          calories: _lastCalories ?? 400,
+          publie: 1,
+          imageUrl: null,
+          utilisateurId: 1,
+        );
+        await _recetteService.insertRecette(recette);
+        _resetContext();
+        return "Excellent choix ! Votre recette **${recette.nom}** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
+      }
+      return "Je n'ai pas de recette en mémoire. Voulez-vous que je vous en propose une ?";
+    }
+
+    // Réponse contextuelle après la question sur l'humeur
+    final agreeWords = [
+      "oui",
+      "vas y",
+      "vasy",
+      "vas-y",
+      "ok",
+      "daccord",
+      "d'accord",
+      "go",
+      "let's go",
+      "c'est parti",
+      "allez",
+      "on y va",
+      "ça marche",
+      "ca marche",
+      "entendu",
+      "bien sur",
+      "bien sûr",
+      "je veux",
+      "je veux bien",
+    ];
+    if (agreeWords.any(
+          (w) =>
+              text.replaceAll("'", "").replaceAll("-", " ").trim() ==
+              w.replaceAll("'", "").replaceAll("-", " ").trim(),
+        ) &&
+        _lastIntent == null) {
+      final mood = await PreferencesService.getMood();
+      if (mood != null && mood.isNotEmpty) {
+        // Proposer un repas adapté à l'humeur via l'IA
+        String prompt =
+            "Propose une idée de repas ou collation adaptée à une personne qui se sent $mood aujourd'hui. Donne une courte description, les calories et la liste des ingrédients (nom, quantité, unité). Formate la réponse en texte lisible, pas en JSON.";
+        final idea = await _openRouter.processUserMessage(
+          prompt,
+          structured: false,
+        );
+        return "Voici une suggestion adaptée à ton humeur ($mood) :\n\n$idea\n\nSi tu veux une autre idée ou des conseils, dis-le moi !";
+      } else {
+        return "Je suis là pour répondre à toutes tes questions sur la nutrition et la santé. N'hésite pas à me demander des conseils ou des informations !";
+      }
+    }
+
+    // 2) —— Ajout d’un repas (jamais si on vient d’une recette) ——
+    if (_isMealAddSentence(text)) {
+      final typeRepas = _detectTypeRepas(text);
+      final nomRepas = _extraireNomRepas(text);
+
+      if (nomRepas.isNotEmpty && !_looksLikeGenericVerb(nomRepas)) {
+        final repas = Repas(
+          type: typeRepas,
+          date: DateTime.now(),
+          nom: nomRepas,
+          caloriesTotales: _estimerCalories(nomRepas),
+          utilisateurId: 1,
+        );
+        await _repasService.insertRepas(repas);
+
+        // 🔸 Mise à jour de la mémoire Snacky
+        await PreferencesService.setLastMealTime(DateTime.now());
+        await PreferencesService.incrementMealCount();
+
+        return "✅ J’ai ajouté ton repas : **$nomRepas** dans *$typeRepas* (${repas.caloriesTotales} kcal).";
+      }
+      return "Je n’ai pas compris le plat, peux-tu reformuler ?";
+    }
+
+    // 🔹 Vérifier le temps depuis le dernier repas
+    final lastMeal = await PreferencesService.getLastMealTime();
+    if (lastMeal != null) {
+      final hoursSinceLastMeal = DateTime.now().difference(lastMeal).inHours;
+      print(
+        "Heures depuis le dernier repas : $hoursSinceLastMeal",
+      ); // Log pour débogage
+      if (hoursSinceLastMeal >= 6) {
+        return "😋 Ça fait plus de 6h depuis ton dernier repas ! Tu veux que je te propose une idée pour ${_momentDeJournee()} ?";
+      }
+    }
+
+    // 🔹 Vérifier si l’utilisateur a déjà bien mangé aujourd’hui
+    final mealsToday = await PreferencesService.getMealCountToday();
+    if (mealsToday >= 3 && text.contains("repas")) {
+      return "Tu as déjà bien mangé aujourd’hui 🍽️, je te suggère juste un petit snack ou une boisson légère.";
+    }
+
+    // 🔹 Vérifier l’humeur
+    final mood = await PreferencesService.getUserMood();
+    if (mood == "fatigué") {
+      return "💤 Tu sembles encore fatigué. Je te conseille un repas réconfortant, comme une soupe chaude 🍲.";
     }
 
     // 3) —— Suggestions de repas
@@ -384,9 +622,9 @@ class NutriBotBrain {
       if (repasList.isEmpty) {
         return "Aucun repas trouvé pour cette date.";
       }
-      final totalCalories = repasList.fold(
-        0,
-        (int sum, r) => sum + ((r.caloriesTotales ?? 0) as int),
+      final totalCalories = repasList.fold<double>(
+        0.0,
+        (sum, r) => sum + r.caloriesTotales,
       );
       final repasDetails = repasList
           .map((r) => "- ${r.nom} (${r.caloriesTotales} kcal)")
@@ -405,6 +643,9 @@ class NutriBotBrain {
       userText,
       structured: false,
     );
+    // Si la réponse est du JSON, reformater pour l'utilisateur
+    final parsed = _tryParseAndFormatRecipeResponse(generic);
+    if (parsed != null) return parsed;
     return generic;
   }
 
@@ -589,5 +830,24 @@ class NutriBotBrain {
       out = out.replaceAll(a[i], b[i]);
     }
     return out;
+  }
+
+  // ============ Gestion des préférences utilisateur ============
+
+  Future<void> saveUserPreference(String key, String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, value);
+  }
+
+  Future<String?> getUserPreference(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(key);
+  }
+
+  // Exemple d'utilisation :
+  void exampleUsage() async {
+    await saveUserPreference('diet', 'vegetarian');
+    String? diet = await getUserPreference('diet');
+    print('User diet preference: $diet');
   }
 }

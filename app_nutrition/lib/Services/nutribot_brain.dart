@@ -285,6 +285,17 @@ class NutriBotBrain {
         _resetContext();
         return "Excellent choix ! Votre recette **${recette.nom}** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
       }
+
+      // 🔸 Proposer automatiquement une recette si aucune n'est en mémoire
+      final suggestion = await _openRouter.processUserMessage(
+        "Propose une recette simple et rapide à ajouter au carnet de recettes. Donne uniquement le nom de la recette.",
+        structured: false,
+      );
+      if (suggestion.isNotEmpty) {
+        _lastSuggestion = suggestion;
+        return "Je n'ai pas de recette en mémoire. Que pensez-vous de cette suggestion : **$suggestion** ?";
+      }
+
       return "Je n'ai pas de recette en mémoire. Voulez-vous que je vous en propose une ?";
     }
 

@@ -3,10 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import '../Services/openrouter_service.dart';
 import '../Theme/app_colors.dart' as theme_colors;
 import '../Services/nutribot_brain.dart';
 import '../Widgets/recipe_card.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class ChatbotRepasScreen extends StatefulWidget {
   const ChatbotRepasScreen({Key? key}) : super(key: key);
@@ -15,22 +17,67 @@ class ChatbotRepasScreen extends StatefulWidget {
   State<ChatbotRepasScreen> createState() => _ChatbotRepasScreenState();
 }
 
-class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
+class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, String>> _messages = [];
   final OpenRouterService _openRouter = OpenRouterService();
   final NutriBotBrain _brain = NutriBotBrain();
+  final FlutterTts _flutterTts = FlutterTts();
 
+  bool _isSpeaking = false;
   bool _isTyping = false;
+
+  late AnimationController _waveController;
 
   @override
   void initState() {
     super.initState();
     _greetUser();
+    _initVoice();
+
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
   }
 
-  /// 👋 Message d’accueil Snacky
+  @override
+  void dispose() {
+    _waveController.dispose();
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _initVoice() async {
+    // 🔊 Langue & tonalité
+    await _flutterTts.setLanguage("fr-FR");
+    await _flutterTts.setPitch(1.1); // ton un peu plus enjoué
+    await _flutterTts.setSpeechRate(0.6); // plus lent et fluide
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.awaitSpeakCompletion(true);
+
+    // 🔄 États (animation du micro)
+    _flutterTts.setStartHandler(() {
+      setState(() => _isSpeaking = true);
+    });
+    _flutterTts.setCompletionHandler(() {
+      setState(() => _isSpeaking = false);
+    });
+  }
+
+  Future<void> _simulateVoice() async {
+    await _flutterTts.stop();
+    await _flutterTts.speak(
+      "Hey salut toi 👋 ! "
+      "Moi, c’est Snacky, ton coach nutrition et bonne humeur 🍊. "
+      "Je suis là pour t’aider à bien manger, à te sentir au top, "
+      "et à rendre chaque repas un vrai moment de plaisir 😋. "
+      "Alors dis-moi… tu veux une idée de plat équilibré, ou une recette gourmande aujourd’hui ? 👨‍🍳",
+    );
+  }
+
   Future<void> _greetUser() async {
     await Future.delayed(const Duration(milliseconds: 700));
     setState(() {
@@ -42,7 +89,6 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
     });
   }
 
-  /// 💬 Envoi d’un message utilisateur
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -53,7 +99,6 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
       _isTyping = true;
     });
 
-    // Scroll vers le bas
     Future.delayed(const Duration(milliseconds: 150), () {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent + 120,
@@ -78,7 +123,6 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
     });
   }
 
-  /// 🎨 Bulle animée de “Snacky écrit...”
   Widget _buildTypingIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
@@ -124,6 +168,46 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
     );
   }
 
+  /// 🌊 Halo animé autour du micro
+  Widget _buildAnimatedHalo() {
+    return AnimatedBuilder(
+      animation: _waveController,
+      builder: (context, child) {
+        final scale = 1 + 0.2 * math.sin(_waveController.value * 2 * math.pi);
+        final opacity =
+            0.4 + 0.3 * math.sin(_waveController.value * 2 * math.pi);
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withOpacity(_isSpeaking ? opacity : 0),
+                  blurRadius: _isSpeaking ? 20 : 0,
+                  spreadRadius: _isSpeaking ? 6 : 0,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        decoration: const BoxDecoration(shape: BoxShape.circle),
+        child: IconButton(
+          tooltip: "Faire parler Snacky",
+          icon: Icon(
+            _isSpeaking ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+            color: Colors.white,
+            size: 26,
+          ),
+          onPressed: _simulateVoice,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,6 +234,12 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
             ),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10.0),
+            child: _buildAnimatedHalo(),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -185,7 +275,6 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
                     : Colors.white;
                 final textColor = isUser ? Colors.white : Colors.black87;
 
-                // Nouvelle bulle avec avatar
                 return FadeInUp(
                   duration: const Duration(milliseconds: 300),
                   child: Row(
@@ -205,7 +294,7 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
                         ),
                       Flexible(
                         child: Container(
-                          margin: EdgeInsets.symmetric(
+                          margin: const EdgeInsets.symmetric(
                             vertical: 6,
                             horizontal: 2,
                           ),
@@ -243,7 +332,7 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
                             radius: 18,
                             backgroundColor:
                                 theme_colors.AppColors.primaryColor,
-                            child: Icon(
+                            child: const Icon(
                               Icons.person,
                               color: Colors.white,
                               size: 22,
@@ -264,7 +353,6 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen> {
             child: SafeArea(
               child: Row(
                 children: [
-                  // Bouton suggestion de plat
                   IconButton(
                     icon: Icon(
                       Icons.lightbulb_outline,

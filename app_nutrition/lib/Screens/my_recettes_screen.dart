@@ -115,9 +115,23 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mes Recettes'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.book, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              'Mes Recettes',
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -128,8 +142,16 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
         ),
+        elevation: 0,
       ),
       floatingActionButton: Stack(
         children: [

@@ -75,6 +75,11 @@ class _RecettesGlobalScreenState extends State<RecettesGlobalScreen> {
           );
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _load,
+        backgroundColor: AppColors.primaryColor,
+        child: const Icon(Icons.refresh, color: Colors.white),
+      ),
     );
   }
 }

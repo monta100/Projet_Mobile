@@ -1,4 +1,4 @@
-// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, prefer_final_fields, curly_braces_in_flow_control_structures, sort_child_properties_last
+// ignore_for_file: use_super_parameters, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, no_leading_underscores_for_local_identifiers, prefer_final_fields, curly_braces_in_flow_control_structures, sort_child_properties_last, unused_element
 
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
@@ -464,7 +464,6 @@ class _RepasListScreenState extends State<RepasListScreen>
       ),
     );
   }
-  
 
   // --- Méthodes utilitaires et modales ---
   Future<void> _selectDate() async {
@@ -560,16 +559,28 @@ class _RepasListScreenState extends State<RepasListScreen>
     bool isCalculating = false;
     double? estimatedCalories;
 
+    final _formKey = GlobalKey<FormState>();
+    String? nomError; // 🟥 message d’erreur dynamique
+
     return StatefulBuilder(
       builder: (context, setStateModal) {
-        Future<void> _calculateCalories() async {
-          final dish = nomController.text.trim();
-          if (dish.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Veuillez entrer un nom de repas.")),
-            );
-            return;
+        // 💬 Validation instantanée pendant la frappe
+        nomController.addListener(() {
+          final text = nomController.text.trim();
+          if (text.isEmpty) {
+            setStateModal(() => nomError = 'Veuillez entrer un nom de repas');
+          } else if (text.length < 2) {
+            setStateModal(() => nomError = 'Nom trop court');
+          } else if (!RegExp(r"^[a-zA-ZÀ-ÿ\s'\-]+$").hasMatch(text)) {
+            setStateModal(() => nomError = 'Caractères non valides');
+          } else {
+            setStateModal(() => nomError = null);
           }
+        });
+
+        Future<void> _calculateCalories() async {
+          if (nomError != null) return;
+          final dish = nomController.text.trim();
           setStateModal(() {
             isCalculating = true;
             estimatedCalories = null;
@@ -589,48 +600,62 @@ class _RepasListScreenState extends State<RepasListScreen>
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Ajouter un nouveau repas',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textColor,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                _buildCustomTextField(
-                  nomController,
-                  'Nom du repas',
-                  Icons.restaurant,
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: AppColors.primaryColor.withOpacity(0.3),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    borderRadius: BorderRadius.circular(15),
                   ),
-                  child: DropdownButtonFormField<String>(
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Ajouter un nouveau repas',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // 🧾 Champ nom du repas
+                  TextField(
+                    controller: nomController,
+                    decoration: InputDecoration(
+                      labelText: 'Nom du repas',
+                      prefixIcon: const Icon(
+                        Icons.restaurant,
+                        color: AppColors.primaryColor,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      errorText: nomError, // 🟥 affichage dynamique
+                      errorStyle: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 🥗 Type de repas
+                  DropdownButtonFormField<String>(
                     value: selectedType,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
+                    decoration: InputDecoration(
                       labelText: "Type de repas",
-                      prefixIcon: Icon(
+                      prefixIcon: const Icon(
                         Icons.category,
                         color: AppColors.primaryColor,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
                       ),
                     ),
                     items: const [
@@ -651,98 +676,100 @@ class _RepasListScreenState extends State<RepasListScreen>
                     onChanged: (value) =>
                         setStateModal(() => selectedType = value!),
                   ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: isCalculating ? null : _calculateCalories,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accentColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.local_fire_department,
-                    color: Colors.white,
-                  ),
-                  label: Text(
-                    isCalculating
-                        ? 'Calcul en cours...'
-                        : 'Calculer les calories',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (estimatedCalories != null)
-                  AnimatedOpacity(
-                    opacity: 1,
-                    duration: const Duration(milliseconds: 600),
-                    child: Text(
-                      'Calories estimées : ${estimatedCalories!.toStringAsFixed(0)} kcal',
-                      style: const TextStyle(
-                        color: AppColors.accentColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                  const SizedBox(height: 20),
+
+                  // 🔥 Bouton calories
+                  ElevatedButton.icon(
+                    onPressed: isCalculating || nomError != null
+                        ? null
+                        : _calculateCalories,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    icon: const Icon(
+                      Icons.local_fire_department,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      isCalculating
+                          ? 'Calcul en cours...'
+                          : 'Calculer les calories',
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   ),
-                const Spacer(),
-                _buildCustomButton('Ajouter le repas', () async {
-                  final nom = nomController.text.trim();
-                  if (nom.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Veuillez remplir tous les champs obligatoires.',
+                  const SizedBox(height: 16),
+
+                  if (estimatedCalories != null)
+                    AnimatedOpacity(
+                      opacity: 1,
+                      duration: const Duration(milliseconds: 600),
+                      child: Text(
+                        'Calories estimées : ${estimatedCalories!.toStringAsFixed(0)} kcal',
+                        style: const TextStyle(
+                          color: AppColors.accentColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
                         ),
                       ),
+                    ),
+
+                  const Spacer(),
+
+                  // ✅ Bouton ajouter
+                  _buildCustomButton('Ajouter le repas', () async {
+                    if (nomError != null) return;
+
+                    final nom = nomController.text.trim();
+                    final calories = estimatedCalories ?? 0;
+
+                    final newRepas = Repas(
+                      nom: nom,
+                      type: selectedType,
+                      date: DateTime.now(),
+                      caloriesTotales: calories,
+                      utilisateurId: 1,
                     );
-                    return;
-                  }
-                  final calories = estimatedCalories ?? 0;
-                  final newRepas = Repas(
-                    nom: nom,
-                    type: selectedType,
-                    date: DateTime.now(),
-                    caloriesTotales: calories,
-                    utilisateurId: 1,
-                  );
-                  await _repasService.insertRepas(newRepas);
-                  _loadRepas();
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: Colors.green[600],
-                      behavior: SnackBarBehavior.floating,
-                      margin: const EdgeInsets.all(16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      content: Row(
-                        children: const [
-                          Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Repas ajouté avec succès ! 🎉',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
+
+                    await _repasService.insertRepas(newRepas);
+                    _loadRepas();
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.green[600],
+                        behavior: SnackBarBehavior.floating,
+                        margin: const EdgeInsets.all(16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        content: const Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Repas ajouté avec succès ! 🎉',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        duration: Duration(seconds: 2),
                       ),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }),
-                const SizedBox(height: 20),
-              ],
+                    );
+                  }),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         );
@@ -874,86 +901,191 @@ class _RepasListScreenState extends State<RepasListScreen>
     );
   }
 
-  void _showEditRepasModal(Repas repas) {
-    final nomController = TextEditingController(text: repas.nom);
-    final typeController = TextEditingController(text: repas.type);
-    final caloriesController = TextEditingController(
-      text: repas.caloriesTotales.toString(),
-    );
+ void _showEditRepasModal(Repas repas) {
+  final nomController = TextEditingController(text: repas.nom);
+  final typeController = TextEditingController(text: repas.type);
+  final caloriesController =
+      TextEditingController(text: repas.caloriesTotales.toString());
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+  // 🟥 Messages d’erreur dynamiques
+  String? nomError;
+  String? typeError;
+  String? caloriesError;
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setStateModal) {
+          // 🔁 Validation dynamique à chaque frappe
+          void _validateInputs() {
+            final nom = nomController.text.trim();
+            final type = typeController.text.trim();
+            final calText = caloriesController.text.trim();
+
+            if (nom.isEmpty) {
+              nomError = 'Veuillez entrer un nom de repas';
+            } else if (nom.length < 2) {
+              nomError = 'Nom trop court';
+            } else if (!RegExp(r"^[a-zA-ZÀ-ÿ\s'\-]+$").hasMatch(nom)) {
+              nomError = 'Caractères non valides';
+            } else {
+              nomError = null;
+            }
+
+            if (type.isEmpty) {
+              typeError = 'Veuillez entrer un type de repas';
+            } else {
+              typeError = null;
+            }
+
+            if (calText.isEmpty) {
+              caloriesError = 'Veuillez entrer une valeur';
+            } else if (double.tryParse(calText) == null) {
+              caloriesError = 'Entrez un nombre valide';
+            } else if (double.parse(calText) < 0) {
+              caloriesError = 'Les calories doivent être positives';
+            } else {
+              caloriesError = null;
+            }
+
+            setStateModal(() {});
+          }
+
+          // 🎧 Ajout des listeners
+          nomController.addListener(_validateInputs);
+          typeController.addListener(_validateInputs);
+          caloriesController.addListener(_validateInputs);
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.9,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Modifier le repas',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // 🧾 Champ nom
+                  TextField(
+                    controller: nomController,
+                    decoration: InputDecoration(
+                      labelText: 'Nom du repas',
+                      prefixIcon: const Icon(Icons.restaurant,
+                          color: AppColors.primaryColor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      errorText: nomError,
+                      errorStyle: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+
+                  // 🥗 Champ type
+                  TextField(
+                    controller: typeController,
+                    decoration: InputDecoration(
+                      labelText: 'Type de repas',
+                      prefixIcon: const Icon(Icons.category,
+                          color: AppColors.primaryColor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      errorText: typeError,
+                      errorStyle: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+
+                  // 🔥 Champ calories
+                  TextField(
+                    controller: caloriesController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Calories',
+                      prefixIcon: const Icon(Icons.local_fire_department,
+                          color: AppColors.primaryColor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      errorText: caloriesError,
+                      errorStyle: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // ✅ Bouton enregistrer avec vérification avant envoi
+                  _buildCustomButton('Enregistrer les modifications', () async {
+                    _validateInputs();
+                    if (nomError != null ||
+                        typeError != null ||
+                        caloriesError != null) {
+                      return;
+                    }
+
+                    final updatedRepas = repas.copyWith(
+                      nom: nomController.text.trim(),
+                      type: typeController.text.trim(),
+                      caloriesTotales:
+                          double.tryParse(caloriesController.text) ??
+                              repas.caloriesTotales,
+                    );
+
+                    await _repasService.updateRepas(updatedRepas);
+                    _loadRepas();
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Repas modifié avec succès ! 🎉'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 20),
+                ],
               ),
-              const SizedBox(height: 20),
-              Text(
-                'Modifier le repas',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textColor,
-                ),
-              ),
-              const SizedBox(height: 30),
-              _buildCustomTextField(
-                nomController,
-                'Nom du repas',
-                Icons.restaurant,
-              ),
-              const SizedBox(height: 20),
-              _buildCustomTextField(
-                typeController,
-                'Type de repas',
-                Icons.category,
-              ),
-              const SizedBox(height: 20),
-              _buildCustomTextField(
-                caloriesController,
-                'Calories',
-                Icons.local_fire_department,
-                isNumber: true,
-              ),
-              const Spacer(),
-              _buildCustomButton('Enregistrer les modifications', () async {
-                final updatedRepas = repas.copyWith(
-                  nom: nomController.text.trim(),
-                  type: typeController.text.trim(),
-                  caloriesTotales:
-                      double.tryParse(caloriesController.text) ??
-                      repas.caloriesTotales,
-                );
-                await _repasService.updateRepas(updatedRepas);
-                _loadRepas();
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Repas modifié avec succès !')),
-                );
-              }),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
 
   void _confirmDeleteRepas(int repasId) {
     showDialog(

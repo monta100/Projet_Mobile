@@ -6,6 +6,7 @@ import 'repas_list_screen.dart';
 import 'my_recettes_screen.dart';
 import 'recettes_global_screen.dart';
 import 'chatbot_repas_screen.dart';
+import 'analyze_image_test.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({Key? key}) : super(key: key);
@@ -17,15 +18,14 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen>
     with TickerProviderStateMixin {
   int _currentIndex = 0;
-  late PageController _pageController;
-  late AnimationController _animationController;
+  // Suppression des contrôleurs inutiles
 
-  final List<Widget> _screens = const [
-    RepasListScreen(),
-    MyRecettesScreen(),
-    RecettesGlobalScreen(),
-    ChatbotRepasScreen(), // 👈 ajouté ici
-
+  final List<Widget> _screens = [
+    const RepasListScreen(),
+    const MyRecettesScreen(),
+    const RecettesGlobalScreen(),
+    const ChatbotRepasScreen(),
+    AnalyzeImageTest(),
   ];
 
   final List<NavigationItem> _navigationItems = [
@@ -47,134 +47,57 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       label: 'Global',
       color: Colors.teal,
     ),
-     NavigationItem(
-    icon: Icons.smart_toy_outlined, // 🤖 icône de chatbot
-    activeIcon: Icons.smart_toy,
-    label: 'Assistant IA',
-    color: Colors.deepOrange, // couleur qui ressort bien
-  ),
+    NavigationItem(
+      icon: Icons.smart_toy_outlined, // 🤖 icône de chatbot
+      activeIcon: Icons.smart_toy,
+      label: 'Assistant IA',
+      color: Colors.deepOrange, // couleur qui ressort bien
+    ),
+    NavigationItem(
+      icon: Icons.image_search_outlined, // 🖼️ icône pour VisionAI
+      activeIcon: Icons.image_search,
+      label: 'VisionAI', // Nom créatif pour l'analyse d'image
+      color: Colors.purple,
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _animationController.dispose();
-    super.dispose();
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-    _animationController.forward().then((_) {
-      _animationController.reverse();
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        children: _screens,
-      ),
-      bottomNavigationBar: _buildCustomBottomNavBar(),
-    );
-  }
-
-  Widget _buildCustomBottomNavBar() {
-    return Container(
-      height: 90,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-        boxShadow: [
-          BoxShadow(
-            color: theme_colors.AppColors.primaryColor.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(
-            _navigationItems.length,
-            (index) => _buildNavItem(index),
-          ),
-        ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: _navigationItems[_currentIndex].color,
+        unselectedItemColor: theme_colors.AppColors.textColor.withOpacity(0.6),
+        showUnselectedLabels: true,
+        items: _navigationItems
+            .map(
+              (item) => BottomNavigationBarItem(
+                icon: Icon(item.icon),
+                activeIcon: Icon(item.activeIcon),
+                label: item.label,
+                backgroundColor: Colors.white,
+              ),
+            )
+            .toList(),
       ),
     );
   }
 
-  Widget _buildNavItem(int index) {
-    final item = _navigationItems[index];
-    final isActive = _currentIndex == index;
-
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? item.color.withOpacity(0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                isActive ? item.activeIcon : item.icon,
-                color: isActive
-                    ? item.color
-                    : theme_colors.AppColors.textColor.withOpacity(0.6),
-                size: 24,
-              ),
-            ),
-            const SizedBox(height: 4),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                color: isActive
-                    ? item.color
-                    : theme_colors.AppColors.textColor.withOpacity(0.6),
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                fontSize: 12,
-              ),
-              child: Text(item.label),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Suppression des méthodes custom de barre de navigation
 }
 
 class NavigationItem {

@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, unused_field, dead_code
+// ignore_for_file: avoid_print, unused_field, dead_code, prefer_final_fields, unnecessary_brace_in_string_interps, curly_braces_in_flow_control_structures
 
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';

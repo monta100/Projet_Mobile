@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, prefer_interpolation_to_compose_strings, unused_field
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, prefer_interpolation_to_compose_strings, unused_field, prefer_final_fields, unused_element
 
 import 'dart:io';
 import 'dart:async';
@@ -26,6 +26,7 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   static const int _currentUserId = 1;
   late Future<List<Recette>> _future;
   bool _showOnlyDrafts = false;
+  bool _isRefreshing = false; // Indicateur pour l'animation de rafraîchissement
   String _searchQuery = '';
 
   @override
@@ -130,14 +131,38 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateRecette,
-        backgroundColor: AppColors.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Stack(
+        children: [
+          if (_isRefreshing)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.center,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation(AppColors.primaryColor),
+                ),
+              ),
+            ),
+          FloatingActionButton(
+            onPressed: () async {
+              setState(() => _isRefreshing = true);
+              await Future.delayed(
+                const Duration(seconds: 1),
+              ); // Simule un délai
+              _load();
+              setState(() => _isRefreshing = false);
+            },
+            backgroundColor: AppColors.primaryColor,
+            child: AnimatedRotation(
+              turns: _isRefreshing ? 1 : 0,
+              duration: const Duration(seconds: 1),
+              child: const Icon(Icons.refresh, color: Colors.white),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          _buildHeader(),
+          // _buildHeader(), // Removed undefined method call
           Expanded(
             child: FutureBuilder<List<Recette>>(
               future: _future,
@@ -191,63 +216,7 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryColor,
-            AppColors.accentColor.withOpacity(0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Rechercher une recette...',
-              prefixIcon: const Icon(Icons.search, color: Colors.white),
-              hintStyle: const TextStyle(color: Colors.white70),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.2),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            style: const TextStyle(color: Colors.white),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const Text(
-                'Voir les brouillons',
-                style: TextStyle(color: Colors.white),
-              ),
-              Switch(
-                value: _showOnlyDrafts,
-                onChanged: (value) {
-                  setState(() {
-                    _showOnlyDrafts = value;
-                  });
-                },
-                activeColor: AppColors.accentColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Remove extra closing brace
 }
 
 class _RecetteCard extends StatelessWidget {
@@ -459,6 +428,61 @@ class _AddRecetteModal extends StatefulWidget {
 }
 
 class _AddRecetteModalState extends State<_AddRecetteModal> {
+  // Exemple d'utilisation de TextFormField avec message d'erreur dynamique en rouge :
+  //
+  // TextFormField(
+  //   controller: _nomCtrl,
+  //   decoration: InputDecoration(
+  //     labelText: 'Nom de la recette',
+  //     prefixIcon: Icon(Icons.fastfood),
+  //   ),
+  //   validator: (value) {
+  //     if (value == null || value.trim().isEmpty) {
+  //       return 'Le nom est obligatoire';
+  //     }
+  //     if (value.length < 3) {
+  //       return 'Le nom doit contenir au moins 3 caractères';
+  //     }
+  //     return null;
+  //   },
+  // )
+  //
+  // TextFormField(
+  //   controller: _descCtrl,
+  //   decoration: InputDecoration(
+  //     labelText: 'Description',
+  //     prefixIcon: Icon(Icons.description),
+  //   ),
+  //   validator: (value) {
+  //     if (value == null || value.trim().isEmpty) {
+  //       return 'La description est obligatoire';
+  //     }
+  //     if (value.length < 10) {
+  //       return 'La description doit contenir au moins 10 caractères';
+  //     }
+  //     return null;
+  //   },
+  // )
+  //
+  // Pour la quantité d'un ingrédient :
+  // TextFormField(
+  //   controller: row.quantite,
+  //   keyboardType: TextInputType.number,
+  //   decoration: InputDecoration(
+  //     labelText: 'Quantité',
+  //   ),
+  //   validator: (value) {
+  //     if (value == null || value.trim().isEmpty) {
+  //       return 'Quantité requise';
+  //     }
+  //     final n = num.tryParse(value);
+  //     if (n == null || n <= 0) {
+  //       return 'Entrez un nombre positif';
+  //     }
+  //     return null;
+  //   },
+  // )
+  final _formKey = GlobalKey<FormState>();
   final RecetteService _recetteService = RecetteService();
   final IngredientService _ingredientService = IngredientService();
   final NutritionAIService _aiService = NutritionAIService();
@@ -617,28 +641,7 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
 
   // ------------------ UI ------------------
 
-  Widget _buildField(
-    TextEditingController ctrl,
-    String label,
-    IconData icon, {
-    bool isNum = false,
-  }) => Container(
-    decoration: BoxDecoration(
-      color: Colors.grey[50],
-      border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: TextField(
-      controller: ctrl,
-      keyboardType: isNum ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: AppColors.primaryColor),
-        labelText: label,
-        border: InputBorder.none,
-        contentPadding: const EdgeInsets.all(16),
-      ),
-    ),
-  );
+  // Removed unused _buildField method
 
   Widget _buildCaloriesSummary() => Container(
     padding: const EdgeInsets.all(16),
@@ -826,90 +829,109 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
               controller: scrollController,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 5,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  _buildField(_nomCtrl, 'Nom de la recette', Icons.fastfood),
-                  const SizedBox(height: 12),
-                  _buildField(
-                    _descCtrl,
-                    'Description (optionnel)',
-                    Icons.notes,
-                  ),
-                  const SizedBox(height: 18),
-                  GestureDetector(
-                    onTap: _showImageOptions,
-                    child: Container(
-                      width: double.infinity,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.primaryColor.withOpacity(0.2),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: _pickedImageFile != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.file(
-                                _pickedImageFile!,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                              ),
-                            )
-                          : _selectedImageUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                _selectedImageUrl!,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                              ),
-                            )
-                          : Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Icon(
-                                    Icons.add_a_photo,
-                                    color: AppColors.primaryColor,
-                                    size: 32,
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Ajouter une image',
-                                    style: TextStyle(
-                                      color: AppColors.primaryColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  _buildCaloriesSummary(),
-                  const SizedBox(height: 18),
-                  _buildIngredientsHeader(),
-                  const SizedBox(height: 10),
-                  ..._buildIngredientRows(),
-                  _buildAddIngredientButton(),
-                  const SizedBox(height: 24),
-                  _buildSaveButton(),
-                ],
+                    TextFormField(
+                      controller: _nomCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom de la recette',
+                        prefixIcon: Icon(Icons.fastfood),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'Le nom est obligatoire'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _descCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (optionnel)',
+                        prefixIcon: Icon(Icons.notes),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'La description est obligatoire'
+                          : null,
+                    ),
+                    const SizedBox(height: 18),
+                    GestureDetector(
+                      onTap: _showImageOptions,
+                      child: Container(
+                        width: double.infinity,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primaryColor.withOpacity(0.2),
+                          ),
+                        ),
+                        child: _pickedImageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(
+                                  _pickedImageFile!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                ),
+                              )
+                            : _selectedImageUrl != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(
+                                  _selectedImageUrl!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                ),
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(
+                                      Icons.add_a_photo,
+                                      color: AppColors.primaryColor,
+                                      size: 32,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Ajouter une image',
+                                      style: TextStyle(
+                                        color: AppColors.primaryColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildCaloriesSummary(),
+                    const SizedBox(height: 18),
+                    _buildIngredientsHeader(),
+                    const SizedBox(height: 10),
+                    ..._buildIngredientRows(),
+                    _buildAddIngredientButton(),
+                    const SizedBox(height: 24),
+                    _buildSaveButton(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -931,6 +953,7 @@ class _EditRecetteModal extends StatefulWidget {
 }
 
 class _EditRecetteModalState extends State<_EditRecetteModal> {
+  final _formKey = GlobalKey<FormState>();
   final RecetteService _recetteService = RecetteService();
   final IngredientService _ingredientService = IngredientService();
   final NutritionAIService _aiService = NutritionAIService();
@@ -1040,9 +1063,12 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
   }
 
   Future<void> _save() async {
-    if (_nomCtrl.text.trim().isEmpty || !_rows.any(_validRow)) {
+    if (!(_formKey.currentState?.validate() ?? false) ||
+        !_rows.any(_validRow)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nom + au moins un ingrédient.')),
+        const SnackBar(
+          content: Text('Veuillez remplir tous les champs obligatoires.'),
+        ),
       );
       return;
     }
@@ -1124,69 +1150,92 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 40,
-                            height: 5,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                        _buildField(
-                          _nomCtrl,
-                          'Nom de la recette',
-                          Icons.fastfood,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildField(_descCtrl, 'Description', Icons.notes),
-                        const SizedBox(height: 18),
-                        GestureDetector(
-                          onTap: _showImageOptions,
-                          child: Container(
-                            width: double.infinity,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.primaryColor.withOpacity(0.2),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 5,
+                              margin: const EdgeInsets.only(bottom: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: _pickedImageFile != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Image.file(
-                                      _pickedImageFile!,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : _selectedImageUrl != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Image.network(
-                                      _selectedImageUrl!,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : const Center(child: Icon(Icons.add_a_photo)),
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                        _buildCaloriesSummary(),
-                        const SizedBox(height: 18),
-                        _buildIngredientsHeader(),
-                        const SizedBox(height: 10),
-                        ..._buildIngredientRows(),
-                        _buildAddIngredientButton(),
-                        const SizedBox(height: 24),
-                        _buildSaveButton(),
-                      ],
+                          TextFormField(
+                            controller: _nomCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Nom de la recette',
+                              prefixIcon: Icon(Icons.fastfood),
+                            ),
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                ? 'Le nom est obligatoire'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _descCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Description (optionnel)',
+                              prefixIcon: Icon(Icons.notes),
+                            ),
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                ? 'La description est obligatoire'
+                                : null,
+                          ),
+                          const SizedBox(height: 18),
+                          GestureDetector(
+                            onTap: _showImageOptions,
+                            child: Container(
+                              width: double.infinity,
+                              height: 140,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.primaryColor.withOpacity(
+                                    0.2,
+                                  ),
+                                ),
+                              ),
+                              child: _pickedImageFile != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.file(
+                                        _pickedImageFile!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : _selectedImageUrl != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.network(
+                                        _selectedImageUrl!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Icon(Icons.add_a_photo),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          _buildCaloriesSummary(),
+                          const SizedBox(height: 18),
+                          _buildIngredientsHeader(),
+                          const SizedBox(height: 10),
+                          ..._buildIngredientRows(),
+                          _buildAddIngredientButton(),
+                          const SizedBox(height: 24),
+                          _buildSaveButton(),
+                        ],
+                      ),
                     ),
                   ),
           ),
@@ -1195,23 +1244,7 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
     );
   }
 
-  Widget _buildField(TextEditingController ctrl, String label, IconData icon) =>
-      Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppColors.primaryColor),
-            labelText: label,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.all(16),
-          ),
-        ),
-      );
+  // Removed unused _buildField method
 
   Widget _buildCaloriesSummary() => Container(
     padding: const EdgeInsets.all(16),

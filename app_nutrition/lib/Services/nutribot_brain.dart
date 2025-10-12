@@ -27,189 +27,239 @@ class NutriBotBrain {
   Future<String> process(String userText) async {
     final text = _normalizeText(userText.toLowerCase().trim());
 
-    // Diagnostic et conseils anti-fatigue
-    if (text.contains("fatigue") ||
-        text.contains("fatigué") ||
-        text.contains("tu as bien dormi") ||
-        text.contains("sommeil") ||
-        text.contains("je suis crevé") ||
-        text.contains("je suis epuisé")) {
-      return "🩺 Tu sembles fatigué. Voici quelques conseils pour éviter la fatigue :\n\n"
-          "- As-tu bien dormi cette nuit ? Essaie de dormir 7 à 8h.\n"
-          "- Bois suffisamment d'eau dans la journée.\n"
-          "- Prends des pauses régulières, surtout si tu travailles ou étudies.\n"
-          "- Privilégie des repas équilibrés et évite les excès de sucre.\n"
-          "- Si la fatigue persiste, consulte un professionnel de santé.\n";
+    // 17) —— Proposer une recette à partir d'une liste d'ingrédients ——
+    if (_containsAny(text, [
+          "recette avec",
+          "que puis-je faire avec",
+          "que puis je faire avec",
+          "idee avec",
+          "j'ai comme ingredients",
+          "jai comme ingredients",
+          "j'ai",
+          "jai",
+        ]) &&
+        text.contains("ingredient")) {
+      // Extraction simple des ingrédients après "avec" ou "ingredients"
+      String ingredientsList = "";
+      final reg = RegExp(r'(?:avec|ingredients?)(.*)', caseSensitive: false);
+      final match = reg.firstMatch(userText.toLowerCase());
+      if (match != null && match.group(1) != null) {
+        ingredientsList = match
+            .group(1)!
+            .replaceAll(RegExp(r'[:\.]'), '')
+            .trim();
+      } else {
+        // fallback: tout après "j'ai" ou "jai"
+        final reg2 = RegExp(r"j('ai|ai)\s+(.*)", caseSensitive: false);
+        final match2 = reg2.firstMatch(userText.toLowerCase());
+        if (match2 != null && match2.group(1) != null) {
+          ingredientsList = match2
+              .group(1)!
+              .replaceAll(RegExp(r'[:\.]'), '')
+              .trim();
+        }
+      }
+      if (ingredientsList.isEmpty) {
+        return "Merci de préciser la liste d'ingrédients, par exemple : 'Recette avec tomates, riz, poulet'.";
+      }
+
+      // Appel direct à openrouter_service pour obtenir la recette
+      final prompt =
+          "Propose une recette originale et détaillée à partir uniquement des ingrédients suivants : $ingredientsList. "
+          "Réponds uniquement avec un objet JSON valide, sans aucun texte avant ou après. "
+          "Le JSON doit avoir les clés suivantes: 'nom' (string), 'description' (string), 'calories' (nombre), 'ingredients' (un tableau d'objets avec 'nom', 'quantite', 'unite', 'calories'), et 'imageUrl' (string, une URL d'image libre de droit du plat ou null si indisponible). "
+          "La recette doit utiliser un maximum de ces ingrédients et être appétissante.";
+
+      final raw = await _openRouter.processUserMessage(
+        prompt,
+        structured: true,
+      );
+      var parsed = _tryParseAndFormatRecipeResponse(raw, userText: userText);
+      if (parsed != null) return parsed;
+
+      // Fallback texte brut
+      return "Voici une idée de recette avec tes ingrédients :\n\n$raw";
     }
 
-    // Gestion de toutes les humeurs utilisateur
-    final humeurMap = {
-      'heureux': [
-        "je suis heureux",
-        "je suis joyeux",
-        "je suis contente",
-        "je suis content",
-        "je suis ravi",
-        "je suis satisfait",
-        "je suis en forme",
-      ],
-      'triste': [
-        "je suis triste",
-        "j'ai le cafard",
-        "je suis déprimé",
-        "je suis malheureux",
-        "je suis malheureuse",
-      ],
-      'stressé': [
-        "je suis stressé",
-        "je suis stresse",
-        "je suis anxieux",
-        "je suis anxieuse",
-        "je suis tendu",
-        "je suis tendue",
-        "je suis sous pression",
-      ],
-      'motivé': [
-        "je suis motivé",
-        "je suis motive",
-        "je suis déterminé",
-        "je suis determine",
-        "je suis prêt",
-        "je suis prete",
-        "je suis pret",
-      ],
-      'fatigué': [
-        "je suis fatigue",
-        "je suis fatigué",
-        "je suis crevé",
-        "je suis epuisé",
-        "je suis ko",
-      ],
-      'malade': [
-        "je suis malade",
-        "je ne me sens pas bien",
-        "j'ai mal",
-        "je suis patraque",
-      ],
-      'amoureux': [
-        "je suis amoureux",
-        "je suis amoureuse",
-        "j'ai un crush",
-        "je suis en couple",
-      ],
-      'fier': [
-        "je suis fier",
-        "je suis fière",
-        "je suis satisfait",
-        "je suis satisfaite",
-      ],
-      'énervé': [
-        "je suis enerve",
-        "je suis énervé",
-        "je suis agacé",
-        "je suis agace",
-        "je suis furieux",
-        "je suis furieuse",
-      ],
-      'détendu': [
-        "je suis detendu",
-        "je suis détendu",
-        "je suis relax",
-        "je suis zen",
-        "je suis calme",
-      ],
-    };
-    for (final humeur in humeurMap.entries) {
-      for (final phrase in humeur.value) {
-        if (text.contains(
-          phrase
-              .replaceAll('é', 'e')
-              .replaceAll('è', 'e')
-              .replaceAll('ê', 'e')
-              .replaceAll('à', 'a')
-              .replaceAll('ô', 'o')
-              .replaceAll('û', 'u')
-              .replaceAll('ï', 'i')
-              .replaceAll('î', 'i')
-              .replaceAll('ç', 'c'),
-        )) {
-          await PreferencesService.saveMood(humeur.key);
-          switch (humeur.key) {
-            case 'heureux':
-              return "😊 Super, tu es de bonne humeur ! Je peux te proposer un plat festif ou léger si tu veux.";
-            case 'triste':
-              return "😢 J'ai noté que tu es triste. Un plat réconfortant ou un dessert pourrait te remonter le moral !";
-            case 'stressé':
-              return "😬 Tu sembles stressé. Prends une pause, respire, et pourquoi pas une tisane ou un encas sain ?";
-            case 'motivé':
-              return "💪 Génial, tu es motivé ! Je peux te suggérer un repas énergétique pour garder la forme.";
-            case 'fatigué':
-              return "😴 J'ai bien noté que tu es fatigué. Je te proposerai des repas réconfortants !";
-            case 'malade':
-              return "🤒 Tu ne te sens pas bien. Une soupe ou un plat léger pourrait t'aider à aller mieux.";
-            case 'amoureux':
-              return "😍 L'amour donne de l'appétit ! Tu veux une idée de repas à partager ?";
-            case 'fier':
-              return "🏅 Bravo pour ta fierté ! Tu mérites un bon repas pour célébrer.";
-            case 'énervé':
-              return "😡 Tu sembles énervé. Un plat apaisant ou une boisson chaude pourrait t'aider à te détendre.";
-            case 'détendu':
-              return "😌 Tu es détendu, parfait pour savourer un bon repas ou une collation relaxante.";
-            default:
-              return "J'ai bien noté ton humeur : ${humeur.key}.";
+    // 1. Priorité : demande explicite de recette (avant humeur ou temps repas)
+    if (_containsAny(text, [
+      "recette",
+      "preparer",
+      "cuisine",
+      "comment faire",
+    ])) {
+      _lastIntent = "recette";
+
+      // Prompt amélioré : demander au moins 7 ingrédients
+      final raw = await _openRouter.processUserMessage(
+        "IMPORTANT: Réponds uniquement avec un objet JSON valide, sans aucun texte avant ou après. "
+        "Crée une recette détaillée pour '${userText}'. "
+        "Le JSON doit avoir les clés suivantes: 'nom' (string), 'description' (string), 'calories' (nombre), 'ingredients' (un tableau d'objets avec 'nom', 'quantite', 'unite', 'calories'), et 'imageUrl' (string, une URL d'image libre de droit du plat ou null si indisponible). "
+        "La liste d'ingrédients doit être riche et variée (au moins 7 ingrédients différents, avec quantités et unités précises).",
+        structured: true,
+      );
+
+      var parsed = _tryParseAndFormatRecipeResponse(raw, userText: userText);
+      if (parsed != null) return parsed;
+
+      // Fallback IA : on génère description et ingrédients séparément
+      // 1. Extraire le nom demandé
+      String nom = "Recette inconnue";
+      final reg = RegExp(r'recette\s+([\w\s-]+)', caseSensitive: false);
+      final match = reg.firstMatch(userText.toLowerCase());
+      if (match != null && match.group(1) != null) {
+        nom = match.group(1)!.trim();
+      } else {
+        nom = userText.trim();
+      }
+      // 2. Générer description
+      final desc = await _openRouter.processUserMessage(
+        "Donne une description appétissante et détaillée d'une recette de $nom en une phrase.",
+        structured: false,
+      );
+      // 3. Générer ingrédients
+      final ingText = await _openRouter.processUserMessage(
+        "Liste les ingrédients nécessaires pour une recette de $nom sous forme de liste à puces ou de tableau JSON.",
+        structured: false,
+      );
+      // 4. Parse ingrédients (liste à puces OU tableau JSON mal formé)
+      List<Map<String, dynamic>> ingredients = [];
+      // Cas 1 : objets JSON mal formés (ex: {"nom""Tortillas",...})
+      final objectMatches = RegExp(r'\{([^}]+)\}').allMatches(ingText);
+      if (objectMatches.isNotEmpty) {
+        for (final m in objectMatches) {
+          var obj = m.group(1)!;
+          // Correction des faux JSON : remplace "nom""Tortillas" par "nom":"Tortillas"
+          obj = obj.replaceAllMapped(
+            RegExp(r'"([a-zA-Z_]+)""'),
+            (match) => '"${match.group(1)}":"',
+          );
+          // Ajoute les virgules manquantes entre les champs
+          obj = obj.replaceAll(RegExp(r'"\s*,'), '",');
+          // Sépare les champs
+          final fields = obj.split(',');
+          String nom = '';
+          double quantite = 1.0;
+          String unite = '';
+          double calories = 0.0;
+          for (final f in fields) {
+            final kv = f.split(':');
+            if (kv.length < 2) continue;
+            final key = kv[0]
+                .replaceAll(RegExp(r'["]'), '')
+                .trim()
+                .toLowerCase();
+            final val = kv[1].replaceAll(RegExp(r'["]'), '').trim();
+            if (key == 'nom')
+              nom = val;
+            else if (key == 'quantite')
+              quantite = double.tryParse(val) ?? 1.0;
+            else if (key == 'unite')
+              unite = val;
+            else if (key == 'calories')
+              calories = double.tryParse(val) ?? 0.0;
+          }
+          if (nom.isNotEmpty) {
+            ingredients.add({
+              'nom': nom,
+              'quantite': quantite,
+              'unite': unite,
+              'calories': calories,
+            });
           }
         }
       }
-    }
-
-    if (text.contains("quelle est mon humeur") || text.contains("mon humeur")) {
-      final mood = await PreferencesService.getMood();
-      if (mood != null && mood.isNotEmpty) {
-        return "🌈 Merci de partager comment tu te sens ! Aujourd'hui, tu es **$mood**. Si tu veux, je peux adapter mes conseils ou mes suggestions de repas à ton humeur 😊.";
-      } else {
-        return "Je n'ai pas encore enregistré ton humeur. Dis-moi comment tu te sens !";
-      }
-    }
-
-    // Gestion de l'humeur utilisateur
-    if (text.contains("je suis fatigue") || text.contains("je suis fatigué")) {
-      await PreferencesService.saveMood("fatigué");
-      return "😴 J'ai bien noté que tu es fatigué. Je te proposerai des repas réconfortants !";
-    }
-    if (text.contains("quelle est mon humeur") || text.contains("mon humeur")) {
-      final mood = await PreferencesService.getMood();
-      if (mood != null && mood.isNotEmpty) {
-        return "Ton humeur enregistrée est : $mood.";
-      } else {
-        return "Je n'ai pas encore enregistré ton humeur. Dis-moi comment tu te sens !";
-      }
-    }
-
-    // Gestion explicite de "j'ai faim"
-    if (text.contains("faim")) {
-      final lastMeal = await PreferencesService.getLastMealTime();
-      if (lastMeal != null) {
-        final minutesSinceLastMeal = DateTime.now()
-            .difference(lastMeal)
-            .inMinutes;
-        if (minutesSinceLastMeal < 120) {
-          return "🍽️ Tu viens de manger il y a moins de 2h ! Essaie d'attendre un peu avant de reprendre un repas.";
+      // Cas 2 : liste à puces ou lignes simples
+      if (ingredients.isEmpty) {
+        final bulletLines = ingText
+            .split('\n')
+            .where((l) => l.trim().startsWith('-') || l.trim().startsWith('*'))
+            .toList();
+        final stopWords = [
+          'nom',
+          'quantite',
+          'unite',
+          'piece',
+          'g',
+          'kg',
+          'ml',
+          'l',
+          'cuillère',
+          'cuillere',
+          'sachet',
+          'tablette',
+          'tranche',
+          'portion',
+        ];
+        for (final l in bulletLines) {
+          var cleaned = l.replaceFirst(RegExp(r'^[-*]\s*'), '').trim();
+          if (cleaned.isEmpty) continue;
+          final lower = cleaned.toLowerCase();
+          if (stopWords.contains(lower)) continue;
+          // Extraction avancée : "4 pièces de Tortillas" ou "Tortillas (4 pièces)"
+          final regex1 = RegExp(
+            r'^(\d+[\.,]?\d*)\s*([a-zA-Zéèêûîôàçù]+)\s+de\s+(.+)$',
+          );
+          final regex2 = RegExp(
+            r'^(.+)\s*\((\d+[\.,]?\d*)\s*([a-zA-Zéèêûîôàçù]+)\)$',
+          );
+          double quantite = 1.0;
+          String unite = '';
+          String nom = cleaned;
+          final m1 = regex1.firstMatch(cleaned);
+          final m2 = regex2.firstMatch(cleaned);
+          if (m1 != null) {
+            quantite =
+                double.tryParse(m1.group(1)!.replaceAll(',', '.')) ?? 1.0;
+            unite = m1.group(2) ?? '';
+            nom = m1.group(3) ?? cleaned;
+          } else if (m2 != null) {
+            nom = m2.group(1) ?? cleaned;
+            quantite =
+                double.tryParse(m2.group(2)!.replaceAll(',', '.')) ?? 1.0;
+            unite = m2.group(3) ?? '';
+          }
+          ingredients.add({
+            'nom': nom.trim(),
+            'quantite': quantite,
+            'unite': unite,
+            'calories': 0.0,
+          });
         }
       }
-      // Proposer une idée de snack ou repas léger
-      String moment = _momentDeJournee();
-      String prompt =
-          "Propose une idée de snack ou de repas léger pour $moment, avec une courte description, les calories et la liste des ingrédients (nom, quantité, unité). Formate la réponse en texte lisible, pas en JSON.";
-      final idea = await _openRouter.processUserMessage(
-        prompt,
-        structured: false,
+      // 5. Ajout en base
+      // Extraction de l'image si présente dans la réponse IA
+      String? imageUrl;
+      final imageMatch = RegExp(
+        r'(https?://[^\s)]+\.(jpg|jpeg|png|webp|gif))',
+        caseSensitive: false,
+      ).firstMatch(ingText);
+      if (imageMatch != null) {
+        imageUrl = imageMatch.group(1);
+      }
+      final recette = Recette(
+        nom: nom,
+        description: desc.trim(),
+        calories: _estimerCalories(nom),
+        publie: 1,
+        imageUrl: imageUrl, // Ajout de l'image IA si trouvée
+        utilisateurId: 1,
       );
-      // Reformater si l'IA retourne du JSON
-      final parsed = _tryParseAndFormatRecipeResponse(idea);
-      if (parsed != null) return parsed;
-      return "😋 Voici une idée pour toi :\n\n$idea\n\nTu veux la recette complète ou une autre suggestion ?";
+      final recetteId = await _recetteService.insertRecette(recette);
+      for (final ing in ingredients) {
+        await _ingredientService.insertIngredient(
+          Ingredient(
+            nom: ing['nom'],
+            quantite: ing['quantite'],
+            unite: ing['unite'],
+            calories: ing['calories'],
+            recetteId: recetteId,
+          ),
+        );
+      }
+      _resetContext();
+      return "Excellent choix ! Votre recette **$nom** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
     }
-    await PreferencesService.resetMealCountIfNewDay();
 
     // 0) Salutation
     if (text.contains("bonjour") || text.contains("salut")) {
@@ -261,7 +311,7 @@ class NutriBotBrain {
       return "Voici tes repas du ${date.day}/${date.month}/${date.year} :\n$repasDetails\n\nTotal : $totalCalories kcal";
     }
 
-    // 1) —— Contexte RECETTE prioritaire quand l'utilisateur dit "ajouter" ——
+    // 2) —— Contexte RECETTE prioritaire quand l'utilisateur dit "ajouter" ——
     if (_lastIntent == "recette" &&
         (_containsAny(text, [
           "ajouter la",
@@ -384,11 +434,14 @@ class NutriBotBrain {
       return "Tu as déjà bien mangé aujourd’hui 🍽️, je te suggère juste un petit snack ou une boisson légère.";
     }
 
-    // 🔹 Vérifier l’humeur
+    // 🔹 Vérifier l’humeur (NE PAS BLOQUER la génération de recette)
+    // (Supprimez ou commentez ce bloc pour ne pas bloquer les suggestions de recettes)
+    /*
     final mood = await PreferencesService.getUserMood();
     if (mood == "fatigué") {
       return "💤 Tu sembles encore fatigué. Je te conseille un repas réconfortant, comme une soupe chaude 🍲.";
     }
+    */
 
     // 3) —— Suggestions de repas
     if ((text.contains("repas") ||
@@ -405,6 +458,43 @@ class NutriBotBrain {
       );
       // Affichage élégant, pas d'ajout en base
       return "✨ Idée de plat pour le $moment :\n\n$idea\n\nTu veux la recette complète ou une autre suggestion ?";
+    }
+
+    // 🔍 Recherche intelligente de recette selon les ingrédients disponibles
+    if (_containsAny(text, [
+      "avec",
+      "j ai",
+      "jai",
+      "il me reste",
+      "j ai que",
+      "que puis je cuisiner",
+      "que faire avec",
+      "je veux cuisiner avec",
+    ])) {
+      final prompt =
+          """
+Tu es Snacky 🍊, un assistant culinaire expert et bienveillant.
+L'utilisateur dispose des ingrédients suivants : $userText.
+
+Ta mission :
+1️⃣ Propose une recette équilibrée, simple et délicieuse à base de ces ingrédients.
+2️⃣ Fournis :
+   - 🍽️ Le nom du plat
+   - 📝 Une courte description (1 à 2 phrases max)
+   - 🔥 Les calories estimées (approximatives)
+   - 🧂 La liste d’ingrédients (avec nom, quantité, unité)
+   - 👨‍🍳 Les étapes de préparation (3 à 5 étapes numérotées avec emojis)
+3️⃣ Si les ingrédients sont limités, complète avec des suggestions simples.
+4️⃣ Formate tout en texte clair, sans JSON.
+5️⃣ Termine par : "Souhaites-tu que je l’ajoute à ton carnet de recettes ? 🍴"
+""";
+
+      final response = await _openRouter.processUserMessage(
+        prompt,
+        structured: false,
+      );
+
+      return "🍳 Voici une idée de recette avec ce que tu as :\n\n$response";
     }
 
     // 4) —— Demande de RECETTE (on parse et on formate proprement)

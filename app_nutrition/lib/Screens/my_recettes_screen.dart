@@ -29,6 +29,8 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   bool _isRefreshing = false; // Indicateur pour l'animation de rafraîchissement
   String _searchQuery = '';
 
+  String _sortOption = 'Nom (A-Z)';
+
   @override
   void initState() {
     super.initState();
@@ -46,7 +48,7 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
     super.dispose();
   }
 
-  void _load() {
+  Future<void> _load() async {
     setState(() {
       _future = _service.getUserRecettes(_currentUserId);
     });
@@ -105,6 +107,51 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
     }
   }
 
+  void _sortRecettes(List<Recette> recettes) {
+    switch (_sortOption) {
+      case 'Nom (A-Z)':
+        recettes.sort((a, b) => a.nom.compareTo(b.nom));
+        break;
+      case 'Nom (Z-A)':
+        recettes.sort((a, b) => b.nom.compareTo(a.nom));
+        break;
+      case 'Calories (croissant)':
+        recettes.sort((a, b) => a.calories.compareTo(b.calories));
+        break;
+      case 'Calories (décroissant)':
+        recettes.sort((a, b) => b.calories.compareTo(a.calories));
+        break;
+    }
+  }
+
+  Widget _buildSortDropdown() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: DropdownButton<String>(
+        value: _sortOption,
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _sortOption = value;
+            });
+          }
+        },
+        items: const [
+          DropdownMenuItem(value: 'Nom (A-Z)', child: Text('Nom (A-Z)')),
+          DropdownMenuItem(value: 'Nom (Z-A)', child: Text('Nom (Z-A)')),
+          DropdownMenuItem(
+            value: 'Calories (croissant)',
+            child: Text('Calories (croissant)'),
+          ),
+          DropdownMenuItem(
+            value: 'Calories (décroissant)',
+            child: Text('Calories (décroissant)'),
+          ),
+        ],
+      ),
+    );
+  }
+
   double _aspectFor(int crossAxisCount) {
     if (crossAxisCount <= 2) return 0.8;
     if (crossAxisCount == 3) return 0.85;
@@ -118,43 +165,23 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.book, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              'Mes Recettes',
-              style: const TextStyle(
-                fontFamily: 'Roboto',
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: Colors.white,
-              ),
-            ),
+            const Text('Mes Recettes', style: TextStyle(color: Colors.white)),
           ],
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _load, // Reload recipes
+            icon: const Icon(Icons.refresh),
           ),
         ],
         flexibleSpace: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                AppColors.primaryColor,
-                AppColors.accentColor.withOpacity(0.8),
-              ],
+              colors: [AppColors.primaryColor, AppColors.secondaryColor],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
         ),
         elevation: 0,
@@ -166,49 +193,34 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
       ),
       body: Column(
         children: [
-          // _buildHeader(), // Removed undefined method call
+          _buildSummarySection(),
           Expanded(
             child: FutureBuilder<List<Recette>>(
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
-                }
-                final allRecettes = snapshot.data ?? [];
-                final filteredList = allRecettes.where((r) {
-                  final matchesSearch = r.nom.toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  );
-                  final matchesFilter = !_showOnlyDrafts || r.publie == 0;
-                  return matchesSearch && matchesFilter;
-                }).toList();
-
-                if (filteredList.isEmpty) {
+                } else if (snapshot.hasError) {
+                  return const Center(child: Text('Erreur de chargement'));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const _Empty();
                 }
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossAxisCount = constraints.maxWidth < 500
-                        ? 2
-                        : constraints.maxWidth < 800
-                        ? 3
-                        : 4;
-                    final aspect = _aspectFor(crossAxisCount);
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: aspect,
-                      ),
-                      itemCount: filteredList.length,
-                      itemBuilder: (context, i) => _RecetteCard(
-                        recette: filteredList[i],
-                        onTogglePublish: () => _togglePublish(filteredList[i]),
-                        onDelete: () => _deleteRecette(filteredList[i]),
-                        onEdit: () => _showEditRecette(filteredList[i]),
-                      ),
+
+                final recettes = snapshot.data!;
+
+                return GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: _aspectFor(2),
+                  ),
+                  itemCount: recettes.length,
+                  itemBuilder: (context, index) {
+                    final recette = recettes[index];
+                    return _RecetteCard(
+                      recette: recette,
+                      onTogglePublish: () => _togglePublish(recette),
+                      onEdit: () => _showEditRecette(recette),
+                      onDelete: () => _deleteRecette(recette),
                     );
                   },
                 );
@@ -220,7 +232,79 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
     );
   }
 
-  // Remove extra closing brace
+  Widget _buildSummarySection() {
+    return FutureBuilder<List<Recette>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return const Center(
+            child: Text('Erreur de chargement des statistiques'),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(
+            child: Text('Aucune recette disponible pour les statistiques'),
+          );
+        }
+
+        final allRecettes = snapshot.data ?? [];
+        final publishedCount = allRecettes.where((r) => r.publie == 1).length;
+        final draftCount = allRecettes.length - publishedCount;
+        final averageCalories = allRecettes.isNotEmpty
+            ? allRecettes.map((r) => r.calories).reduce((a, b) => a + b) /
+                  allRecettes.length
+            : 0;
+
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildStatCard(
+                'Publiées',
+                publishedCount.toString(),
+                Icons.check_circle,
+                color: Colors.green,
+              ),
+              _buildStatCard(
+                'Brouillons',
+                draftCount.toString(),
+                Icons.edit,
+                color: Colors.orange,
+              ),
+              _buildStatCard(
+                'Calories Moy.',
+                averageCalories.toStringAsFixed(1),
+                Icons.local_fire_department,
+                color: Colors.red,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon, {
+    Color color = Colors.blue,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+      ],
+    );
+  }
 }
 
 class _RecetteCard extends StatelessWidget {

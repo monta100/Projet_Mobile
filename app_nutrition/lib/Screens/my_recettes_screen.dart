@@ -132,6 +132,12 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
           ],
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _load, // Reload recipes
+          ),
+        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -153,34 +159,10 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
         ),
         elevation: 0,
       ),
-      floatingActionButton: Stack(
-        children: [
-          if (_isRefreshing)
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.center,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppColors.primaryColor),
-                ),
-              ),
-            ),
-          FloatingActionButton(
-            onPressed: () async {
-              setState(() => _isRefreshing = true);
-              await Future.delayed(
-                const Duration(seconds: 1),
-              ); // Simule un délai
-              _load();
-              setState(() => _isRefreshing = false);
-            },
-            backgroundColor: AppColors.primaryColor,
-            child: AnimatedRotation(
-              turns: _isRefreshing ? 1 : 0,
-              duration: const Duration(seconds: 1),
-              child: const Icon(Icons.refresh, color: Colors.white),
-            ),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateRecette,
+        backgroundColor: AppColors.primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Column(
         children: [
@@ -801,29 +783,32 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
   );
 
   Widget _buildSaveButton() => GestureDetector(
-    onTap: _save,
+    onTap: _formKey.currentState?.validate() == true ? _save : null,
     child: Container(
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryColor, AppColors.accentColor],
-        ),
+        gradient: _formKey.currentState?.validate() == true
+            ? const LinearGradient(
+                colors: [AppColors.primaryColor, AppColors.accentColor],
+              )
+            : const LinearGradient(colors: [Colors.grey, Colors.grey]),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: const Center(
+      child: Center(
         child: Text(
           'Créer la recette',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
+            color: _formKey.currentState?.validate() == true
+                ? Colors.white
+                : Colors.grey[400],
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -869,27 +854,53 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
                     ),
                     TextFormField(
                       controller: _nomCtrl,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Nom de la recette',
-                        prefixIcon: Icon(Icons.fastfood),
+                        prefixIcon: const Icon(Icons.fastfood),
                       ),
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'Le nom est obligatoire'
-                          : null,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Le nom est obligatoire';
+                        }
+                        if (value.length < 3) {
+                          return 'Le nom doit contenir au moins 3 caractères';
+                        }
+                        return null;
+                      },
                     ),
+                    if (_formKey.currentState?.validate() == false)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Veuillez corriger les erreurs ci-dessus.',
+                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (optionnel)',
-                        prefixIcon: Icon(Icons.notes),
+                      decoration: InputDecoration(
+                        labelText: 'Description',
+                        prefixIcon: const Icon(Icons.description),
                       ),
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'La description est obligatoire'
-                          : null,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'La description est obligatoire';
+                        }
+                        if (value.length < 10) {
+                          return 'La description doit contenir au moins 10 caractères';
+                        }
+                        return null;
+                      },
                     ),
+                    if (_formKey.currentState?.validate() == false)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Veuillez corriger les erreurs ci-dessus.',
+                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
                     const SizedBox(height: 18),
                     GestureDetector(
                       onTap: _showImageOptions,
@@ -1194,11 +1205,24 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
                               labelText: 'Nom de la recette',
                               prefixIcon: Icon(Icons.fastfood),
                             ),
-                            validator: (value) =>
-                                (value == null || value.trim().isEmpty)
-                                ? 'Le nom est obligatoire'
-                                : null,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Le nom est obligatoire';
+                              }
+                              return null;
+                            },
                           ),
+                          if (_formKey.currentState?.validate() == false)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'Veuillez corriger les erreurs ci-dessus.',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _descCtrl,
@@ -1206,11 +1230,24 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
                               labelText: 'Description (optionnel)',
                               prefixIcon: Icon(Icons.notes),
                             ),
-                            validator: (value) =>
-                                (value == null || value.trim().isEmpty)
-                                ? 'La description est obligatoire'
-                                : null,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'La description est obligatoire';
+                              }
+                              return null;
+                            },
                           ),
+                          if (_formKey.currentState?.validate() == false)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'Veuillez corriger les erreurs ci-dessus.',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 18),
                           GestureDetector(
                             onTap: _showImageOptions,
@@ -1386,29 +1423,32 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
   );
 
   Widget _buildSaveButton() => GestureDetector(
-    onTap: _save,
+    onTap: _formKey.currentState?.validate() == true ? _save : null,
     child: Container(
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryColor, AppColors.accentColor],
-        ),
+        gradient: _formKey.currentState?.validate() == true
+            ? const LinearGradient(
+                colors: [AppColors.primaryColor, AppColors.accentColor],
+              )
+            : const LinearGradient(colors: [Colors.grey, Colors.grey]),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: const Center(
+      child: Center(
         child: Text(
-          'Mettre à jour la recette',
+          'Créer la recette',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
+            color: _formKey.currentState?.validate() == true
+                ? Colors.white
+                : Colors.grey[400],
             fontWeight: FontWeight.w600,
           ),
         ),

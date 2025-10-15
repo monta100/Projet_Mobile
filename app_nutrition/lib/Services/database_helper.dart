@@ -8,6 +8,7 @@ import 'package:sqflite/sqflite.dart';
 import '../Entites/utilisateur.dart';
 import '../Entites/objectif.dart';
 import '../Entites/rappel.dart';
+import '../Entites/message.dart';
 
 class DatabaseHelper {
   // --- Singleton ---
@@ -17,13 +18,15 @@ class DatabaseHelper {
 
   static Database? _database;
 
-  static const int _dbVersion = 3;
+  // bumped to 5 to add messages table
+  static const int _dbVersion = 5;
   static const String _dbName = 'app_nutrition.db';
 
   // Table names
   static const String tableUtilisateurs = 'utilisateurs';
   static const String tableObjectifs = 'objectifs';
   static const String tableRappels = 'rappels';
+  static const String tableMessages = 'messages';
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -52,6 +55,7 @@ class DatabaseHelper {
         email TEXT UNIQUE,
         motDePasse TEXT,
         role TEXT,
+        coach_id INTEGER,
         isVerified INTEGER,
         verificationCode TEXT,
         verificationExpiry TEXT
@@ -96,6 +100,20 @@ class DatabaseHelper {
         FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE $tableMessages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER,
+        receiver_id INTEGER,
+        content TEXT,
+        type TEXT,
+        created_at TEXT,
+        read INTEGER DEFAULT 0,
+        FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -118,6 +136,30 @@ class DatabaseHelper {
         await db.execute(
           'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarInitials TEXT',
         );
+      } catch (_) {}
+    }
+    if (oldVersion < 4) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableUtilisateurs ADD COLUMN coach_id INTEGER',
+        );
+      } catch (_) {}
+    }
+    if (oldVersion < 5) {
+      try {
+        await db.execute('''
+          CREATE TABLE $tableMessages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER,
+            receiver_id INTEGER,
+            content TEXT,
+            type TEXT,
+            created_at TEXT,
+            read INTEGER DEFAULT 0,
+            FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+            FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+          )
+        ''');
       } catch (_) {}
     }
   }
@@ -177,6 +219,17 @@ class DatabaseHelper {
     );
     if (rows.isEmpty) return null;
     return Utilisateur.fromMap(rows.first);
+  }
+
+  /// Récupère les clients d'un coach (utilisateurs ayant coach_id = coachId)
+  Future<List<Utilisateur>> getClientsByCoach(int coachId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableUtilisateurs,
+      where: 'coach_id = ?',
+      whereArgs: [coachId],
+    );
+    return rows.map((r) => Utilisateur.fromMap(r)).toList();
   }
 
   Future<int> updateUtilisateur(Utilisateur utilisateur) async {
@@ -337,6 +390,44 @@ class DatabaseHelper {
 
   Future<int> deleteRappel(int id) async {
     return await delete(tableRappels, id);
+  }
+
+  // --- Messages ---
+  Future<int> insertMessage(Message message) async {
+    final db = await database;
+    final data = message.toMap();
+    data.remove('id');
+    return await db.insert(tableMessages, data);
+  }
+
+  Future<List<Message>> getMessagesBetween(int userA, int userB) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT * FROM $tableMessages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY datetime(created_at) ASC',
+      [userA, userB, userB, userA],
+    );
+    return rows.map((r) => Message.fromMap(r)).toList();
+  }
+
+  Future<List<Message>> getMessagesForUser(int userId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableMessages,
+      where: 'sender_id = ? OR receiver_id = ?',
+      whereArgs: [userId, userId],
+      orderBy: 'datetime(created_at) ASC',
+    );
+    return rows.map((r) => Message.fromMap(r)).toList();
+  }
+
+  Future<int> markMessageAsRead(int messageId) async {
+    final db = await database;
+    return await db.update(
+      tableMessages,
+      {'read': 1},
+      where: 'id = ?',
+      whereArgs: [messageId],
+    );
   }
 
   // --- Utilities ---

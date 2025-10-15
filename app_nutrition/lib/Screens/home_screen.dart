@@ -353,6 +353,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     arguments: widget.utilisateur,
                   ),
                 ),
+                // Show 'Mes clients' for common coach-role variants
+                (() {
+                  final role = widget.utilisateur.role.toLowerCase().trim();
+                  final coachAliases = {
+                    'coach',
+                    'coatch',
+                    'entraîneur',
+                    'entraineur',
+                    'trainer',
+                  };
+                  return coachAliases.contains(role)
+                      ? _buildActionCard(
+                          'Mes Clients',
+                          Icons.group,
+                          Colors.teal,
+                          () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.mesClients,
+                            arguments: widget.utilisateur,
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                }()),
                 _buildActionCard(
                   'Mes Rappels',
                   Icons.notifications_active,

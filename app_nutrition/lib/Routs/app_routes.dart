@@ -8,6 +8,8 @@ import '../Screens/mes_rappels_screen.dart';
 import '../Screens/nouveau_rappel_screen.dart';
 import '../Screens/profil_screen.dart';
 import '../Screens/test_database_screen.dart';
+import '../Screens/mes_clients_screen.dart';
+import '../Screens/coach_home_screen.dart';
 import '../Entites/utilisateur.dart';
 
 class AppRoutes {
@@ -20,6 +22,7 @@ class AppRoutes {
   static const String rappels = '/rappels';
   static const String rappelsNouveau = '/rappels/nouveau';
   static const String testDatabase = '/test-database';
+  static const String mesClients = '/mes-clients';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -29,7 +32,19 @@ class AppRoutes {
         // Restore original behavior: always show the classic HomeScreen
         final utilisateur =
             ModalRoute.of(context)!.settings.arguments as Utilisateur?;
-        if (utilisateur != null) return HomeScreen(utilisateur: utilisateur);
+        if (utilisateur != null) {
+          final role = utilisateur.role.toLowerCase().trim();
+          final coachAliases = {
+            'coach',
+            'coatch',
+            'entraîneur',
+            'entraineur',
+            'trainer',
+          };
+          if (coachAliases.contains(role))
+            return CoachHomeScreen(coach: utilisateur);
+          return HomeScreen(utilisateur: utilisateur);
+        }
         // If no user provided, redirect to login
         return const LoginScreen();
       },
@@ -48,10 +63,33 @@ class AppRoutes {
         return const LoginScreen();
       },
       objectifsNouveau: (context) {
-        final utilisateur =
-            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
-        if (utilisateur != null) {
-          return NouveauObjectifScreen(utilisateur: utilisateur);
+        final arg = ModalRoute.of(context)!.settings.arguments;
+        // If a simple Utilisateur is passed, allow (user creating own objective)
+        if (arg is Utilisateur) {
+          return NouveauObjectifScreen(utilisateur: arg);
+        }
+        // If a map with requester/target is passed, only allow when requester == target
+        if (arg is Map) {
+          final target = arg['target'] as Utilisateur?;
+          final requester = arg['requester'] as Utilisateur?;
+          if (target != null && requester != null) {
+            if (target.id == requester.id) {
+              return NouveauObjectifScreen(utilisateur: target);
+            }
+            // Deny coach creation of objective for another user
+            return Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Accès refusé: Seul l\'utilisateur peut créer ses objectifs.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ),
+            );
+          }
         }
         // Si pas d'utilisateur, rediriger vers login
         return const LoginScreen();
@@ -71,6 +109,12 @@ class AppRoutes {
         return const LoginScreen();
       },
       testDatabase: (context) => const TestDatabaseScreen(),
+      mesClients: (context) {
+        final utilisateur =
+            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
+        if (utilisateur != null) return MesClientsScreen(coach: utilisateur);
+        return const LoginScreen();
+      },
     };
   }
 
@@ -85,7 +129,19 @@ class AppRoutes {
       case home:
         final utilisateur = settings.arguments as Utilisateur?;
         if (utilisateur != null) {
-          // Always use the original HomeScreen for the main route
+          final role = utilisateur.role.toLowerCase().trim();
+          final coachAliases = {
+            'coach',
+            'coatch',
+            'entraîneur',
+            'entraineur',
+            'trainer',
+          };
+          if (coachAliases.contains(role)) {
+            return MaterialPageRoute(
+              builder: (context) => CoachHomeScreen(coach: utilisateur),
+            );
+          }
           return MaterialPageRoute(
             builder: (context) => HomeScreen(utilisateur: utilisateur),
           );
@@ -110,12 +166,36 @@ class AppRoutes {
         return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       case objectifsNouveau:
-        final utilisateur = settings.arguments as Utilisateur?;
-        if (utilisateur != null) {
+        final arg = settings.arguments;
+        if (arg is Utilisateur) {
           return MaterialPageRoute(
-            builder: (context) =>
-                NouveauObjectifScreen(utilisateur: utilisateur),
+            builder: (context) => NouveauObjectifScreen(utilisateur: arg),
           );
+        }
+        if (arg is Map) {
+          final target = arg['target'] as Utilisateur?;
+          final requester = arg['requester'] as Utilisateur?;
+          if (target != null && requester != null) {
+            if (target.id == requester.id) {
+              return MaterialPageRoute(
+                builder: (context) =>
+                    NouveauObjectifScreen(utilisateur: target),
+              );
+            }
+            return MaterialPageRoute(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Accès refusé: Seul l\'utilisateur peut créer ses objectifs.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
         }
         return MaterialPageRoute(builder: (context) => const LoginScreen());
 
@@ -141,6 +221,15 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (context) => const TestDatabaseScreen(),
         );
+
+      case mesClients:
+        final utilisateur = settings.arguments as Utilisateur?;
+        if (utilisateur != null) {
+          return MaterialPageRoute(
+            builder: (context) => MesClientsScreen(coach: utilisateur),
+          );
+        }
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       default:
         return MaterialPageRoute(

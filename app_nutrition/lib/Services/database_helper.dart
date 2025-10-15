@@ -1,4 +1,10 @@
-// Database helper using in-memory storage (no sqflite dependency)
+// Database helper using sqflite for persistent storage
+import 'dart:async';
+
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
+
 import '../Entites/utilisateur.dart';
 import '../Entites/objectif.dart';
 import '../Entites/rappel.dart';
@@ -9,276 +15,368 @@ class DatabaseHelper {
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
 
-  // --- Noms des tables ---
+  static Database? _database;
+
+  static const int _dbVersion = 3;
+  static const String _dbName = 'app_nutrition.db';
+
+  // Table names
   static const String tableUtilisateurs = 'utilisateurs';
   static const String tableObjectifs = 'objectifs';
   static const String tableRappels = 'rappels';
 
-  // --- Mock data storage ---
-  static List<Utilisateur> _utilisateurs = [];
-  static List<Objectif> _objectifs = [];
-  static List<Rappel> _rappels = [];
-  static int _nextUserId = 1;
-  static int _nextObjectifId = 1;
-  static int _nextRappelId = 1;
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
 
-  // --- Méthodes génériques ---
+  Future<Database> _initDatabase() async {
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final path = join(documentsDirectory.path, _dbName);
 
-  /// Insère une nouvelle ligne dans la table spécifiée.
-  /// Retourne l'ID de la nouvelle ligne.
+    return await openDatabase(
+      path,
+      version: _dbVersion,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE $tableUtilisateurs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT,
+        prenom TEXT,
+        email TEXT UNIQUE,
+        motDePasse TEXT,
+        role TEXT,
+        isVerified INTEGER,
+        verificationCode TEXT,
+        verificationExpiry TEXT
+      )
+    ''');
+    // If DB version >=3 we expect avatar columns to exist; add them
+    try {
+      await db.execute(
+        'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarPath TEXT',
+      );
+    } catch (_) {}
+    try {
+      await db.execute(
+        'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarColor TEXT',
+      );
+    } catch (_) {}
+    try {
+      await db.execute(
+        'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarInitials TEXT',
+      );
+    } catch (_) {}
+
+    await db.execute('''
+      CREATE TABLE $tableObjectifs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateur_id INTEGER,
+        type TEXT,
+        valeurCible REAL,
+        dateFixee TEXT,
+        progression REAL,
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableRappels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateur_id INTEGER,
+        message TEXT,
+        date TEXT,
+        statut INTEGER,
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add avatarPath and avatarColor
+      try {
+        await db.execute(
+          'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarPath TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarColor TEXT',
+        );
+      } catch (_) {}
+      oldVersion = 2;
+    }
+    if (oldVersion < 3) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarInitials TEXT',
+        );
+      } catch (_) {}
+    }
+  }
+
+  // Generic helper methods
   Future<int> insert(String table, Map<String, dynamic> data) async {
-    // Simulation d'insertion avec des données en mémoire
-    await Future.delayed(
-      Duration(milliseconds: 10),
-    ); // Simulate async operation
-
-    switch (table) {
-      case tableUtilisateurs:
-        final utilisateur = Utilisateur.fromMap({...data, 'id': _nextUserId});
-        _utilisateurs.add(utilisateur);
-        return _nextUserId++;
-      case tableObjectifs:
-        final objectif = Objectif.fromMap({...data, 'id': _nextObjectifId});
-        _objectifs.add(objectif);
-        return _nextObjectifId++;
-      case tableRappels:
-        final rappel = Rappel.fromMap({...data, 'id': _nextRappelId});
-        _rappels.add(rappel);
-        return _nextRappelId++;
-      default:
-        throw Exception('Table inconnue: $table');
-    }
+    final db = await database;
+    return await db.insert(table, data);
   }
 
-  /// Récupère toutes les lignes d'une table.
   Future<List<Map<String, dynamic>>> queryAll(String table) async {
-    await Future.delayed(Duration(milliseconds: 10));
-
-    switch (table) {
-      case tableUtilisateurs:
-        return _utilisateurs.map((u) => u.toMap()).toList();
-      case tableObjectifs:
-        return _objectifs.map((o) => o.toMap()).toList();
-      case tableRappels:
-        return _rappels.map((r) => r.toMap()).toList();
-      default:
-        return [];
-    }
+    final db = await database;
+    return await db.query(table);
   }
 
-  /// Met à jour une ligne dans une table en fonction de son ID.
   Future<int> update(String table, Map<String, dynamic> data, int id) async {
-    await Future.delayed(Duration(milliseconds: 10));
-
-    switch (table) {
-      case tableUtilisateurs:
-        final index = _utilisateurs.indexWhere((u) => u.id == id);
-        if (index != -1) {
-          _utilisateurs[index] = Utilisateur.fromMap({...data, 'id': id});
-          return 1;
-        }
-        break;
-      case tableObjectifs:
-        final index = _objectifs.indexWhere((o) => o.id == id);
-        if (index != -1) {
-          _objectifs[index] = Objectif.fromMap({...data, 'id': id});
-          return 1;
-        }
-        break;
-      case tableRappels:
-        final index = _rappels.indexWhere((r) => r.id == id);
-        if (index != -1) {
-          _rappels[index] = Rappel.fromMap({...data, 'id': id});
-          return 1;
-        }
-        break;
-    }
-    return 0;
+    final db = await database;
+    return await db.update(table, data, where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Supprime une ligne d'une table en fonction de son ID.
   Future<int> delete(String table, int id) async {
-    await Future.delayed(Duration(milliseconds: 10));
-
-    switch (table) {
-      case tableUtilisateurs:
-        final initialLength = _utilisateurs.length;
-        _utilisateurs.removeWhere((u) => u.id == id);
-        return initialLength > _utilisateurs.length ? 1 : 0;
-      case tableObjectifs:
-        final initialLength = _objectifs.length;
-        _objectifs.removeWhere((o) => o.id == id);
-        return initialLength > _objectifs.length ? 1 : 0;
-      case tableRappels:
-        final initialLength = _rappels.length;
-        _rappels.removeWhere((r) => r.id == id);
-        return initialLength > _rappels.length ? 1 : 0;
-      default:
-        return 0;
-    }
+    final db = await database;
+    return await db.delete(table, where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- Méthodes spécifiques pour Utilisateur ---
-
+  // --- Utilisateur ---
   Future<int> insertUtilisateur(Utilisateur utilisateur) async {
-    return await insert(tableUtilisateurs, utilisateur.toMap());
+    final data = utilisateur.toMap();
+    data.remove('id');
+    // Store boolean as integer
+    data['isVerified'] = utilisateur.isVerified ? 1 : 0;
+    return await insert(tableUtilisateurs, data);
   }
 
   Future<List<Utilisateur>> getAllUtilisateurs() async {
-    return List.from(_utilisateurs);
+    final rows = await queryAll(tableUtilisateurs);
+    return rows.map((r) => Utilisateur.fromMap(r)).toList();
   }
 
   Future<Utilisateur?> getUtilisateurById(int id) async {
-    try {
-      return _utilisateurs.firstWhere((u) => u.id == id);
-    } catch (e) {
-      return null;
-    }
+    final db = await database;
+    final rows = await db.query(
+      tableUtilisateurs,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) return null;
+    return Utilisateur.fromMap(rows.first);
   }
 
   Future<Utilisateur?> getUtilisateurByEmail(String email) async {
-    try {
-      return _utilisateurs.firstWhere((u) => u.email == email);
-    } catch (e) {
-      return null;
-    }
+    final db = await database;
+    final rows = await db.query(
+      tableUtilisateurs,
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    if (rows.isEmpty) return null;
+    return Utilisateur.fromMap(rows.first);
   }
 
   Future<int> updateUtilisateur(Utilisateur utilisateur) async {
-    return await update(
-      tableUtilisateurs,
-      utilisateur.toMap(),
-      utilisateur.id!,
-    );
+    final data = utilisateur.toMap();
+    data.remove('id');
+    data['isVerified'] = utilisateur.isVerified ? 1 : 0;
+    return await update(tableUtilisateurs, data, utilisateur.id!);
   }
 
   Future<int> deleteUtilisateur(int id) async {
     return await delete(tableUtilisateurs, id);
   }
 
-  // --- Méthodes spécifiques pour Objectif ---
-
+  // --- Objectif ---
   Future<int> insertObjectif(Objectif objectif) async {
-    return await insert(tableObjectifs, objectif.toMap());
+    final data = objectif.toMap();
+    data['utilisateur_id'] = objectif.utilisateurId;
+    data.remove('id');
+    return await insert(tableObjectifs, {
+      'utilisateur_id': data['utilisateur_id'],
+      'type': data['type'],
+      'valeurCible': data['valeurCible'],
+      'dateFixee': data['dateFixee'],
+      'progression': data['progression'],
+    });
   }
 
   Future<List<Objectif>> getAllObjectifs() async {
-    return List.from(_objectifs);
+    final rows = await queryAll(tableObjectifs);
+    return rows.map((r) => Objectif.fromMap(r)).toList();
   }
 
   Future<Objectif?> getObjectifById(int id) async {
-    try {
-      return _objectifs.firstWhere((o) => o.id == id);
-    } catch (e) {
-      return null;
-    }
+    final db = await database;
+    final rows = await db.query(
+      tableObjectifs,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) return null;
+    return Objectif.fromMap(rows.first);
   }
 
   Future<List<Objectif>> getObjectifsByType(String type) async {
-    return _objectifs.where((o) => o.type == type).toList();
+    final db = await database;
+    final rows = await db.query(
+      tableObjectifs,
+      where: 'type = ?',
+      whereArgs: [type],
+    );
+    return rows.map((r) => Objectif.fromMap(r)).toList();
   }
 
   Future<List<Objectif>> getObjectifsByUtilisateur(int utilisateurId) async {
-    return _objectifs.where((o) => o.utilisateurId == utilisateurId).toList();
+    final db = await database;
+    final rows = await db.query(
+      tableObjectifs,
+      where: 'utilisateur_id = ?',
+      whereArgs: [utilisateurId],
+    );
+    return rows.map((r) => Objectif.fromMap(r)).toList();
   }
 
   Future<int> updateObjectif(Objectif objectif) async {
-    return await update(tableObjectifs, objectif.toMap(), objectif.id!);
+    final data = objectif.toMap();
+    data['utilisateur_id'] = objectif.utilisateurId;
+    data.remove('id');
+    return await update(tableObjectifs, {
+      'utilisateur_id': data['utilisateur_id'],
+      'type': data['type'],
+      'valeurCible': data['valeurCible'],
+      'dateFixee': data['dateFixee'],
+      'progression': data['progression'],
+    }, objectif.id!);
   }
 
   Future<int> deleteObjectif(int id) async {
     return await delete(tableObjectifs, id);
   }
 
-  // --- Méthodes spécifiques pour Rappel ---
-
+  // --- Rappel ---
   Future<int> insertRappel(Rappel rappel) async {
-    return await insert(tableRappels, rappel.toMap());
+    final data = rappel.toMap();
+    data['utilisateur_id'] = rappel.utilisateurId;
+    data.remove('id');
+    data['statut'] = rappel.statut ? 1 : 0;
+    return await insert(tableRappels, {
+      'utilisateur_id': data['utilisateur_id'],
+      'message': data['message'],
+      'date': data['date'],
+      'statut': data['statut'],
+    });
   }
 
   Future<List<Rappel>> getAllRappels() async {
-    return List.from(_rappels);
+    final rows = await queryAll(tableRappels);
+    return rows.map((r) => Rappel.fromMap(r)).toList();
   }
 
   Future<Rappel?> getRappelById(int id) async {
-    try {
-      return _rappels.firstWhere((r) => r.id == id);
-    } catch (e) {
-      return null;
-    }
+    final db = await database;
+    final rows = await db.query(tableRappels, where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return null;
+    return Rappel.fromMap(rows.first);
   }
 
   Future<List<Rappel>> getRappelsNonLus() async {
-    return _rappels.where((r) => !r.statut).toList();
+    final db = await database;
+    final rows = await db.query(
+      tableRappels,
+      where: 'statut = ?',
+      whereArgs: [0],
+    );
+    return rows.map((r) => Rappel.fromMap(r)).toList();
   }
 
   Future<List<Rappel>> getRappelsDus() async {
-    final maintenant = DateTime.now();
-    return _rappels
-        .where((r) => r.date.isBefore(maintenant) && !r.statut)
-        .toList();
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT * FROM $tableRappels WHERE datetime(date) < datetime(?) AND statut = 0',
+      [DateTime.now().toIso8601String()],
+    );
+    return rows.map((r) => Rappel.fromMap(r)).toList();
   }
 
   Future<List<Rappel>> getRappelsByUtilisateur(int utilisateurId) async {
-    return _rappels.where((r) => r.utilisateurId == utilisateurId).toList();
+    final db = await database;
+    final rows = await db.query(
+      tableRappels,
+      where: 'utilisateur_id = ?',
+      whereArgs: [utilisateurId],
+    );
+    return rows.map((r) => Rappel.fromMap(r)).toList();
   }
 
   Future<List<Rappel>> getRappelsNonLusByUtilisateur(int utilisateurId) async {
-    return _rappels
-        .where((r) => r.utilisateurId == utilisateurId && !r.statut)
-        .toList();
+    final db = await database;
+    final rows = await db.query(
+      tableRappels,
+      where: 'utilisateur_id = ? AND statut = 0',
+      whereArgs: [utilisateurId],
+    );
+    return rows.map((r) => Rappel.fromMap(r)).toList();
   }
 
   Future<int> updateRappel(Rappel rappel) async {
-    return await update(tableRappels, rappel.toMap(), rappel.id!);
+    final data = rappel.toMap();
+    data['statut'] = rappel.statut ? 1 : 0;
+    data['utilisateur_id'] = rappel.utilisateurId;
+    data.remove('id');
+    return await update(tableRappels, {
+      'utilisateur_id': data['utilisateur_id'],
+      'message': data['message'],
+      'date': data['date'],
+      'statut': data['statut'],
+    }, rappel.id!);
   }
 
   Future<int> deleteRappel(int id) async {
     return await delete(tableRappels, id);
   }
 
-  // --- Méthodes utilitaires ---
-
-  /// Initialise quelques données de test
+  // --- Utilities ---
+  /// Initialise quelques données de test si la base est vide
   Future<void> initTestData() async {
-    if (_utilisateurs.isEmpty) {
-      // Créer un utilisateur de test
+    final users = await getAllUtilisateurs();
+    if (users.isEmpty) {
       final testUser = Utilisateur(
         nom: 'Dupont',
         prenom: 'Jean',
         email: 'jean.dupont@test.com',
         motDePasse: 'Test123!',
         role: 'Utilisateur',
+        isVerified: true,
       );
-      await insertUtilisateur(testUser);
+      final userId = await insertUtilisateur(testUser);
 
-      // Créer un objectif de test
       final testObjectif = Objectif(
-        utilisateurId: 1,
+        utilisateurId: userId,
         type: 'Perte de poids',
         valeurCible: 5.0,
-        dateFixee: DateTime.now().add(Duration(days: 30)),
+        dateFixee: DateTime.now().add(const Duration(days: 30)),
         progression: 1.5,
       );
       await insertObjectif(testObjectif);
 
-      // Créer un rappel de test
       final testRappel = Rappel(
-        utilisateurId: 1,
+        utilisateurId: userId,
         message: 'Boire un verre d\'eau',
-        date: DateTime.now().add(Duration(hours: 1)),
+        date: DateTime.now().add(const Duration(hours: 1)),
       );
       await insertRappel(testRappel);
     }
   }
 
-  /// Efface toutes les données
-  void clearAllData() {
-    _utilisateurs.clear();
-    _objectifs.clear();
-    _rappels.clear();
-    _nextUserId = 1;
-    _nextObjectifId = 1;
-    _nextRappelId = 1;
+  /// Efface toutes les données (utilitaire de développement)
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.delete(tableRappels);
+    await db.delete(tableObjectifs);
+    await db.delete(tableUtilisateurs);
   }
 }

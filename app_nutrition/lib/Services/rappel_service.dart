@@ -46,6 +46,16 @@ class RappelService {
     }
   }
 
+  /// Récupère les rappels pour un utilisateur spécifique
+  Future<List<Rappel>> obtenirRappelsByUtilisateur(int utilisateurId) async {
+    try {
+      return await _databaseHelper.getRappelsByUtilisateur(utilisateurId);
+    } catch (e) {
+      print('Erreur lors de la récupération des rappels de l\'utilisateur: $e');
+      return [];
+    }
+  }
+
   /// Récupère les rappels dus
   Future<List<Rappel>> obtenirRappelsDus() async {
     try {
@@ -164,11 +174,15 @@ class RappelService {
       final maintenant = DateTime.now();
       final debutSemaine = maintenant.add(Duration(days: 1));
       final finSemaine = maintenant.add(Duration(days: 7));
-      
+
       final tousLesRappels = await _databaseHelper.getAllRappels();
-      return tousLesRappels.where((rappel) => 
-        rappel.date.isAfter(debutSemaine) && 
-        rappel.date.isBefore(finSemaine)).toList();
+      return tousLesRappels
+          .where(
+            (rappel) =>
+                rappel.date.isAfter(debutSemaine) &&
+                rappel.date.isBefore(finSemaine),
+          )
+          .toList();
     } catch (e) {
       print('Erreur lors de la récupération des rappels de la semaine: $e');
       return [];
@@ -192,12 +206,12 @@ class RappelService {
       print('Le message du rappel ne peut pas être vide');
       return false;
     }
-    
+
     if (rappel.date.isBefore(DateTime.now())) {
       print('La date du rappel ne peut pas être dans le passé');
       return false;
     }
-    
+
     return true;
   }
 
@@ -209,11 +223,11 @@ class RappelService {
     int nombreRepetitions,
   ) async {
     List<int> idsCreated = [];
-    
+
     try {
       for (int i = 0; i < nombreRepetitions; i++) {
         DateTime dateRappel;
-        
+
         switch (frequence.toLowerCase()) {
           case 'quotidien':
             dateRappel = dateDebut.add(Duration(days: i));
@@ -233,16 +247,16 @@ class RappelService {
           default:
             throw Exception('Fréquence non supportée: $frequence');
         }
-        
+
         final rappel = Rappel(
           message: '$message (${i + 1}/$nombreRepetitions)',
           date: dateRappel,
         );
-        
+
         final id = await creerRappel(rappel);
         idsCreated.add(id);
       }
-      
+
       print('$nombreRepetitions rappels récurrents créés');
       return idsCreated;
     } catch (e) {

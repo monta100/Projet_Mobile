@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../Services/user_service.dart';
+import 'verification_screen.dart';
 import '../Entites/utilisateur.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -55,13 +56,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Inscription réussie !'),
+              content: Text(
+                'Inscription réussie ! Un code de vérification a été envoyé.',
+              ),
               backgroundColor: Colors.green,
             ),
           );
 
-          // Retour à l'écran de connexion
-          Navigator.pop(context);
+          // Aller à l'écran de vérification pour saisir le code
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VerificationScreen(
+                email: utilisateur.email,
+                userService: _userService,
+              ),
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {

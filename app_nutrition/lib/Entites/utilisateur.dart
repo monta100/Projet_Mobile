@@ -5,6 +5,12 @@ class Utilisateur {
   String email;
   String motDePasse;
   String role;
+  String? avatarPath;
+  String? avatarColor;
+  String? avatarInitials;
+  bool isVerified;
+  String? verificationCode;
+  DateTime? verificationExpiry;
 
   Utilisateur({
     this.id,
@@ -13,6 +19,12 @@ class Utilisateur {
     required this.email,
     required this.motDePasse,
     required this.role,
+    this.avatarPath,
+    this.avatarColor,
+    this.avatarInitials,
+    this.isVerified = false,
+    this.verificationCode,
+    this.verificationExpiry,
   });
 
   // Conversion vers Map pour la base de données
@@ -24,6 +36,12 @@ class Utilisateur {
       'email': email,
       'motDePasse': motDePasse,
       'role': role,
+      'avatarPath': avatarPath,
+      'avatarColor': avatarColor,
+      'avatarInitials': avatarInitials,
+      'isVerified': isVerified ? 1 : 0,
+      'verificationCode': verificationCode,
+      'verificationExpiry': verificationExpiry?.toIso8601String(),
     };
   }
 
@@ -36,11 +54,21 @@ class Utilisateur {
       email: map['email'],
       motDePasse: map['motDePasse'],
       role: map['role'],
+      avatarPath: map['avatarPath'],
+      avatarColor: map['avatarColor'],
+      avatarInitials: map['avatarInitials'],
+      isVerified: map['isVerified'] == null
+          ? false
+          : (map['isVerified'] == 1 || map['isVerified'] == true),
+      verificationCode: map['verificationCode'],
+      verificationExpiry: map['verificationExpiry'] != null
+          ? DateTime.tryParse(map['verificationExpiry'])
+          : null,
     );
   }
 
   // Méthodes du diagramme UML
-  
+
   /// Crée un profil utilisateur
   void creerProfil() {
     // Logique de création de profil

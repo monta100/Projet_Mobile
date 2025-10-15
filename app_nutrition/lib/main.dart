@@ -1,10 +1,86 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Screens/login_screen.dart';
 import 'Screens/register_screen.dart';
+import 'Services/email_service.dart';
+import 'Services/user_service.dart';
+import 'Services/database_helper.dart';
 import 'Routs/app_routes.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Try to load .env first via flutter_dotenv; if that fails (File not present
+  // on host), try to load the .env from the asset bundle (useful when running
+  // on device/emulator where .env is packaged as an asset).
+  final localEnv = <String, String>{};
+  try {
+    await dotenv.load(fileName: '.env');
+    localEnv.addAll(dotenv.env);
+  } catch (e) {
+    // ignore: avoid_print
+    print('No local .env file found on host: $e — trying asset bundle...');
+    try {
+      final content = await rootBundle.loadString('.env');
+      for (final raw in content.split(RegExp(r'\r?\n'))) {
+        final line = raw.trim();
+        if (line.isEmpty) continue;
+        if (line.startsWith('#')) continue;
+        final idx = line.indexOf('=');
+        if (idx <= 0) continue;
+        final k = line.substring(0, idx).trim();
+        var v = line.substring(idx + 1).trim();
+        if ((v.startsWith('"') && v.endsWith('"')) ||
+            (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.substring(1, v.length - 1);
+        }
+        localEnv[k] = v;
+      }
+      // ignore: avoid_print
+      print(
+        'Loaded .env from asset bundle (keys: ${localEnv.keys.join(', ')})',
+      );
+    } catch (e2) {
+      // ignore: avoid_print
+      print('No .env in asset bundle either: $e2');
+    }
+  }
+
+  // Configure EmailService if we have the required keys
+  final smtpHost = localEnv['SMTP_HOST'];
+  final smtpPort = int.tryParse(localEnv['SMTP_PORT'] ?? '');
+  final smtpUser = localEnv['SMTP_USER'];
+  final smtpPass = localEnv['SMTP_PASS'];
+  final smtpSsl = (localEnv['SMTP_SSL'] ?? 'false').toLowerCase() == 'true';
+
+  if (smtpHost != null &&
+      smtpPort != null &&
+      smtpUser != null &&
+      smtpPass != null) {
+    UserService.defaultEmailService = EmailService(
+      smtpHost: smtpHost,
+      smtpPort: smtpPort,
+      username: smtpUser,
+      password: smtpPass,
+      useSsl: smtpSsl,
+    );
+    // Diagnostic (do not print password)
+    // ignore: avoid_print
+    print(
+      'SMTP config loaded: host=$smtpHost port=$smtpPort user=$smtpUser ssl=$smtpSsl',
+    );
+  }
+
+  // Initialize in-memory test data so the app has a default user for quick testing
+  try {
+    await DatabaseHelper().initTestData();
+  } catch (e) {
+    // ignore: avoid_print
+    print('Warning: failed to init test data: $e');
+  }
+
   runApp(const MyApp());
 }
 
@@ -58,115 +134,120 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(50),
-                  ),
-                  child: Icon(
-                    Icons.restaurant_menu,
-                    size: 80,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Titre
-                const Text(
-                  'App Nutrition',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Sous-titre
-                const Text(
-                  'Gérez vos objectifs nutritionnels\net vos rappels quotidiens',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, color: Colors.white70),
-                ),
-                const SizedBox(height: 64),
-
-                // Bouton Connexion
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginScreen(),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Theme.of(context).primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Logo
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(50),
                       ),
-                      elevation: 0,
+                      child: Icon(
+                        Icons.restaurant_menu,
+                        size: 80,
+                        color: Theme.of(context).primaryColor,
+                      ),
                     ),
-                    child: const Text(
-                      'Se Connecter',
+                    const SizedBox(height: 32),
+
+                    // Titre
+                    const Text(
+                      'App Nutrition',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                // Bouton Inscription
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterScreen(),
+                    // Sous-titre
+                    const Text(
+                      'Gérez vos objectifs nutritionnels\net vos rappels quotidiens',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, color: Colors.white70),
+                    ),
+                    const SizedBox(height: 64),
+
+                    // Bouton Connexion
+                    SizedBox(
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Theme.of(context).primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white, width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        child: const Text(
+                          'Se Connecter',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'S\'inscrire',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
+                    const SizedBox(height: 16),
 
-                // Texte supplémentaire
-                const Text(
-                  'Commencez votre parcours\nvers une meilleure nutrition',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.white60),
+                    // Bouton Inscription
+                    SizedBox(
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterScreen(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'S\'inscrire',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Texte supplémentaire
+                    const Text(
+                      'Commencez votre parcours\nvers une meilleure nutrition',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.white60),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -180,6 +261,11 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    // args is expected to be a Utilisateur when navigating after login
+    final user = args is Map && args['email'] != null
+        ? args['email'] as String?
+        : args as dynamic;
     return Scaffold(
       appBar: AppBar(
         title: const Text('App Nutrition - Projet UML'),
@@ -236,6 +322,85 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              // Delete account button (visible when user is provided)
+              if (user != null)
+                Card(
+                  color: Colors.red.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Supprimer le compte',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(color: Colors.red),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Confirmer la suppression'),
+                                content: const Text(
+                                  'Voulez-vous vraiment supprimer votre compte ? Cette action est irréversible.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(false),
+                                    child: const Text('Annuler'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(true),
+                                    child: const Text('Supprimer'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true) {
+                              // We don't have typed user object here; try to find by email
+                              try {
+                                // If UserService was updated to return Utilisateur by email, use it; else, iterate
+                                final us = UserService();
+                                await us.authentifier(user.toString(), '');
+                                // If authentifier requires password, try to lookup by database directly
+                                // Fallback: attempt to find by email through DatabaseHelper
+                                final db = DatabaseHelper();
+                                final u = await db.getUtilisateurByEmail(
+                                  user.toString(),
+                                );
+                                if (u != null) {
+                                  final res = await db.deleteUtilisateur(u.id!);
+                                  if (res > 0) {
+                                    Navigator.pushAndRemoveUntil(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const WelcomeScreen(),
+                                      ),
+                                      (r) => false,
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                // ignore: avoid_print
+                                print('Erreur suppression compte: $e');
+                              }
+                            }
+                          },
+                          child: const Text('Supprimer mon compte'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
 
               Card(

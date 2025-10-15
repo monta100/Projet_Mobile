@@ -3,6 +3,10 @@ import '../Screens/login_screen.dart';
 import '../Screens/register_screen.dart';
 import '../Screens/home_screen.dart';
 import '../Screens/nouveau_objectif_screen.dart';
+import '../Screens/mes_objectifs_screen.dart';
+import '../Screens/mes_rappels_screen.dart';
+import '../Screens/nouveau_rappel_screen.dart';
+import '../Screens/profil_screen.dart';
 import '../Screens/test_database_screen.dart';
 import '../Entites/utilisateur.dart';
 
@@ -22,21 +26,27 @@ class AppRoutes {
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
       home: (context) {
+        // Restore original behavior: always show the classic HomeScreen
         final utilisateur =
             ModalRoute.of(context)!.settings.arguments as Utilisateur?;
-        if (utilisateur != null) {
-          return HomeScreen(utilisateur: utilisateur);
-        }
-        // Si pas d'utilisateur, rediriger vers login
+        if (utilisateur != null) return HomeScreen(utilisateur: utilisateur);
+        // If no user provided, redirect to login
         return const LoginScreen();
       },
-      // TODO: Ajouter les autres écrans quand ils seront créés
-      profil: (context) => const Scaffold(
-        body: Center(child: Text('Écran Profil - À implémenter')),
-      ),
-      objectifs: (context) => const Scaffold(
-        body: Center(child: Text('Écran Objectifs - À implémenter')),
-      ),
+      // Routes pour objectifs et rappels
+      profil: (context) {
+        final utilisateur =
+            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
+        if (utilisateur != null) return ProfilScreen(utilisateur: utilisateur);
+        return const LoginScreen();
+      },
+      objectifs: (context) {
+        final utilisateur =
+            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
+        if (utilisateur != null)
+          return MesObjectifsScreen(utilisateur: utilisateur);
+        return const LoginScreen();
+      },
       objectifsNouveau: (context) {
         final utilisateur =
             ModalRoute.of(context)!.settings.arguments as Utilisateur?;
@@ -46,12 +56,20 @@ class AppRoutes {
         // Si pas d'utilisateur, rediriger vers login
         return const LoginScreen();
       },
-      rappels: (context) => const Scaffold(
-        body: Center(child: Text('Écran Rappels - À implémenter')),
-      ),
-      rappelsNouveau: (context) => const Scaffold(
-        body: Center(child: Text('Nouveau Rappel - À implémenter')),
-      ),
+      rappels: (context) {
+        final utilisateur =
+            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
+        if (utilisateur != null)
+          return MesRappelsScreen(utilisateur: utilisateur);
+        return const LoginScreen();
+      },
+      rappelsNouveau: (context) {
+        final utilisateur =
+            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
+        if (utilisateur != null)
+          return NouveauRappelScreen(utilisateur: utilisateur);
+        return const LoginScreen();
+      },
       testDatabase: (context) => const TestDatabaseScreen(),
     };
   }
@@ -67,11 +85,12 @@ class AppRoutes {
       case home:
         final utilisateur = settings.arguments as Utilisateur?;
         if (utilisateur != null) {
+          // Always use the original HomeScreen for the main route
           return MaterialPageRoute(
             builder: (context) => HomeScreen(utilisateur: utilisateur),
           );
         }
-        // Redirection vers login si pas d'utilisateur
+        // Redirect to login if no user
         return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       case profil:
@@ -82,32 +101,41 @@ class AppRoutes {
         );
 
       case objectifs:
-        return MaterialPageRoute(
-          builder: (context) => const Scaffold(
-            body: Center(child: Text('Écran Objectifs - À implémenter')),
-          ),
-        );
+        final utilisateur = settings.arguments as Utilisateur?;
+        if (utilisateur != null) {
+          return MaterialPageRoute(
+            builder: (context) => MesObjectifsScreen(utilisateur: utilisateur),
+          );
+        }
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       case objectifsNouveau:
-        return MaterialPageRoute(
-          builder: (context) => const Scaffold(
-            body: Center(child: Text('Nouvel Objectif - À implémenter')),
-          ),
-        );
+        final utilisateur = settings.arguments as Utilisateur?;
+        if (utilisateur != null) {
+          return MaterialPageRoute(
+            builder: (context) =>
+                NouveauObjectifScreen(utilisateur: utilisateur),
+          );
+        }
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       case rappels:
-        return MaterialPageRoute(
-          builder: (context) => const Scaffold(
-            body: Center(child: Text('Écran Rappels - À implémenter')),
-          ),
-        );
+        final utilisateur = settings.arguments as Utilisateur?;
+        if (utilisateur != null) {
+          return MaterialPageRoute(
+            builder: (context) => MesRappelsScreen(utilisateur: utilisateur),
+          );
+        }
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       case rappelsNouveau:
-        return MaterialPageRoute(
-          builder: (context) => const Scaffold(
-            body: Center(child: Text('Nouveau Rappel - À implémenter')),
-          ),
-        );
+        final utilisateur = settings.arguments as Utilisateur?;
+        if (utilisateur != null) {
+          return MaterialPageRoute(
+            builder: (context) => NouveauRappelScreen(utilisateur: utilisateur),
+          );
+        }
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       case testDatabase:
         return MaterialPageRoute(

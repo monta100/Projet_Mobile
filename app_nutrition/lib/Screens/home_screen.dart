@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../Entites/utilisateur.dart';
 import '../Entites/objectif.dart';
 import '../Services/objectif_service.dart';
 import '../Services/rappel_service.dart';
+import '../Services/user_service.dart';
+import '../Routs/app_routes.dart';
 
 class HomeScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -47,6 +50,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.profil,
+              arguments: widget.utilisateur,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _buildSmallAvatar(),
+          ),
+        ),
         title: Text('Bonjour, ${widget.utilisateur.prenom}'),
         actions: [
           // Badge pour les rappels
@@ -56,7 +72,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.notifications),
                   onPressed: () {
-                    Navigator.pushNamed(context, '/rappels');
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.rappels,
+                      arguments: widget.utilisateur,
+                    );
                   },
                 ),
                 Positioned(
@@ -85,23 +105,75 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               icon: const Icon(Icons.notifications_none),
               onPressed: () {
-                Navigator.pushNamed(context, '/rappels');
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.rappels,
+                  arguments: widget.utilisateur,
+                );
               },
             ),
 
           // Menu profil
           PopupMenuButton<String>(
-            onSelected: (value) {
+            onSelected: (value) async {
               switch (value) {
                 case 'profil':
                   Navigator.pushNamed(
                     context,
-                    '/profil',
+                    AppRoutes.profil,
                     arguments: widget.utilisateur,
                   );
                   break;
+                case 'supprimer':
+                  // Confirm and delete
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Supprimer le compte'),
+                      content: const Text(
+                        'Voulez-vous vraiment supprimer votre compte ? Cette action est irréversible.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Annuler'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: const Text('Supprimer'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    final us = UserService();
+                    final success = await us.supprimerUtilisateur(
+                      widget.utilisateur.id!,
+                    );
+                    if (success) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Compte supprimé.')),
+                        );
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.login,
+                          (r) => false,
+                        );
+                      }
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Échec de la suppression.'),
+                          ),
+                        );
+                      }
+                    }
+                  }
+                  break;
                 case 'deconnexion':
-                  Navigator.pushReplacementNamed(context, '/login');
+                  Navigator.pushReplacementNamed(context, AppRoutes.login);
                   break;
               }
             },
@@ -113,6 +185,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(Icons.person),
                     SizedBox(width: 8),
                     Text('Mon Profil'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'supprimer',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      'Supprimer le compte',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ],
                 ),
               ),
@@ -242,25 +327,41 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Nouvel Objectif',
                   Icons.add_task,
                   Colors.blue,
-                  () => Navigator.pushNamed(context, '/objectifs/nouveau'),
+                  () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.objectifsNouveau,
+                    arguments: widget.utilisateur,
+                  ),
                 ),
                 _buildActionCard(
                   'Nouveau Rappel',
                   Icons.add_alarm,
                   Colors.orange,
-                  () => Navigator.pushNamed(context, '/rappels/nouveau'),
+                  () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.rappelsNouveau,
+                    arguments: widget.utilisateur,
+                  ),
                 ),
                 _buildActionCard(
                   'Mes Objectifs',
                   Icons.list_alt,
                   Colors.green,
-                  () => Navigator.pushNamed(context, '/objectifs'),
+                  () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.objectifs,
+                    arguments: widget.utilisateur,
+                  ),
                 ),
                 _buildActionCard(
                   'Mes Rappels',
                   Icons.notifications_active,
                   Colors.purple,
-                  () => Navigator.pushNamed(context, '/rappels'),
+                  () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.rappels,
+                    arguments: widget.utilisateur,
+                  ),
                 ),
               ],
             ),
@@ -299,6 +400,59 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSmallAvatar() {
+    // Small avatar for the AppBar
+    if (widget.utilisateur.avatarPath != null &&
+        widget.utilisateur.avatarPath!.isNotEmpty) {
+      final file = File(widget.utilisateur.avatarPath!);
+      if (file.existsSync()) {
+        return CircleAvatar(radius: 18, backgroundImage: FileImage(file));
+      }
+    }
+
+    final prenomValue = widget.utilisateur.prenom.trim();
+    final nomValue = widget.utilisateur.nom.trim();
+    final initials =
+        (widget.utilisateur.avatarInitials != null &&
+            widget.utilisateur.avatarInitials!.trim().isNotEmpty)
+        ? widget.utilisateur.avatarInitials!.trim().toUpperCase()
+        : ((prenomValue.isNotEmpty ? prenomValue[0] : '') +
+                  (nomValue.isNotEmpty ? nomValue[0] : ''))
+              .toUpperCase();
+    final colorHex =
+        widget.utilisateur.avatarColor ??
+        _generateColorFromName('$prenomValue $nomValue');
+    Color bg;
+    try {
+      bg = Color(int.parse('0xff' + colorHex.replaceFirst('#', '')));
+    } catch (e) {
+      bg = Colors.blueGrey;
+    }
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: bg,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  String _generateColorFromName(String name) {
+    int hash = 0;
+    for (int i = 0; i < name.length; i++) {
+      hash = name.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    final r = (hash & 0xFF0000) >> 16;
+    final g = (hash & 0x00FF00) >> 8;
+    final b = hash & 0x0000FF;
+    return '#${(r & 0xFF).toRadixString(16).padLeft(2, '0')}${(g & 0xFF).toRadixString(16).padLeft(2, '0')}${(b & 0xFF).toRadixString(16).padLeft(2, '0')}';
+  }
+
   Widget _buildObjectifsView() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -319,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () async {
                   final result = await Navigator.pushNamed(
                     context,
-                    '/objectifs/nouveau',
+                    AppRoutes.objectifsNouveau,
                     arguments: widget.utilisateur,
                   );
 

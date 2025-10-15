@@ -5,9 +5,13 @@ import '../Services/objectif_service.dart';
 
 class NouveauObjectifScreen extends StatefulWidget {
   final Utilisateur utilisateur;
+  final Objectif? initial; // optional for edit
 
-  const NouveauObjectifScreen({Key? key, required this.utilisateur})
-    : super(key: key);
+  const NouveauObjectifScreen({
+    Key? key,
+    required this.utilisateur,
+    this.initial,
+  }) : super(key: key);
 
   @override
   State<NouveauObjectifScreen> createState() => _NouveauObjectifScreenState();
@@ -21,6 +25,8 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
   String _typeSelectionne = 'Perte de poids';
   DateTime _dateFixee = DateTime.now().add(const Duration(days: 30));
   bool _isLoading = false;
+
+  bool get _isEditMode => widget.initial != null;
 
   // Types d'objectifs prédéfinis
   final List<String> _typesObjectifs = [
@@ -42,6 +48,18 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
   void dispose() {
     _valeurCibleController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // If editing, prefill fields
+    if (_isEditMode) {
+      final init = widget.initial!;
+      _typeSelectionne = init.type;
+      _valeurCibleController.text = init.valeurCible.toString();
+      _dateFixee = init.dateFixee;
+    }
   }
 
   Future<void> _selectDate() async {
@@ -119,22 +137,36 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
       });
 
       try {
-        final objectif = Objectif(
-          utilisateurId: widget.utilisateur.id,
-          type: _typeSelectionne,
-          valeurCible: double.parse(_valeurCibleController.text),
-          dateFixee: _dateFixee,
-          progression: 0.0,
-        );
+        if (_isEditMode) {
+          final edited = widget.initial!;
+          edited.modifierObjectif(
+            nouveauType: _typeSelectionne,
+            nouvelleValeurCible: double.parse(_valeurCibleController.text),
+            nouvelleDateFixee: _dateFixee,
+          );
+          await _objectifService.modifierObjectif(edited);
+        } else {
+          final objectif = Objectif(
+            utilisateurId: widget.utilisateur.id,
+            type: _typeSelectionne,
+            valeurCible: double.parse(_valeurCibleController.text),
+            dateFixee: _dateFixee,
+            progression: 0.0,
+          );
 
-        await _objectifService.creerObjectif(objectif);
+          await _objectifService.creerObjectif(objectif);
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Objectif créé avec succès !'),
+            SnackBar(
+              content: Text(
+                _isEditMode
+                    ? 'Objectif modifié avec succès !'
+                    : 'Objectif créé avec succès !',
+              ),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
 
@@ -142,7 +174,7 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
           Navigator.pop(
             context,
             true,
-          ); // true indique qu'un objectif a été créé
+          ); // true indique qu'un objectif a été créé/édité
         }
       } catch (e) {
         if (mounted) {

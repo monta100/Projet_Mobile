@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../Services/user_service.dart';
+import 'verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -37,13 +38,69 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (utilisateur != null) {
-          if (mounted) {
-            // Navigation vers l'écran principal
-            Navigator.pushReplacementNamed(
-              context,
-              '/home',
-              arguments: utilisateur,
-            );
+          if (!utilisateur.isVerified) {
+            // User exists and password is correct but not verified
+            if (mounted) {
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Compte non vérifié'),
+                  content: const Text(
+                    'Votre compte n\'est pas encore vérifié. Voulez-vous renvoyer le code de vérification ou saisir un code existant ?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        final code = await _userService.resendCode(
+                          utilisateur.email,
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                code == null
+                                    ? 'Utilisateur introuvable'
+                                    : 'Code renvoyé (vérifier la console ou votre mail)',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Renvoyer le code'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => VerificationScreen(
+                              email: utilisateur.email,
+                              userService: _userService,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Saisir le code'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Annuler'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              // Navigation vers l'écran principal
+              Navigator.pushReplacementNamed(
+                context,
+                '/home',
+                arguments: utilisateur,
+              );
+            }
           }
         } else {
           if (mounted) {
@@ -82,100 +139,102 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo ou titre de l'app
-              Icon(
-                Icons.restaurant_menu,
-                size: 80,
-                color: Theme.of(context).primaryColor,
-              ),
-              const SizedBox(height: 32),
-
-              Text(
-                'App Nutrition',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo ou titre de l'app
+                Icon(
+                  Icons.restaurant_menu,
+                  size: 80,
+                  color: Theme.of(context).primaryColor,
                 ),
-              ),
-              const SizedBox(height: 48),
+                const SizedBox(height: 32),
 
-              // Champ Email
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez saisir votre email';
-                  }
-                  if (!_userService.validerEmail(value)) {
-                    return 'Format d\'email invalide';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Champ Mot de passe
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: 'Mot de passe',
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                Text(
+                  'App Nutrition',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  border: const OutlineInputBorder(),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez saisir votre mot de passe';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 48),
 
-              // Bouton de connexion
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Se connecter',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                // Champ Email
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.email),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez saisir votre email';
+                    }
+                    if (!_userService.validerEmail(value)) {
+                      return 'Format d\'email invalide';
+                    }
+                    return null;
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Lien vers l'inscription
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/register');
-                },
-                child: const Text('Pas encore de compte ? S\'inscrire'),
-              ),
-            ],
+                // Champ Mot de passe
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Mot de passe',
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez saisir votre mot de passe';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Bouton de connexion
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'Se connecter',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Lien vers l'inscription
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/register');
+                  },
+                  child: const Text('Pas encore de compte ? S\'inscrire'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

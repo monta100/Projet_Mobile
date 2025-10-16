@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../Entites/utilisateur.dart';
 import '../Services/exercise_service.dart';
 import '../Services/database_helper.dart';
 import 'user_exercise_programs_screen.dart';
 import 'exercise_session_screen.dart';
+import 'profil_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -136,17 +138,22 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   Widget _buildHeader() {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: Colors.white.withOpacity(0.2),
-          child: Text(
-            widget.utilisateur.prenom[0].toUpperCase(),
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+        GestureDetector(
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfilScreen(utilisateur: widget.utilisateur),
+              ),
+            );
+            // Rafraîchir l'écran si des modifications ont été apportées
+            if (result == true) {
+              setState(() {
+                // L'état sera mis à jour automatiquement
+              });
+            }
+          },
+          child: _buildAvatar(),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -571,6 +578,53 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       MaterialPageRoute(
         builder: (context) => UserExerciseProgramsScreen(
           utilisateurId: widget.utilisateur.id!,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    // Si l'utilisateur a une photo de profil, l'afficher
+    if (widget.utilisateur.avatarPath != null && 
+        widget.utilisateur.avatarPath!.isNotEmpty) {
+      final file = File(widget.utilisateur.avatarPath!);
+      if (file.existsSync()) {
+        return CircleAvatar(
+          radius: 30,
+          backgroundColor: Colors.white.withOpacity(0.2),
+          backgroundImage: FileImage(file),
+        );
+      }
+    }
+
+    // Sinon, afficher les initiales avec couleur personnalisée
+    final initials = widget.utilisateur.prenom.isNotEmpty 
+        ? widget.utilisateur.prenom[0].toUpperCase()
+        : 'U';
+    
+    Color avatarColor = Colors.white.withOpacity(0.2);
+    
+    // Si l'utilisateur a une couleur personnalisée, l'utiliser
+    if (widget.utilisateur.avatarColor != null && 
+        widget.utilisateur.avatarColor!.isNotEmpty) {
+      try {
+        avatarColor = Color(int.parse('0xff' + 
+            widget.utilisateur.avatarColor!.replaceFirst('#', '')));
+      } catch (e) {
+        // En cas d'erreur, utiliser la couleur par défaut
+        avatarColor = Colors.white.withOpacity(0.2);
+      }
+    }
+
+    return CircleAvatar(
+      radius: 30,
+      backgroundColor: avatarColor,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
       ),
     );

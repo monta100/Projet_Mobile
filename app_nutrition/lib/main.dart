@@ -76,6 +76,7 @@ Future<void> main() async {
 
   // Initialize in-memory test data so the app has a default user for quick testing
   try {
+    // Initialize database and test data
     await DatabaseHelper().initTestData();
     // Initialize demo exercises
     await ExerciseService().initializeDemoExercises();

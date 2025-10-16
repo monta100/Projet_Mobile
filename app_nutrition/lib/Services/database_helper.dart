@@ -1,5 +1,6 @@
 // Database helper using sqflite for persistent storage
 import 'dart:async';
+import 'dart:io';
 
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,6 +15,7 @@ import '../Entites/exercise_plan.dart';
 import '../Entites/exercise_session.dart';
 import '../Entites/plan_exercise_assignment.dart';
 import '../Entites/user_plan_assignment.dart';
+import '../Entites/user_objective.dart';
 
 class DatabaseHelper {
   // --- Singleton ---
@@ -24,7 +26,7 @@ class DatabaseHelper {
   static Database? _database;
 
   // bumped to 6 to add exercise tables
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 7;
   static const String _dbName = 'app_nutrition.db';
 
   // Table names
@@ -37,6 +39,8 @@ class DatabaseHelper {
   static const String tableExerciseSessions = 'exercise_sessions';
   static const String tablePlanExerciseAssignments = 'plan_exercise_assignments';
   static const String tableUserPlanAssignments = 'user_plan_assignments';
+  static const String tableUserObjectives = 'user_objectives';
+  static const String tableProgressTracking = 'progress_tracking';
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -48,12 +52,17 @@ class DatabaseHelper {
     final documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, _dbName);
 
-    return await openDatabase(
+    final db = await openDatabase(
       path,
       version: _dbVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+    
+    // Vérifier et créer la table user_objectives si elle n'existe pas
+    await _ensureUserObjectivesTable(db);
+    
+    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -189,6 +198,50 @@ class DatabaseHelper {
         progression INTEGER DEFAULT 0,
         FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
         FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableUserObjectives (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateurId INTEGER NOT NULL,
+        typeObjectif TEXT NOT NULL,
+        description TEXT NOT NULL,
+        poidsActuel REAL NOT NULL,
+        poidsCible REAL NOT NULL,
+        taille REAL NOT NULL,
+        age INTEGER NOT NULL,
+        niveauActivite TEXT NOT NULL,
+        dureeObjectif INTEGER NOT NULL,
+        coachId INTEGER NOT NULL,
+        dateCreation TEXT NOT NULL,
+        dateDebut TEXT NOT NULL,
+        dateFin TEXT NOT NULL,
+        progression REAL NOT NULL DEFAULT 0.0,
+        estAtteint INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        FOREIGN KEY (utilisateurId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+        FOREIGN KEY (coachId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableProgressTracking (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateur_id INTEGER NOT NULL,
+        plan_id INTEGER,
+        objective_id INTEGER,
+        date TEXT NOT NULL,
+        type TEXT NOT NULL,
+        metric TEXT NOT NULL,
+        value REAL NOT NULL,
+        unit TEXT,
+        notes TEXT,
+        metadata TEXT,
+        date_created TEXT NOT NULL,
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+        FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE,
+        FOREIGN KEY (objective_id) REFERENCES $tableUserObjectives(id) ON DELETE CASCADE
       )
     ''');
 
@@ -359,6 +412,34 @@ class DatabaseHelper {
             FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE,
             FOREIGN KEY (exercise_id) REFERENCES $tableExercises(id) ON DELETE CASCADE,
             FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (_) {}
+    }
+    if (oldVersion < 7) {
+      // Add user_objectives table
+      try {
+        await db.execute('''
+          CREATE TABLE $tableUserObjectives (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            utilisateurId INTEGER NOT NULL,
+            typeObjectif TEXT NOT NULL,
+            description TEXT NOT NULL,
+            poidsActuel REAL NOT NULL,
+            poidsCible REAL NOT NULL,
+            taille REAL NOT NULL,
+            age INTEGER NOT NULL,
+            niveauActivite TEXT NOT NULL,
+            dureeObjectif INTEGER NOT NULL,
+            coachId INTEGER NOT NULL,
+            dateCreation TEXT NOT NULL,
+            dateDebut TEXT NOT NULL,
+            dateFin TEXT NOT NULL,
+            progression REAL NOT NULL DEFAULT 0.0,
+            estAtteint INTEGER NOT NULL DEFAULT 0,
+            notes TEXT,
+            FOREIGN KEY (utilisateurId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+            FOREIGN KEY (coachId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
           )
         ''');
       } catch (_) {}
@@ -632,10 +713,49 @@ class DatabaseHelper {
   }
 
   // --- Utilities ---
-  /// Initialise quelques données de test si la base est vide
+  /// Vérifie et crée la table user_objectives si elle n'existe pas
+  Future<void> _ensureUserObjectivesTable(Database db) async {
+    try {
+      // Vérifier si la table existe en essayant de la requêter
+      await db.query(tableUserObjectives, limit: 1);
+    } catch (e) {
+      // Si la table n'existe pas, la créer
+      await db.execute('''
+        CREATE TABLE $tableUserObjectives (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          utilisateurId INTEGER NOT NULL,
+          typeObjectif TEXT NOT NULL,
+          description TEXT NOT NULL,
+          poidsActuel REAL NOT NULL,
+          poidsCible REAL NOT NULL,
+          taille REAL NOT NULL,
+          age INTEGER NOT NULL,
+          niveauActivite TEXT NOT NULL,
+          dureeObjectif INTEGER NOT NULL,
+          coachId INTEGER NOT NULL,
+          dateCreation TEXT NOT NULL,
+          dateDebut TEXT NOT NULL,
+          dateFin TEXT NOT NULL,
+          progression REAL NOT NULL DEFAULT 0.0,
+          estAtteint INTEGER NOT NULL DEFAULT 0,
+          notes TEXT,
+          FOREIGN KEY (utilisateurId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+          FOREIGN KEY (coachId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+        )
+      ''');
+    }
+  }
+
+  /// Initialise quelques données de test (toujours disponibles)
   Future<void> initTestData() async {
-    final users = await getAllUtilisateurs();
-    if (users.isEmpty) {
+    // Vérifier si les utilisateurs de test existent déjà
+    final existingTestUser = await getUtilisateurByEmail('jean.dupont@test.com');
+    final existingCoach = await getUtilisateurByEmail('coach@test.com');
+    
+    int coachId;
+    int userId;
+    
+    if (existingCoach == null) {
       // Créer un coach de test
       final testCoach = Utilisateur(
         nom: 'Martin',
@@ -645,8 +765,12 @@ class DatabaseHelper {
         role: 'Coach',
         isVerified: true,
       );
-      final coachId = await insertUtilisateur(testCoach);
-      
+      coachId = await insertUtilisateur(testCoach);
+    } else {
+      coachId = existingCoach.id!;
+    }
+    
+    if (existingTestUser == null) {
       // Créer un utilisateur de test avec le coach assigné
       final testUser = Utilisateur(
         nom: 'Dupont',
@@ -657,8 +781,13 @@ class DatabaseHelper {
         coachId: coachId,
         isVerified: true,
       );
-      final userId = await insertUtilisateur(testUser);
+      userId = await insertUtilisateur(testUser);
+    } else {
+      userId = existingTestUser.id!;
+    }
 
+    // Créer les données de test seulement si l'utilisateur de test n'existait pas
+    if (existingTestUser == null) {
       final testObjectif = Objectif(
         utilisateurId: userId,
         type: 'Perte de poids',
@@ -946,8 +1075,113 @@ class DatabaseHelper {
     await db.delete(tablePlanExerciseAssignments);
     await db.delete(tableExercisePlans);
     await db.delete(tableExercises);
+    await db.delete(tableUserObjectives);
     await db.delete(tableRappels);
     await db.delete(tableObjectifs);
     await db.delete(tableUtilisateurs);
+  }
+
+  /// Force la recréation de la base de données (utilitaire de développement)
+  Future<void> recreateDatabase() async {
+    final db = await database;
+    await db.close();
+    _database = null;
+    
+    // Supprimer le fichier de base de données
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final dbPath = join(documentsDirectory.path, _dbName);
+    final dbFile = File(dbPath);
+    if (await dbFile.exists()) {
+      await dbFile.delete();
+    }
+    
+    // Recréer la base de données
+    await database;
+  }
+
+  // User Objectives CRUD operations
+  Future<int> insertUserObjective(UserObjective objective) async {
+    final db = await database;
+    return await db.insert(tableUserObjectives, objective.toMap());
+  }
+
+  Future<List<UserObjective>> getUserObjectives(int utilisateurId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableUserObjectives,
+      where: 'utilisateurId = ?',
+      whereArgs: [utilisateurId],
+      orderBy: 'dateCreation DESC',
+    );
+    return rows.map((r) => UserObjective.fromMap(r)).toList();
+  }
+
+  Future<UserObjective?> getUserObjective(int id) async {
+    final db = await database;
+    final rows = await db.query(
+      tableUserObjectives,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) return null;
+    return UserObjective.fromMap(rows.first);
+  }
+
+  Future<int> updateUserObjective(UserObjective objective) async {
+    final db = await database;
+    return await db.update(
+      tableUserObjectives,
+      objective.toMap(),
+      where: 'id = ?',
+      whereArgs: [objective.id],
+    );
+  }
+
+  Future<int> deleteUserObjective(int id) async {
+    final db = await database;
+    return await db.delete(
+      tableUserObjectives,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<UserObjective>> getUserObjectivesByCoach(int coachId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableUserObjectives,
+      where: 'coachId = ?',
+      whereArgs: [coachId],
+      orderBy: 'dateCreation DESC',
+    );
+    return rows.map((r) => UserObjective.fromMap(r)).toList();
+  }
+
+
+  // Méthodes pour les assignations de plans
+  Future<List<UserPlanAssignment>> getUserPlanAssignmentsByCoach(int coachId) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT upa.* FROM $tableUserPlanAssignments upa
+      INNER JOIN $tableExercisePlans ep ON upa.plan_id = ep.id
+      WHERE ep.coach_id = ?
+      ORDER BY upa.date_attribution DESC
+    ''', [coachId]);
+    return rows.map((r) => UserPlanAssignment.fromMap(r)).toList();
+  }
+
+  // Méthodes pour le suivi de progression
+  Future<int> insertProgressTracking(Map<String, dynamic> data) async {
+    return await insert(tableProgressTracking, data);
+  }
+
+  Future<List<Map<String, dynamic>>> getProgressTrackingByUser(int utilisateurId) async {
+    final db = await database;
+    return await db.query(
+      tableProgressTracking,
+      where: 'utilisateur_id = ?',
+      whereArgs: [utilisateurId],
+      orderBy: 'date DESC',
+    );
   }
 }

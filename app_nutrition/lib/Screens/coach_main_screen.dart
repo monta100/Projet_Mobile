@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import '../Entites/utilisateur.dart';
-import 'user_dashboard_screen.dart';
-import 'user_exercise_programs_screen.dart';
-import 'user_achievements_screen.dart';
-import 'user_nutrition_tracking_screen.dart';
-import 'user_reminders_screen.dart';
-import 'user_progress_dashboard_screen.dart';
+import 'coach_dashboard_screen.dart';
+import 'coach_clients_screen.dart';
+import 'coach_objectives_screen.dart';
+import 'coach_programs_screen.dart';
+import 'coach_analytics_screen.dart';
 import 'profil_screen.dart';
 
-class UserMainScreen extends StatefulWidget {
-  final Utilisateur utilisateur;
+class CoachMainScreen extends StatefulWidget {
+  final Utilisateur coach;
 
-  const UserMainScreen({
+  const CoachMainScreen({
     Key? key,
-    required this.utilisateur,
+    required this.coach,
   }) : super(key: key);
 
   @override
-  State<UserMainScreen> createState() => _UserMainScreenState();
+  State<CoachMainScreen> createState() => _CoachMainScreenState();
 }
 
-class _UserMainScreenState extends State<UserMainScreen> {
+class _CoachMainScreenState extends State<CoachMainScreen>
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
   
   final List<Widget> _screens = [];
@@ -29,13 +29,12 @@ class _UserMainScreenState extends State<UserMainScreen> {
   void initState() {
     super.initState();
     _screens.addAll([
-      UserDashboardScreen(utilisateur: widget.utilisateur),
-      UserExerciseProgramsScreen(utilisateurId: widget.utilisateur.id!),
-      UserProgressDashboardScreen(utilisateur: widget.utilisateur),
-      UserAchievementsScreen(utilisateurId: widget.utilisateur.id!),
-      UserNutritionTrackingScreen(utilisateur: widget.utilisateur),
-      UserRemindersScreen(utilisateur: widget.utilisateur),
-      ProfilScreen(utilisateur: widget.utilisateur),
+      CoachDashboardScreen(coach: widget.coach),
+      CoachClientsScreen(coach: widget.coach),
+      CoachObjectivesScreen(coach: widget.coach),
+      CoachProgramsScreen(coach: widget.coach),
+      CoachAnalyticsScreen(coach: widget.coach),
+      ProfilScreen(utilisateur: widget.coach),
     ]);
   }
 
@@ -65,45 +64,39 @@ class _UserMainScreenState extends State<UserMainScreen> {
               children: [
                 _buildNavItem(
                   Icons.dashboard,
-                  'Accueil',
+                  'Tableau',
                   0,
                   Colors.blue,
                 ),
                 _buildNavItem(
-                  Icons.fitness_center,
-                  'Exercices',
+                  Icons.people,
+                  'Clients',
                   1,
-                  Colors.orange,
-                ),
-                _buildNavItem(
-                  Icons.trending_up,
-                  'Progression',
-                  2,
-                  Colors.purple,
-                ),
-                _buildNavItem(
-                  Icons.emoji_events,
-                  'Récompenses',
-                  3,
-                  Colors.amber,
-                ),
-                _buildNavItem(
-                  Icons.restaurant_menu,
-                  'Nutrition',
-                  4,
                   Colors.green,
                 ),
                 _buildNavItem(
-                  Icons.notifications,
-                  'Rappels',
-                  5,
-                  Colors.indigo,
+                  Icons.track_changes,
+                  'Objectifs',
+                  2,
+                  Colors.orange,
+                ),
+                _buildNavItem(
+                  Icons.fitness_center,
+                  'Programmes',
+                  3,
+                  Colors.purple,
+                ),
+                _buildNavItem(
+                  Icons.analytics,
+                  'Analyses',
+                  4,
+                  Colors.teal,
                 ),
                 _buildNavItem(
                   Icons.person,
                   'Profil',
-                  6,
-                  Colors.teal,
+                  5,
+                  Colors.grey,
                 ),
               ],
             ),
@@ -124,7 +117,7 @@ class _UserMainScreenState extends State<UserMainScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -135,13 +128,13 @@ class _UserMainScreenState extends State<UserMainScreen> {
             Icon(
               icon,
               color: isSelected ? color : Colors.grey.shade600,
-              size: 24,
+              size: 22,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color: isSelected ? color : Colors.grey.shade600,
               ),

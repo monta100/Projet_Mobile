@@ -35,42 +35,8 @@ class HomeUserScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TEST: Afficher un message pour confirmer que les changements sont pris en compte
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('NOUVELLE INTERFACE - ${utilisateur.prenom}'),
-        backgroundColor: Colors.green,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, size: 100, color: Colors.green),
-            SizedBox(height: 20),
-            Text(
-              'NOUVELLE INTERFACE CHARGÉE !',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => UserMainScreen(utilisateur: utilisateur),
-                  ),
-                );
-              },
-              child: Text('Accéder aux nouvelles fonctionnalités'),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Accès direct aux nouvelles fonctionnalités avec navigation par onglets
+    return UserMainScreen(utilisateur: utilisateur);
   }
 
   Widget _buildQuickActionCard(

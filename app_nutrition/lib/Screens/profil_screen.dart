@@ -60,7 +60,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
           content: Text(ok ? 'Profil mis à jour' : 'Échec de la mise à jour'),
         ),
       );
-      if (ok) Navigator.pop(context, true);
+      if (ok) {
+        Navigator.pop(context, true);
+      }
     }
   }
 
@@ -85,6 +87,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
         );
       });
       await _userService.modifierUtilisateur(widget.utilisateur);
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -258,10 +263,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
         widget.utilisateur.avatarColor = null;
       });
       await _userService.modifierUtilisateur(widget.utilisateur);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Avatar mis à jour')));
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -284,10 +291,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
         if (await f.exists()) await f.delete();
       }
       await _userService.modifierUtilisateur(widget.utilisateur);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Avatar supprimé')));
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(

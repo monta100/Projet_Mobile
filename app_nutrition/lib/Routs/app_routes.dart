@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../Screens/login_screen.dart';
 import '../Screens/register_screen.dart';
 import '../Screens/home_screen.dart';
+import '../Screens/home_user_screen.dart';
 import '../Screens/nouveau_objectif_screen.dart';
 import '../Screens/mes_objectifs_screen.dart';
 import '../Screens/mes_rappels_screen.dart';
@@ -23,6 +24,11 @@ class AppRoutes {
   static const String rappelsNouveau = '/rappels/nouveau';
   static const String testDatabase = '/test-database';
   static const String mesClients = '/mes-clients';
+  static const String exerciseLibrary = '/exercise-library';
+  static const String createExercisePlan = '/create-exercise-plan';
+  static const String coachPlans = '/coach-plans';
+  static const String userExercisePrograms = '/user-exercise-programs';
+  static const String exerciseSession = '/exercise-session';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -43,7 +49,7 @@ class AppRoutes {
           };
           if (coachAliases.contains(role))
             return CoachHomeScreen(coach: utilisateur);
-          return HomeScreen(utilisateur: utilisateur);
+          return HomeUserScreen(utilisateur: utilisateur);
         }
         // If no user provided, redirect to login
         return const LoginScreen();
@@ -143,7 +149,7 @@ class AppRoutes {
             );
           }
           return MaterialPageRoute(
-            builder: (context) => HomeScreen(utilisateur: utilisateur),
+            builder: (context) => HomeUserScreen(utilisateur: utilisateur),
           );
         }
         // Redirect to login if no user

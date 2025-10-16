@@ -9,6 +9,11 @@ import '../Entites/utilisateur.dart';
 import '../Entites/objectif.dart';
 import '../Entites/rappel.dart';
 import '../Entites/message.dart';
+import '../Entites/exercise.dart';
+import '../Entites/exercise_plan.dart';
+import '../Entites/exercise_session.dart';
+import '../Entites/plan_exercise_assignment.dart';
+import '../Entites/user_plan_assignment.dart';
 
 class DatabaseHelper {
   // --- Singleton ---
@@ -18,8 +23,8 @@ class DatabaseHelper {
 
   static Database? _database;
 
-  // bumped to 5 to add messages table
-  static const int _dbVersion = 5;
+  // bumped to 6 to add exercise tables
+  static const int _dbVersion = 6;
   static const String _dbName = 'app_nutrition.db';
 
   // Table names
@@ -27,6 +32,11 @@ class DatabaseHelper {
   static const String tableObjectifs = 'objectifs';
   static const String tableRappels = 'rappels';
   static const String tableMessages = 'messages';
+  static const String tableExercises = 'exercises';
+  static const String tableExercisePlans = 'exercise_plans';
+  static const String tableExerciseSessions = 'exercise_sessions';
+  static const String tablePlanExerciseAssignments = 'plan_exercise_assignments';
+  static const String tableUserPlanAssignments = 'user_plan_assignments';
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -114,6 +124,96 @@ class DatabaseHelper {
         FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
       )
     ''');
+
+    // Exercise tables
+    await db.execute('''
+      CREATE TABLE $tableExercises (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        description TEXT,
+        type TEXT NOT NULL,
+        partie_corps TEXT NOT NULL,
+        niveau TEXT NOT NULL,
+        objectif TEXT NOT NULL,
+        materiel TEXT NOT NULL,
+        video_url TEXT,
+        image_url TEXT,
+        duree_estimee INTEGER NOT NULL,
+        calories_estimees INTEGER NOT NULL,
+        instructions TEXT,
+        is_active INTEGER DEFAULT 1
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableExercisePlans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        coach_id INTEGER NOT NULL,
+        nom TEXT NOT NULL,
+        description TEXT,
+        date_creation TEXT NOT NULL,
+        date_debut TEXT,
+        date_fin TEXT,
+        is_active INTEGER DEFAULT 1,
+        notes_coach TEXT,
+        FOREIGN KEY (coach_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tablePlanExerciseAssignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER NOT NULL,
+        exercise_id INTEGER NOT NULL,
+        ordre INTEGER NOT NULL,
+        nombre_series INTEGER NOT NULL,
+        repetitions_par_serie INTEGER NOT NULL,
+        temps_repos INTEGER NOT NULL,
+        notes_personnalisees TEXT,
+        is_active INTEGER DEFAULT 1,
+        FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES $tableExercises(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableUserPlanAssignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateur_id INTEGER NOT NULL,
+        plan_id INTEGER NOT NULL,
+        date_attribution TEXT NOT NULL,
+        date_debut TEXT,
+        date_fin TEXT,
+        is_active INTEGER DEFAULT 1,
+        message_coach TEXT,
+        progression INTEGER DEFAULT 0,
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+        FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableExerciseSessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER NOT NULL,
+        exercise_id INTEGER NOT NULL,
+        utilisateur_id INTEGER NOT NULL,
+        nombre_series INTEGER NOT NULL,
+        repetitions_par_serie INTEGER NOT NULL,
+        temps_repos INTEGER NOT NULL,
+        duree_reelle INTEGER,
+        date_debut TEXT,
+        date_fin TEXT,
+        est_terminee INTEGER DEFAULT 0,
+        difficulte INTEGER,
+        commentaire_utilisateur TEXT,
+        notes_coach TEXT,
+        calories_brulées INTEGER,
+        FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES $tableExercises(id) ON DELETE CASCADE,
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -158,6 +258,107 @@ class DatabaseHelper {
             read INTEGER DEFAULT 0,
             FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
             FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (_) {}
+    }
+    if (oldVersion < 6) {
+      // Add exercise tables
+      try {
+        await db.execute('''
+          CREATE TABLE $tableExercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT NOT NULL,
+            description TEXT,
+            type TEXT NOT NULL,
+            partie_corps TEXT NOT NULL,
+            niveau TEXT NOT NULL,
+            objectif TEXT NOT NULL,
+            materiel TEXT NOT NULL,
+            video_url TEXT,
+            image_url TEXT,
+            duree_estimee INTEGER NOT NULL,
+            calories_estimees INTEGER NOT NULL,
+            instructions TEXT,
+            is_active INTEGER DEFAULT 1
+          )
+        ''');
+      } catch (_) {}
+      
+      try {
+        await db.execute('''
+          CREATE TABLE $tableExercisePlans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            coach_id INTEGER NOT NULL,
+            nom TEXT NOT NULL,
+            description TEXT,
+            date_creation TEXT NOT NULL,
+            date_debut TEXT,
+            date_fin TEXT,
+            is_active INTEGER DEFAULT 1,
+            notes_coach TEXT,
+            FOREIGN KEY (coach_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (_) {}
+      
+      try {
+        await db.execute('''
+          CREATE TABLE $tablePlanExerciseAssignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_id INTEGER NOT NULL,
+            exercise_id INTEGER NOT NULL,
+            ordre INTEGER NOT NULL,
+            nombre_series INTEGER NOT NULL,
+            repetitions_par_serie INTEGER NOT NULL,
+            temps_repos INTEGER NOT NULL,
+            notes_personnalisees TEXT,
+            is_active INTEGER DEFAULT 1,
+            FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE,
+            FOREIGN KEY (exercise_id) REFERENCES $tableExercises(id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (_) {}
+      
+      try {
+        await db.execute('''
+          CREATE TABLE $tableUserPlanAssignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            utilisateur_id INTEGER NOT NULL,
+            plan_id INTEGER NOT NULL,
+            date_attribution TEXT NOT NULL,
+            date_debut TEXT,
+            date_fin TEXT,
+            is_active INTEGER DEFAULT 1,
+            message_coach TEXT,
+            progression INTEGER DEFAULT 0,
+            FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+            FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (_) {}
+      
+      try {
+        await db.execute('''
+          CREATE TABLE $tableExerciseSessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_id INTEGER NOT NULL,
+            exercise_id INTEGER NOT NULL,
+            utilisateur_id INTEGER NOT NULL,
+            nombre_series INTEGER NOT NULL,
+            repetitions_par_serie INTEGER NOT NULL,
+            temps_repos INTEGER NOT NULL,
+            duree_reelle INTEGER,
+            date_debut TEXT,
+            date_fin TEXT,
+            est_terminee INTEGER DEFAULT 0,
+            difficulte INTEGER,
+            commentaire_utilisateur TEXT,
+            notes_coach TEXT,
+            calories_brulées INTEGER,
+            FOREIGN KEY (plan_id) REFERENCES $tableExercisePlans(id) ON DELETE CASCADE,
+            FOREIGN KEY (exercise_id) REFERENCES $tableExercises(id) ON DELETE CASCADE,
+            FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
           )
         ''');
       } catch (_) {}
@@ -435,12 +636,25 @@ class DatabaseHelper {
   Future<void> initTestData() async {
     final users = await getAllUtilisateurs();
     if (users.isEmpty) {
+      // Créer un coach de test
+      final testCoach = Utilisateur(
+        nom: 'Martin',
+        prenom: 'Pierre',
+        email: 'coach@test.com',
+        motDePasse: 'Test123!',
+        role: 'Coach',
+        isVerified: true,
+      );
+      final coachId = await insertUtilisateur(testCoach);
+      
+      // Créer un utilisateur de test avec le coach assigné
       final testUser = Utilisateur(
         nom: 'Dupont',
         prenom: 'Jean',
         email: 'jean.dupont@test.com',
         motDePasse: 'Test123!',
         role: 'Utilisateur',
+        coachId: coachId,
         isVerified: true,
       );
       final userId = await insertUtilisateur(testUser);
@@ -460,12 +674,278 @@ class DatabaseHelper {
         date: DateTime.now().add(const Duration(hours: 1)),
       );
       await insertRappel(testRappel);
+      
+      // Créer un plan de test et l'assigner à l'utilisateur
+      final testPlan = ExercisePlan(
+        coachId: coachId,
+        nom: 'Plan Débutant',
+        description: 'Plan d\'entraînement pour débutant avec exercices de base',
+        dateCreation: DateTime.now(),
+        notesCoach: 'Commencez doucement et augmentez progressivement l\'intensité.',
+      );
+      final planId = await insertExercisePlan(testPlan);
+      
+      // Assigner le plan à l'utilisateur
+      final userPlanAssignment = UserPlanAssignment(
+        utilisateurId: userId,
+        planId: planId,
+        dateAttribution: DateTime.now(),
+        messageCoach: 'Bienvenue ! Votre coach vous a préparé un plan personnalisé. 💪',
+      );
+      await insertUserPlanAssignment(userPlanAssignment);
     }
+  }
+
+  // --- Exercise ---
+  Future<int> insertExercise(Exercise exercise) async {
+    final data = exercise.toMap();
+    data.remove('id');
+    data['is_active'] = exercise.isActive ? 1 : 0;
+    return await insert(tableExercises, data);
+  }
+
+  Future<List<Exercise>> getAllExercises() async {
+    final rows = await queryAll(tableExercises);
+    return rows.map((r) => Exercise.fromMap(r)).toList();
+  }
+
+  Future<Exercise?> getExerciseById(int id) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercises,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) return null;
+    return Exercise.fromMap(rows.first);
+  }
+
+  Future<List<Exercise>> getExercisesByType(String type) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercises,
+      where: 'type = ? AND is_active = 1',
+      whereArgs: [type],
+    );
+    return rows.map((r) => Exercise.fromMap(r)).toList();
+  }
+
+  Future<List<Exercise>> getExercisesByNiveau(String niveau) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercises,
+      where: 'niveau = ? AND is_active = 1',
+      whereArgs: [niveau],
+    );
+    return rows.map((r) => Exercise.fromMap(r)).toList();
+  }
+
+  Future<List<Exercise>> getExercisesByObjectif(String objectif) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercises,
+      where: 'objectif LIKE ? AND is_active = 1',
+      whereArgs: ['%$objectif%'],
+    );
+    return rows.map((r) => Exercise.fromMap(r)).toList();
+  }
+
+  Future<List<Exercise>> searchExercises(String query) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercises,
+      where: '(nom LIKE ? OR description LIKE ?) AND is_active = 1',
+      whereArgs: ['%$query%', '%$query%'],
+    );
+    return rows.map((r) => Exercise.fromMap(r)).toList();
+  }
+
+  Future<int> updateExercise(Exercise exercise) async {
+    final data = exercise.toMap();
+    data.remove('id');
+    data['is_active'] = exercise.isActive ? 1 : 0;
+    return await update(tableExercises, data, exercise.id!);
+  }
+
+  Future<int> deleteExercise(int id) async {
+    return await delete(tableExercises, id);
+  }
+
+  // --- ExercisePlan ---
+  Future<int> insertExercisePlan(ExercisePlan plan) async {
+    final data = plan.toMap();
+    data.remove('id');
+    data['is_active'] = plan.isActive ? 1 : 0;
+    return await insert(tableExercisePlans, data);
+  }
+
+  Future<List<ExercisePlan>> getAllExercisePlans() async {
+    final rows = await queryAll(tableExercisePlans);
+    return rows.map((r) => ExercisePlan.fromMap(r)).toList();
+  }
+
+  Future<ExercisePlan?> getExercisePlanById(int id) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercisePlans,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) return null;
+    return ExercisePlan.fromMap(rows.first);
+  }
+
+  Future<List<ExercisePlan>> getExercisePlansByCoach(int coachId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExercisePlans,
+      where: 'coach_id = ? AND is_active = 1',
+      whereArgs: [coachId],
+    );
+    return rows.map((r) => ExercisePlan.fromMap(r)).toList();
+  }
+
+  Future<int> updateExercisePlan(ExercisePlan plan) async {
+    final data = plan.toMap();
+    data.remove('id');
+    data['is_active'] = plan.isActive ? 1 : 0;
+    return await update(tableExercisePlans, data, plan.id!);
+  }
+
+  Future<int> deleteExercisePlan(int id) async {
+    return await delete(tableExercisePlans, id);
+  }
+
+  // --- PlanExerciseAssignment ---
+  Future<int> insertPlanExerciseAssignment(PlanExerciseAssignment assignment) async {
+    final data = assignment.toMap();
+    data.remove('id');
+    data['is_active'] = assignment.isActive ? 1 : 0;
+    return await insert(tablePlanExerciseAssignments, data);
+  }
+
+  Future<List<PlanExerciseAssignment>> getPlanExerciseAssignmentsByPlan(int planId) async {
+    final db = await database;
+    final rows = await db.query(
+      tablePlanExerciseAssignments,
+      where: 'plan_id = ? AND is_active = 1',
+      whereArgs: [planId],
+      orderBy: 'ordre ASC',
+    );
+    return rows.map((r) => PlanExerciseAssignment.fromMap(r)).toList();
+  }
+
+  Future<int> updatePlanExerciseAssignment(PlanExerciseAssignment assignment) async {
+    final data = assignment.toMap();
+    data.remove('id');
+    data['is_active'] = assignment.isActive ? 1 : 0;
+    return await update(tablePlanExerciseAssignments, data, assignment.id!);
+  }
+
+  Future<int> deletePlanExerciseAssignment(int id) async {
+    return await delete(tablePlanExerciseAssignments, id);
+  }
+
+  // --- UserPlanAssignment ---
+  Future<int> insertUserPlanAssignment(UserPlanAssignment assignment) async {
+    final data = assignment.toMap();
+    data.remove('id');
+    data['is_active'] = assignment.isActive ? 1 : 0;
+    return await insert(tableUserPlanAssignments, data);
+  }
+
+  Future<List<UserPlanAssignment>> getUserPlanAssignmentsByUser(int utilisateurId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableUserPlanAssignments,
+      where: 'utilisateur_id = ? AND is_active = 1',
+      whereArgs: [utilisateurId],
+      orderBy: 'date_attribution DESC',
+    );
+    return rows.map((r) => UserPlanAssignment.fromMap(r)).toList();
+  }
+
+  Future<List<UserPlanAssignment>> getUserPlanAssignmentsByPlan(int planId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableUserPlanAssignments,
+      where: 'plan_id = ? AND is_active = 1',
+      whereArgs: [planId],
+    );
+    return rows.map((r) => UserPlanAssignment.fromMap(r)).toList();
+  }
+
+  Future<int> updateUserPlanAssignment(UserPlanAssignment assignment) async {
+    final data = assignment.toMap();
+    data.remove('id');
+    data['is_active'] = assignment.isActive ? 1 : 0;
+    return await update(tableUserPlanAssignments, data, assignment.id!);
+  }
+
+  Future<int> deleteUserPlanAssignment(int id) async {
+    return await delete(tableUserPlanAssignments, id);
+  }
+
+  // --- ExerciseSession ---
+  Future<int> insertExerciseSession(ExerciseSession session) async {
+    final data = session.toMap();
+    data.remove('id');
+    data['est_terminee'] = session.estTerminee ? 1 : 0;
+    return await insert(tableExerciseSessions, data);
+  }
+
+  Future<List<ExerciseSession>> getExerciseSessionsByUser(int utilisateurId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExerciseSessions,
+      where: 'utilisateur_id = ?',
+      whereArgs: [utilisateurId],
+      orderBy: 'date_debut DESC',
+    );
+    return rows.map((r) => ExerciseSession.fromMap(r)).toList();
+  }
+
+  Future<List<ExerciseSession>> getExerciseSessionsByPlan(int planId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExerciseSessions,
+      where: 'plan_id = ?',
+      whereArgs: [planId],
+      orderBy: 'date_debut DESC',
+    );
+    return rows.map((r) => ExerciseSession.fromMap(r)).toList();
+  }
+
+  Future<List<ExerciseSession>> getExerciseSessionsByUserAndPlan(int utilisateurId, int planId) async {
+    final db = await database;
+    final rows = await db.query(
+      tableExerciseSessions,
+      where: 'utilisateur_id = ? AND plan_id = ?',
+      whereArgs: [utilisateurId, planId],
+      orderBy: 'date_debut DESC',
+    );
+    return rows.map((r) => ExerciseSession.fromMap(r)).toList();
+  }
+
+  Future<int> updateExerciseSession(ExerciseSession session) async {
+    final data = session.toMap();
+    data.remove('id');
+    data['est_terminee'] = session.estTerminee ? 1 : 0;
+    return await update(tableExerciseSessions, data, session.id!);
+  }
+
+  Future<int> deleteExerciseSession(int id) async {
+    return await delete(tableExerciseSessions, id);
   }
 
   /// Efface toutes les données (utilitaire de développement)
   Future<void> clearAllData() async {
     final db = await database;
+    await db.delete(tableExerciseSessions);
+    await db.delete(tableUserPlanAssignments);
+    await db.delete(tablePlanExerciseAssignments);
+    await db.delete(tableExercisePlans);
+    await db.delete(tableExercises);
     await db.delete(tableRappels);
     await db.delete(tableObjectifs);
     await db.delete(tableUtilisateurs);

@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../Entites/utilisateur.dart';
 import '../Routs/app_routes.dart';
+import 'user_exercise_programs_screen.dart';
+import 'user_dashboard_screen.dart';
+import 'user_achievements_screen.dart';
+import 'user_nutrition_tracking_screen.dart';
+import 'user_reminders_screen.dart';
+import 'user_main_screen.dart';
+import '../Services/exercise_service.dart';
 
 class HomeUserScreen extends StatelessWidget {
   final Utilisateur utilisateur;
@@ -28,96 +35,105 @@ class HomeUserScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TEST: Afficher un message pour confirmer que les changements sont pris en compte
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accueil'),
-        actions: [
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(
-              context,
-              AppRoutes.profil,
-              arguments: utilisateur,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: _buildSmallAvatar(context),
-            ),
-          ),
-        ],
+        title: Text('NOUVELLE INTERFACE - ${utilisateur.prenom}'),
+        backgroundColor: Colors.green,
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF00C6FF), Color(0xFF0072FF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bonjour, ${utilisateur.prenom}',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Bienvenue sur votre espace personnel',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
-                ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Vos activités récentes',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: ListView.separated(
-                              itemCount: 6,
-                              separatorBuilder: (_, __) => const Divider(),
-                              itemBuilder: (ctx, idx) {
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    child: Text('A${idx + 1}'),
-                                  ),
-                                  title: Text('Activité ${idx + 1}'),
-                                  subtitle: const Text('Il y a 1 jour'),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.chevron_right),
-                                    onPressed: () {},
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, size: 100, color: Colors.green),
+            SizedBox(height: 20),
+            Text(
+              'NOUVELLE INTERFACE CHARGÉE !',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserMainScreen(utilisateur: utilisateur),
+                  ),
+                );
+              },
+              child: Text('Accéder aux nouvelles fonctionnalités'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Future<List<dynamic>> _loadUserProgramsData() async {
+    try {
+      final exerciseService = ExerciseService();
+      final userPlans = await exerciseService.getUserPlans(utilisateur.id!);
+      return [userPlans.isNotEmpty, userPlans.length];
+    } catch (e) {
+      return [false, 0];
+    }
   }
 }

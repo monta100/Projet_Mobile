@@ -6,6 +6,9 @@ import '../Routs/app_routes.dart';
 import '../Services/message_service.dart';
 import '../Entites/message.dart';
 import 'chat_screen.dart';
+import 'coach_plans_screen.dart';
+import 'exercise_library_screen.dart';
+import 'coach_progress_tracking_screen.dart';
 
 class CoachHomeScreen extends StatefulWidget {
   final Utilisateur coach;
@@ -242,6 +245,106 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                           'Gérez vos clients, suivez leurs progrès et partagez des exercices.',
                         ),
                       ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Exercise management section
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.fitness_center, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Gestion des Exercices',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Créez des plans d\'exercices personnalisés et assignez-les à vos clients.',
+                    style: TextStyle(
+                      color: Colors.blue.shade600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CoachPlansScreen(coachId: widget.coach.id!),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.list_alt),
+                          label: const Text('Mes Plans'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade600,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ExerciseLibraryScreen(coachId: widget.coach.id!),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.library_books),
+                          label: const Text('Bibliothèque'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.blue.shade600,
+                            side: BorderSide(color: Colors.blue.shade600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CoachProgressTrackingScreen(coachId: widget.coach.id!),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.analytics),
+                      label: const Text('Suivi des Progrès'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue.shade600,
+                        side: BorderSide(color: Colors.blue.shade600),
+                      ),
                     ),
                   ),
                 ],

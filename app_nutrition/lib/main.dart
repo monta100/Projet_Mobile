@@ -7,6 +7,7 @@ import 'Screens/register_screen.dart';
 import 'Services/email_service.dart';
 import 'Services/user_service.dart';
 import 'Services/database_helper.dart';
+import 'Services/exercise_service.dart';
 import 'Routs/app_routes.dart';
 
 Future<void> main() async {
@@ -76,6 +77,8 @@ Future<void> main() async {
   // Initialize in-memory test data so the app has a default user for quick testing
   try {
     await DatabaseHelper().initTestData();
+    // Initialize demo exercises
+    await ExerciseService().initializeDemoExercises();
   } catch (e) {
     // ignore: avoid_print
     print('Warning: failed to init test data: $e');

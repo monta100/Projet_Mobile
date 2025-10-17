@@ -28,12 +28,56 @@ class DatabaseHelper {
 
   // --- Création des tables ---
   Future<void> _onCreate(Database db, int version) async {
-    // 🟡 Chaque membre ajoutera ici sa table :
-    // Exemple plus tard :
-    // await db.execute('CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT)');
+    // 🟢 Table des programmes
+    await db.execute('''
+      CREATE TABLE programmes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        objectif TEXT NOT NULL,
+        date_debut TEXT NOT NULL,
+        date_fin TEXT NOT NULL
+      )
+    ''');
+
+    // 🔵 Table des sessions
+    await db.execute('''
+      CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type_activite TEXT NOT NULL,
+        duree INTEGER NOT NULL,
+        intensite TEXT NOT NULL,
+        calories INTEGER NOT NULL
+      )
+    ''');
+
+    // 🟣 Table des exercices
+    await db.execute('''
+      CREATE TABLE exercices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        description TEXT NOT NULL,
+        repetitions INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        video_path TEXT NOT NULL,
+        programme_id INTEGER NOT NULL,
+        FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 🟠 Table des progressions
+    await db.execute('''
+      CREATE TABLE progressions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        calories_brulees INTEGER NOT NULL,
+        duree_totale INTEGER NOT NULL,
+        commentaire TEXT NOT NULL,
+        session_id INTEGER NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
-  
   // --- Méthodes génériques ---
 
   /// Insère une nouvelle ligne dans la table spécifiée.
@@ -71,5 +115,4 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
-  
 }

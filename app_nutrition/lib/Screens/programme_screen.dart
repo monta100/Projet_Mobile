@@ -14,55 +14,46 @@ class ProgrammeScreen extends StatefulWidget {
   State<ProgrammeScreen> createState() => _ProgrammeScreenState();
 }
 
-class _ProgrammeScreenState extends State<ProgrammeScreen> {
+class _ProgrammeScreenState extends State<ProgrammeScreen>
+    with SingleTickerProviderStateMixin {
   final ProgrammeService _service = ProgrammeService();
   List<Programme> _programmes = [];
+  List<Programme> _filtered = [];
 
   final _nomCtrl = TextEditingController();
   final _objectifCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+
   DateTime? _dateDebut;
   DateTime? _dateFin;
 
   final DateFormat _fmt = DateFormat('dd/MM/yyyy');
+  String _sortOption = "Aucun";
+
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _nomCtrl.dispose();
+    _objectifCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     final data = await _service.getAllProgrammes();
-    setState(() => _programmes = data);
-  }
-
-  Future<void> _add() async {
-    if (_nomCtrl.text.isEmpty ||
-        _objectifCtrl.text.isEmpty ||
-        _dateDebut == null ||
-        _dateFin == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Veuillez remplir tous les champs')),
-      );
-      return;
-    }
-
-    await _service.insertProgramme(Programme(
-      nom: _nomCtrl.text.trim(),
-      objectif: _objectifCtrl.text.trim(),
-      dateDebut: _dateDebut!.toIso8601String().split('T').first,
-      dateFin: _dateFin!.toIso8601String().split('T').first,
-    ));
-
-    _nomCtrl.clear();
-    _objectifCtrl.clear();
-    _dateDebut = null;
-    _dateFin = null;
-    _load();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ Programme ajouté avec succès !")),
-    );
+    setState(() {
+      _programmes = data;
+      _filtered = data;
+    });
   }
 
   DateTime _safeParse(String date) {
@@ -77,55 +68,114 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
     }
   }
 
+  double _calculateProgress(Programme p) {
+    final start = _safeParse(p.dateDebut);
+    final end = _safeParse(p.dateFin);
+    final now = DateTime.now();
+
+    if (now.isBefore(start)) return 0.0;
+    if (now.isAfter(end)) return 1.0;
+
+    final total = end.difference(start).inDays;
+    final done = now.difference(start).inDays;
+    return total > 0 ? done / total : 0.0;
+  }
+
+  void _filterProgrammes(String query) {
+    setState(() {
+      _filtered = _programmes
+          .where((p) =>
+              p.nom.toLowerCase().contains(query.toLowerCase()) ||
+              p.objectif.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  void _sortProgrammes(String option) {
+    setState(() {
+      _sortOption = option;
+      if (option == "Date") {
+        _filtered.sort((a, b) =>
+            _safeParse(a.dateDebut).compareTo(_safeParse(b.dateDebut)));
+      } else if (option == "Nom") {
+        _filtered.sort((a, b) => a.nom.compareTo(b.nom));
+      } else {
+        _filtered = List.from(_programmes);
+      }
+    });
+  }
+
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: (isStart ? _dateDebut : _dateFin) ?? DateTime.now(),
+      initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
       locale: const Locale('fr', 'FR'),
-      helpText: isStart ? "Choisir la date de début" : "Choisir la date de fin",
-      cancelText: "Annuler",
-      confirmText: "Valider",
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: mainGreen,
-              onPrimary: Colors.white,
-              onSurface: Colors.black87,
-            ),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: mainGreen,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
           ),
-          child: child!,
-        );
-      },
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) {
       setState(() => isStart ? _dateDebut = picked : _dateFin = picked);
     }
   }
 
-  Future<void> _confirmDelete(int id) async {
+  Future<void> _addOrEdit({Programme? existing}) async {
+    if (_nomCtrl.text.isEmpty ||
+        _objectifCtrl.text.isEmpty ||
+        _dateDebut == null ||
+        _dateFin == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("⚠️ Veuillez remplir tous les champs")));
+      return;
+    }
+
+    final programme = Programme(
+      id: existing?.id,
+      nom: _nomCtrl.text.trim(),
+      objectif: _objectifCtrl.text.trim(),
+      dateDebut: _dateDebut!.toIso8601String().split('T').first,
+      dateFin: _dateFin!.toIso8601String().split('T').first,
+    );
+
+    if (existing == null) {
+      await _service.insertProgramme(programme);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("✅ Programme ajouté !")));
+    } else {
+      await _service.updateProgramme(programme);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("✏️ Programme modifié !")));
+    }
+
+    _nomCtrl.clear();
+    _objectifCtrl.clear();
+    _dateDebut = null;
+    _dateFin = null;
+    _load();
+  }
+
+  Future<void> _delete(int id) async {
     final confirm = await showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("🗑 Supprimer le programme",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text(
-          "Voulez-vous vraiment supprimer ce programme ?",
-          style: TextStyle(fontSize: 15),
-        ),
+        title: const Text("🗑 Supprimer le programme"),
+        content: const Text("Confirmer la suppression ?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Annuler"),
-          ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Annuler")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
             child: const Text("Supprimer"),
           ),
@@ -138,288 +188,156 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: lightGray,
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: mainGreen,
-        icon: const Icon(Icons.add),
-        label: const Text("Nouveau programme"),
-        onPressed: () => _showAddDialog(context),
+  Widget _buildSummary() {
+    if (_programmes.isEmpty) return const SizedBox.shrink();
+
+    final active = _programmes.where((p) => _calculateProgress(p) < 1.0).length;
+    final finished =
+        _programmes.where((p) => _calculateProgress(p) >= 1.0).length;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black12.withOpacity(0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 3))
+        ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 🌿 HEADER MODERNE
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [mainGreen, darkGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(30)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.calendar_month,
-                          color: Colors.white, size: 28),
-                      SizedBox(width: 8),
-                      Text(
-                        "Mes Programmes 💪",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Planifiez vos objectifs sportifs et vos progrès",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 15),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 70,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // 📋 LISTE DES PROGRAMMES
-            Expanded(
-              child: _programmes.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.hourglass_empty,
-                              color: Colors.grey, size: 80),
-                          SizedBox(height: 10),
-                          Text("Aucun programme pour le moment",
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 16)),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _programmes.length,
-                      itemBuilder: (_, i) {
-                        final p = _programmes[i];
-                        final debut = _fmt.format(_safeParse(p.dateDebut));
-                        final fin = _fmt.format(_safeParse(p.dateFin));
-
-                        // 🌟 Nouveau style de carte
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          margin: const EdgeInsets.symmetric(vertical: 10),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Colors.white, Color(0xFFF0FDF4)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 🟢 Icône
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: mainGreen.withOpacity(0.15),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.track_changes,
-                                    color: mainGreen, size: 26),
-                              ),
-                              const SizedBox(width: 12),
-
-                              // 🧾 Contenu
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      p.nom,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: darkGreen,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.flag,
-                                            size: 16, color: mainGreen),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            "Objectif : ${p.objectif}",
-                                            style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.black87),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.calendar_today,
-                                            size: 14, color: Colors.black54),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          "$debut → $fin",
-                                          style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.black54),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // 🗑 Bouton supprimer
-                              IconButton(
-                                icon: const Icon(Icons.delete_forever_rounded,
-                                    color: Colors.redAccent, size: 26),
-                                onPressed: () => _confirmDelete(p.id!),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _summaryItem(Icons.play_circle_fill, active, "Actifs"),
+          _summaryItem(Icons.check_circle, finished, "Terminés"),
+          _summaryItem(Icons.list_alt, _programmes.length, "Total"),
+        ],
       ),
     );
   }
 
-  // 🌟 MODAL D’AJOUT – AVEC BOUTON ANNULER
-  void _showAddDialog(BuildContext ctx) {
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        builder: (_, controller) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+  Widget _summaryItem(IconData icon, int value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: mainGreen, size: 26),
+        const SizedBox(height: 6),
+        Text("$value",
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildProgrammeCard(Programme p) {
+    final progress = _calculateProgress(p);
+    final debut = _fmt.format(_safeParse(p.dateDebut));
+    final fin = _fmt.format(_safeParse(p.dateFin));
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black12.withOpacity(0.08),
+              blurRadius: 6,
+              offset: const Offset(0, 3))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.track_changes, color: mainGreen),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(p.nom,
+                    style: const TextStyle(
+                        color: darkGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17)),
+              ),
+              IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.orangeAccent),
+                  onPressed: () => _showAddOrEditDialog(existing: p)),
+              IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  onPressed: () => _delete(p.id!)),
+            ],
           ),
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            controller: controller,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-                const Text(
-                  "🆕 Nouveau programme",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                _field("Nom du programme", _nomCtrl),
-                _field("Objectif", _objectifCtrl),
-                const SizedBox(height: 10),
-                _dateButton(
-                    label: "Date de début",
-                    value:
-                        _dateDebut == null ? "" : _fmt.format(_dateDebut!),
-                    onTap: () => _selectDate(ctx, true)),
-                const SizedBox(height: 10),
-                _dateButton(
-                    label: "Date de fin",
-                    value: _dateFin == null ? "" : _fmt.format(_dateFin!),
-                    onTap: () => _selectDate(ctx, false)),
-                const SizedBox(height: 28),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Bouton Annuler
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      label: const Text("Annuler",
-                          style: TextStyle(color: Colors.red)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 25, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                    // Bouton Ajouter
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.check_circle_outline,
-                          color: Colors.white),
-                      label: const Text("Ajouter",
-                          style: TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: mainGreen,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 30, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        elevation: 4,
-                        shadowColor: mainGreen.withOpacity(0.4),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _add();
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          const SizedBox(height: 6),
+          Text("Objectif : ${p.objectif}",
+              style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          Text("$debut → $fin",
+              style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: progress,
+            color: mainGreen,
+            backgroundColor: Colors.grey.shade200,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 4),
+          Text("${(progress * 100).toStringAsFixed(0)}% complété",
+              style: TextStyle(
+                  fontSize: 12,
+                  color: progress == 1 ? Colors.redAccent : mainGreen)),
+        ],
+      ),
+    );
+  }
+
+  void _showAddOrEditDialog({Programme? existing}) {
+    if (existing != null) {
+      _nomCtrl.text = existing.nom;
+      _objectifCtrl.text = existing.objectif;
+      _dateDebut = _safeParse(existing.dateDebut);
+      _dateFin = _safeParse(existing.dateFin);
+    } else {
+      _nomCtrl.clear();
+      _objectifCtrl.clear();
+      _dateDebut = null;
+      _dateFin = null;
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(existing == null
+            ? "Nouveau programme"
+            : "Modifier le programme"),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              _field("Nom du programme", _nomCtrl),
+              _field("Objectif", _objectifCtrl),
+              const SizedBox(height: 8),
+              _dateButton("Date de début", _dateDebut, true),
+              const SizedBox(height: 8),
+              _dateButton("Date de fin", _dateFin, false),
+            ],
           ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: mainGreen),
+            onPressed: () {
+              Navigator.pop(context);
+              _addOrEdit(existing: existing);
+            },
+            child: const Text("Valider", style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -434,45 +352,147 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
           prefixIcon: const Icon(Icons.edit, color: mainGreen),
           filled: true,
           fillColor: lightGray,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: mainGreen),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: mainGreen, width: 2),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
   }
 
-  Widget _dateButton({
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-  }) {
+  Widget _dateButton(String label, DateTime? date, bool isStart) {
     return InkWell(
-      onTap: onTap,
+      onTap: () => _selectDate(context, isStart),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: mainGreen.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: mainGreen.withOpacity(0.3)),
+          color: lightGray,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, size: 18, color: mainGreen),
+            const Icon(Icons.calendar_today, color: mainGreen, size: 18),
             const SizedBox(width: 10),
             Text(
-              value.isEmpty ? label : "$label : $value",
-              style: const TextStyle(fontSize: 15, color: Colors.black87),
+              date == null ? label : "$label : ${_fmt.format(date)}",
+              style: const TextStyle(color: Colors.black87),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = _filtered.where((p) => _calculateProgress(p) < 1).toList();
+    final finished = _filtered.where((p) => _calculateProgress(p) >= 1).toList();
+
+    return Scaffold(
+      backgroundColor: lightGray,
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: mainGreen,
+        onPressed: () => _showAddOrEditDialog(),
+        label: const Text("Nouveau programme"),
+        icon: const Icon(Icons.add),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                    colors: [mainGreen, darkGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(30)),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.calendar_month, color: Colors.white, size: 30),
+                  SizedBox(height: 8),
+                  Text("Mes Programmes 💪",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold)),
+                  SizedBox(height: 6),
+                  Text("Suivez vos plans et vos progrès sportifs",
+                      style: TextStyle(color: Colors.white70)),
+                ],
+              ),
+            ),
+            TabBar(
+              controller: _tabController,
+              indicatorColor: mainGreen,
+              labelColor: darkGreen,
+              tabs: const [
+                Tab(text: "Actifs"),
+                Tab(text: "Terminés"),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildProgrammeList(active),
+                  _buildProgrammeList(finished),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProgrammeList(List<Programme> list) {
+    return ListView(
+      children: [
+        _buildSummary(),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: "Rechercher un programme...",
+                    prefixIcon: const Icon(Icons.search, color: mainGreen),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: _filterProgrammes,
+                ),
+              ),
+              const SizedBox(width: 8),
+              DropdownButton<String>(
+                value: _sortOption,
+                items: ["Aucun", "Nom", "Date"]
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) => _sortProgrammes(val!),
+              ),
+            ],
+          ),
+        ),
+        if (list.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(
+                child: Text("Aucun programme trouvé",
+                    style: TextStyle(color: Colors.grey))),
+          )
+        else
+          ...list.map(_buildProgrammeCard),
+      ],
     );
   }
 }

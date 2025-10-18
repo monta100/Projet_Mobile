@@ -7,7 +7,7 @@ class Exercice {
   final int repetitions;
   final String imagePath;
   final String videoPath;
-  final int programmeId;
+  final int programmeId; // 🔗 lien avec Programme
 
   Exercice({
     this.id,
@@ -53,7 +53,7 @@ class Exercice {
         id: map['id'] as int?,
         nom: map['nom'] as String,
         description: map['description'] as String,
-        repetitions: map['repetitions'] as int,
+        repetitions: (map['repetitions'] as num).toInt(),
         imagePath: map['image_path'] as String,
         videoPath: map['video_path'] as String,
         programmeId: map['programme_id'] as int,

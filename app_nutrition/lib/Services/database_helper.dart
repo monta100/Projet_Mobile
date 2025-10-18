@@ -22,8 +22,17 @@ class DatabaseHelper {
 
   // --- Initialisation ---
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), _dbName);
-    return await openDatabase(path, version: _dbVersion, onCreate: _onCreate);
+    final path = join(await getDatabasesPath(), _dbName);
+    return await openDatabase(
+      path,
+      version: _dbVersion,
+      onCreate: _onCreate,
+      onOpen: (db) async {
+        // 🔒 Activation des contraintes FOREIGN KEY
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
+      onUpgrade: _onUpgrade,
+    );
   }
 
   // --- Création des tables ---
@@ -78,23 +87,34 @@ class DatabaseHelper {
     ''');
   }
 
-  // --- Méthodes génériques ---
-
-  /// Insère une nouvelle ligne dans la table spécifiée.
-  /// Retourne l'ID de la nouvelle ligne.
-  Future<int> insert(String table, Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert(table, data);
+  // --- Mise à jour de la base (si version change) ---
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Tu pourras ici ajouter des ALTER TABLE si tu modifies des structures
+    if (oldVersion < newVersion) {
+      // Exemple :
+      // await db.execute('ALTER TABLE programmes ADD COLUMN note TEXT');
+    }
   }
 
-  /// Récupère toutes les lignes d'une table.
+  // --- Méthodes génériques ---
+
+  /// ➕ Insère une nouvelle ligne dans la table spécifiée.
+  Future<int> insert(String table, Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.insert(
+      table,
+      data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 🔍 Récupère toutes les lignes d'une table.
   Future<List<Map<String, dynamic>>> queryAll(String table) async {
     final db = await database;
     return await db.query(table);
   }
 
-  /// Met à jour une ligne dans une table en fonction de son ID.
-  /// Retourne le nombre de lignes affectées.
+  /// ✏️ Met à jour une ligne dans une table par ID.
   Future<int> update(String table, Map<String, dynamic> data, int id) async {
     final db = await database;
     return await db.update(
@@ -105,8 +125,7 @@ class DatabaseHelper {
     );
   }
 
-  /// Supprime une ligne d'une table en fonction de son ID.
-  /// Retourne le nombre de lignes supprimées.
+  /// ❌ Supprime une ligne par ID.
   Future<int> delete(String table, int id) async {
     final db = await database;
     return await db.delete(

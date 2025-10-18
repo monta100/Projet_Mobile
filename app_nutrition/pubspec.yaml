@@ -27,11 +27,20 @@ environment:
 # dependencies can be manually updated by changing the version numbers below to
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
+
 dependencies:
   flutter:
     sdk: flutter
+  lottie: ^3.1.2   
+
   sqflite: ^2.3.3
   path: ^1.9.0
+  image_picker: ^1.1.2
+  fl_chart: ^0.68.0
+
+  flutter_localizations:
+    sdk: flutter       
+  intl: ^0.20.2        
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -40,6 +49,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../Entities/session.dart';
 import '../Services/session_service.dart';
 
@@ -76,12 +77,17 @@ class _SessionScreenState extends State<SessionScreen> {
     int duree = int.parse(_dureeCtrl.text);
     double calories = _calculateCalories(_intensiteCtrl.text, duree, userWeight);
 
+    // ✅ Ajout automatique de la date du jour et programme par défaut
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
     final session = Session(
       id: existing?.id,
       typeActivite: _typeCtrl.text.trim(),
       duree: duree,
       intensite: _intensiteCtrl.text.trim(),
       calories: calories.round(),
+      date: existing?.date ?? today,
+      programmeId: existing?.programmeId ?? 0,
     );
 
     if (existing == null) {
@@ -182,8 +188,8 @@ class _SessionScreenState extends State<SessionScreen> {
       } else if (option == "Calories") {
         _filtered.sort((a, b) => a.calories.compareTo(b.calories));
       } else if (option == "Intensité") {
-        _filtered.sort(
-            (a, b) => a.intensite.toLowerCase().compareTo(b.intensite.toLowerCase()));
+        _filtered.sort((a, b) =>
+            a.intensite.toLowerCase().compareTo(b.intensite.toLowerCase()));
       } else {
         _filtered = List.from(_sessions);
       }
@@ -402,7 +408,8 @@ class _SessionScreenState extends State<SessionScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Text(s.typeActivite,
                                       style: TextStyle(
@@ -411,10 +418,15 @@ class _SessionScreenState extends State<SessionScreen> {
                                           fontSize: 16)),
                                   const SizedBox(height: 4),
                                   Text("${s.duree} min • ${s.calories} kcal",
-                                      style: const TextStyle(fontSize: 13)),
+                                      style:
+                                          const TextStyle(fontSize: 13)),
                                   Text("Intensité : ${s.intensite}",
                                       style: TextStyle(
                                           color: color, fontSize: 13)),
+                                  Text("Date : ${s.date}",
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54)),
                                 ],
                               ),
                             ),

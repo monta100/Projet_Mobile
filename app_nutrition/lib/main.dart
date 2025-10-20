@@ -4,9 +4,11 @@ import 'Screens/session_screen.dart';
 import 'Screens/programme_screen.dart';
 import 'Screens/exercice_screen.dart';
 import 'Screens/progression_screen.dart';
-import 'Screens/dashboard_screen.dart';
+import 'Screens/recommandation_screen.dart';
+import 'Screens/home_screen.dart'; // ✅ Nouvel écran météo + citation
 
 const Color mainGreen = Color(0xFF2ECC71);
+const Color darkGreen = Color(0xFF1E8449);
 
 void main() {
   runApp(const MyApp());
@@ -20,7 +22,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'App Nutrition',
-      // 🌍 Localisation FR + EN
       locale: const Locale('fr', 'FR'),
       supportedLocales: const [
         Locale('fr', 'FR'),
@@ -38,19 +39,16 @@ class MyApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: mainGreen,
           foregroundColor: Colors.white,
-          elevation: 3,
           centerTitle: true,
+          elevation: 2,
           titleTextStyle: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.black87, fontSize: 16),
-        ),
       ),
-      home: const MyHomePage(),
+      home: const HomeScreen(), // 🏠 Démarre sur ton accueil météo + citation
     );
   }
 }
@@ -65,12 +63,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
+  // ✅ Liste des pages
   final List<Widget> _pages = const [
     SessionScreen(),
     ProgrammeScreen(),
     ExerciceScreen(),
     ProgressionScreen(),
-    DashboardScreen(),
+    RecommandationScreen(),
   ];
 
   final List<String> _titles = const [
@@ -78,25 +77,39 @@ class _MyHomePageState extends State<MyHomePage> {
     "Programmes",
     "Exercices",
     "Progression",
-    "Tableau de bord",
+    "Recommandations",
   ];
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
   }
 
+  void _goToHome(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_selectedIndex])),
+      appBar: AppBar(
+        title: Text(_titles[_selectedIndex]),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.white),
+            tooltip: "Retour à l'accueil",
+            onPressed: () => _goToHome(context),
+          ),
+        ],
+      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (child, anim) =>
             FadeTransition(opacity: anim, child: child),
         child: _pages[_selectedIndex],
       ),
-
-      // 🌿 Barre de navigation inférieure modernisée
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -113,7 +126,6 @@ class _MyHomePageState extends State<MyHomePage> {
             height: 70,
             backgroundColor: Colors.white,
             indicatorColor: mainGreen.withOpacity(0.15),
-            elevation: 0,
             labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>(
               (states) => TextStyle(
                 fontWeight: states.contains(MaterialState.selected)
@@ -160,9 +172,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 label: 'Progression',
               ),
               NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
+                icon: Icon(Icons.auto_awesome_outlined),
+                selectedIcon: Icon(Icons.auto_awesome),
+                label: 'Recommandations',
               ),
             ],
           ),

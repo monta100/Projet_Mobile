@@ -11,7 +11,7 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'app_nutrition.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2; // 🔼 version augmentée (migration auto)
 
   // --- Accès à la base ---
   Future<Database> get database async {
@@ -27,11 +27,10 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onOpen: (db) async {
-        // 🔒 Activation des contraintes FOREIGN KEY
         await db.execute('PRAGMA foreign_keys = ON');
       },
-      onUpgrade: _onUpgrade,
     );
   }
 
@@ -55,7 +54,10 @@ class DatabaseHelper {
         type_activite TEXT NOT NULL,
         duree INTEGER NOT NULL,
         intensite TEXT NOT NULL,
-        calories INTEGER NOT NULL
+        calories INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        programme_id INTEGER DEFAULT 0,
+        FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
       )
     ''');
 
@@ -81,18 +83,18 @@ class DatabaseHelper {
         calories_brulees INTEGER NOT NULL,
         duree_totale INTEGER NOT NULL,
         commentaire TEXT NOT NULL,
-        session_id INTEGER NOT NULL,
-        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+        session_id INTEGER,
+        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
       )
     ''');
   }
 
-  // --- Mise à jour de la base (si version change) ---
+  // --- Mise à jour de la base (migration si version change) ---
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Tu pourras ici ajouter des ALTER TABLE si tu modifies des structures
-    if (oldVersion < newVersion) {
-      // Exemple :
-      // await db.execute('ALTER TABLE programmes ADD COLUMN note TEXT');
+    if (oldVersion < 2) {
+      // ✅ Ajout des colonnes manquantes pour la table sessions
+      await db.execute('ALTER TABLE sessions ADD COLUMN date TEXT DEFAULT ""');
+      await db.execute('ALTER TABLE sessions ADD COLUMN programme_id INTEGER DEFAULT 0');
     }
   }
 

@@ -24,7 +24,7 @@ class SessionService {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> data = await db.query(
       Session.tableName,
-      orderBy: 'id DESC', // 🔽 Affiche les plus récentes d’abord
+      orderBy: 'id DESC', // 🔽 Les plus récentes d’abord
     );
     return data.map((map) => Session.fromMap(map)).toList();
   }
@@ -76,7 +76,11 @@ class SessionService {
     final result = await db.rawQuery(
       'SELECT SUM(calories) as total FROM ${Session.tableName}',
     );
-    return result.first['total'] == null ? 0 : result.first['total'] as int;
+    final value = result.first['total'];
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    return int.tryParse(value.toString()) ?? 0;
   }
 
   /// ⏱️ Calcule la durée totale d’entraînement sur toutes les séances.
@@ -85,7 +89,11 @@ class SessionService {
     final result = await db.rawQuery(
       'SELECT SUM(duree) as total FROM ${Session.tableName}',
     );
-    return result.first['total'] == null ? 0 : result.first['total'] as int;
+    final value = result.first['total'];
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    return int.tryParse(value.toString()) ?? 0;
   }
 
   /// 📆 Récupère les séances d’un type spécifique (ex: “cardio”, “musculation”)
@@ -97,5 +105,11 @@ class SessionService {
       whereArgs: ['%$type%'],
     );
     return data.map((map) => Session.fromMap(map)).toList();
+  }
+
+  /// 🧹 Supprime toutes les séances (utile pour reset les données).
+  Future<void> clearAllSessions() async {
+    final db = await _dbHelper.database;
+    await db.delete(Session.tableName);
   }
 }

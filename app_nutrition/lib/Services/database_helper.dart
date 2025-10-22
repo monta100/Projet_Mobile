@@ -103,21 +103,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Table messages
-    await db.execute('''
-      CREATE TABLE $tableMessages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sender_id INTEGER,
-        receiver_id INTEGER,
-        content TEXT,
-        type TEXT,
-        created_at TEXT,
-        read INTEGER DEFAULT 0,
-        FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
-        FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
-      )
-    ''');
-
+    
     // Table repas
     await db.execute('''
       CREATE TABLE repas(
@@ -356,6 +342,81 @@ class DatabaseHelper {
     return await db.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+    // 🟢 Table des programmes
+    await db.execute('''
+      CREATE TABLE programmes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        objectif TEXT NOT NULL,
+        date_debut TEXT NOT NULL,
+        date_fin TEXT NOT NULL
+      )
+    ''');
+
+    // 🔵 Table des sessions
+    await db.execute('''
+      CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type_activite TEXT NOT NULL,
+        duree INTEGER NOT NULL,
+        intensite TEXT NOT NULL,
+        calories INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        programme_id INTEGER DEFAULT 0,
+        FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+      )
+    ''');
+
+    // 🟣 Table des exercices
+    await db.execute('''
+      CREATE TABLE exercices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        description TEXT NOT NULL,
+        repetitions INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        video_path TEXT NOT NULL,
+        programme_id INTEGER NOT NULL,
+        FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 🟠 Table des progressions
+    await db.execute('''
+      CREATE TABLE progressions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        calories_brulees INTEGER NOT NULL,
+        duree_totale INTEGER NOT NULL,
+        commentaire TEXT NOT NULL,
+        session_id INTEGER,
+        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
+      )
+    ''');
+  }
+
+  // --- Mise à jour de la base (migration si version change) ---
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // ✅ Ajout des colonnes manquantes pour la table sessions
+      await db.execute('ALTER TABLE sessions ADD COLUMN date TEXT DEFAULT ""');
+      await db.execute('ALTER TABLE sessions ADD COLUMN programme_id INTEGER DEFAULT 0');
+    }
+  }
+
+  // --- Méthodes génériques ---
+
+  /// ➕ Insère une nouvelle ligne dans la table spécifiée.
+  Future<int> insert(String table, Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.insert(
+      table,
+      data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 🔍 Récupère toutes les lignes d'une table.
   Future<List<Map<String, dynamic>>> queryAll(String table) async {
     final db = await database;
     return await db.query(table);

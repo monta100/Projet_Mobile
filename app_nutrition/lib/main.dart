@@ -101,21 +101,23 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('fr', 'FR'), // Français
-        Locale('en', 'US'), // Anglais
-      ],
-      locale: const Locale('fr', 'FR'), // Forcer le français
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4CAF50),
-          brightness: Brightness.light,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: mainGreen),
         useMaterial3: true,
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: mainGreen,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          elevation: 2,
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       ),
-      home: const WelcomeScreen(),
-      routes: AppRoutes.getRoutes(),
+      home: const HomeScreen(), // 🏠 Démarre sur ton accueil météo + citation
     );
   }
 }
@@ -253,6 +255,64 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            height: 70,
+            backgroundColor: Colors.white,
+            indicatorColor: mainGreen.withOpacity(0.15),
+            labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>(
+              (states) => TextStyle(
+                fontWeight: states.contains(MaterialState.selected)
+                    ? FontWeight.bold
+                    : FontWeight.w500,
+                color: states.contains(MaterialState.selected)
+                    ? mainGreen
+                    : Colors.black54,
+                fontSize: 13,
+              ),
+            ),
+            iconTheme: MaterialStateProperty.resolveWith<IconThemeData>(
+              (states) => IconThemeData(
+                color: states.contains(MaterialState.selected)
+                    ? mainGreen
+                    : Colors.black45,
+                size: states.contains(MaterialState.selected) ? 28 : 24,
+              ),
+            ),
+          ),
+          child: NavigationBar(
+            animationDuration: const Duration(milliseconds: 450),
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onItemTapped,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.fitness_center_outlined),
+                selectedIcon: Icon(Icons.fitness_center),
+                label: 'Séances',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.list_alt_outlined),
+                selectedIcon: Icon(Icons.list_alt),
+                label: 'Programmes',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.sports_gymnastics_outlined),
+                selectedIcon: Icon(Icons.sports_gymnastics),
+                label: 'Exercices',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.show_chart_outlined),
+                selectedIcon: Icon(Icons.show_chart),
+                label: 'Progression',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.auto_awesome_outlined),
+                selectedIcon: Icon(Icons.auto_awesome),
+                label: 'Recommandations',
+              ),
+            ],
           ),
         ),
       ),

@@ -32,30 +32,33 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  sqflite: ^2.3.3
-  path: ^1.9.0
-  image_picker: ^1.1.1
-
-  animate_do: ^3.1.2
-  google_generative_ai: ^0.4.4
-  intl: ^0.20.2
+  
+  # 🗄️ Base de données et stockage
   sqflite: ^2.3.3
   path: ^1.9.0
   path_provider: ^2.0.15
-  image_picker: ^0.8.7
+  shared_preferences: ^2.5.3
+  
+  # 🤖 IA et API
+  google_generative_ai: ^0.4.4
+  http: ^1.5.0
+  flutter_dotenv: ^5.1.0        # 🔒 Gestion sécurisée des variables d'environnement
+  
+  # 📷 Images et médias
+  image_picker: ^1.1.1
+  model_viewer_plus: ^1.9.3     # rendu 3D .glb/.gltf (mascotte Snacky)
+  
+  # 🎨 UI et animations
+  animate_do: ^3.1.2
+  cupertino_icons: ^1.0.8
+  
+  # 🔊 Audio
+  flutter_tts: ^4.2.3           # voix de synthèse (Text-to-Speech)
+  
+  # 🔧 Utilitaires
+  intl: ^0.20.2
   mailer: ^6.2.7
   crypto: ^3.0.2
-  flutter_dotenv: ^5.0.2
-  http: ^1.1.0
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  http: ^1.5.0
-  shared_preferences: ^2.5.3
-  model_viewer_plus: ^1.9.3     # rendu 3D .glb/.gltf (mascotte Snacky)
-  flutter_tts: ^4.2.3           # voix de synthèse (Text-to-Speech)
-  flutter_dotenv: ^5.1.0        # 🔒 Gestion sécurisée des variables d'environnement
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -81,10 +84,6 @@ flutter:
 
   # Include local .env at runtime (development only). Keep .env in .gitignore —
   # do NOT commit secrets to the repository.
-  assets:
-    - .env
-
-  # To add assets to your application, add an assets section, like this:
   assets:
     - .env
     - assets/3d/

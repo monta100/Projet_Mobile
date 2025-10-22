@@ -3,9 +3,6 @@ import '../Entites/utilisateur.dart';
 import '../Services/database_helper.dart';
 import '../Services/user_service.dart';
 import '../Entites/user_objective.dart';
-import 'coach_clients_screen.dart';
-import 'coach_objectives_screen.dart';
-import 'coach_programs_screen.dart';
 
 class CoachDashboardScreen extends StatefulWidget {
   final Utilisateur coach;

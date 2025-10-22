@@ -1,6 +1,5 @@
 import '../Entites/progress_tracking.dart';
 import '../Entites/progress_stats.dart';
-import '../Entites/user_objective.dart';
 import '../Entites/exercise_session.dart';
 import '../Services/database_helper.dart';
 

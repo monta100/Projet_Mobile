@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../Entites/utilisateur.dart';
 import '../Services/database_helper.dart';
 import '../Entites/user_objective.dart';
-import 'create_user_objective_screen.dart';
 
 class CoachObjectivesScreen extends StatefulWidget {
   final Utilisateur coach;

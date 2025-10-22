@@ -4,7 +4,6 @@ import '../Entites/utilisateur.dart';
 import '../Services/exercise_service.dart';
 import '../Services/database_helper.dart';
 import 'user_exercise_programs_screen.dart';
-import 'exercise_session_screen.dart';
 import 'profil_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {

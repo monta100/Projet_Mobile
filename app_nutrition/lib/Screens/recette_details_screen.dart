@@ -45,21 +45,18 @@ class _RecetteDetailsScreenState extends State<RecetteDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Hero(
-              tag: 'recette-image-${widget.recette.id}',
-              child: Image.network(
-                widget.recette.imageUrl ??
-                    _UnsplashHelper.urlFor(widget.recette.nom),
-                width: double.infinity,
+            Image.network(
+              widget.recette.imageUrl ??
+                  _UnsplashHelper.urlFor(widget.recette.nom),
+              width: double.infinity,
+              height: 250,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
                 height: 250,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 250,
-                  color: Colors.grey[200],
-                  child: const Icon(
-                    Icons.image_not_supported,
-                    color: Colors.grey,
-                  ),
+                color: Colors.grey[200],
+                child: const Icon(
+                  Icons.image_not_supported,
+                  color: Colors.grey,
                 ),
               ),
             ),

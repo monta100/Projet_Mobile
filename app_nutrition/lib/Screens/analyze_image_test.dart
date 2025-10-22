@@ -34,10 +34,15 @@ class _AnalyzeImageTestState extends State<AnalyzeImageTest> {
     // 🔒 Récupérer la clé API depuis dotenv
     final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
     
-    if (apiKey.isEmpty) {
+    if (apiKey.isEmpty || apiKey == 'YOUR_GEMINI_KEY_HERE') {
       setState(() {
         _isLoading = false;
-        _result = "❌ Clé API Gemini manquante. Vérifiez votre fichier .env";
+        _result = "⚠️ VisionAI n'est pas configuré.\n\n"
+            "Pour l'activer :\n"
+            "1. Allez sur https://makersuite.google.com/app/apikey\n"
+            "2. Créez une clé API Gemini (gratuit)\n"
+            "3. Ajoutez-la dans le fichier .env\n"
+            "4. Redémarrez l'app";
       });
       return;
     }

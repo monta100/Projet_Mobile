@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../Entities/programme.dart';
+import '../Entites/programme.dart';
 import '../Services/programme_service.dart';
 
 const Color mainGreen = Color(0xFF2ECC71);
@@ -69,16 +69,20 @@ class _ProgrammeScreenState extends State<ProgrammeScreen>
   }
 
   double _calculateProgress(Programme p) {
-    final start = _safeParse(p.dateDebut);
-    final end = _safeParse(p.dateFin);
-    final now = DateTime.now();
+    try {
+      final start = DateTime.parse(p.dateDebut);
+      final end = DateTime.parse(p.dateFin);
+      final now = DateTime.now();
 
-    if (now.isBefore(start)) return 0.0;
-    if (now.isAfter(end)) return 1.0;
+      if (now.isBefore(start)) return 0.0;
+      if (now.isAfter(end)) return 1.0;
 
-    final total = end.difference(start).inDays;
-    final done = now.difference(start).inDays;
-    return total > 0 ? done / total : 0.0;
+      final total = end.difference(start).inDays;
+      final done = now.difference(start).inDays;
+      return total > 0 ? done / total : 0.0;
+    } catch (e) {
+      return 0.0;
+    }
   }
 
   void _filterProgrammes(String query) {
@@ -96,7 +100,7 @@ class _ProgrammeScreenState extends State<ProgrammeScreen>
       _sortOption = option;
       if (option == "Date") {
         _filtered.sort((a, b) =>
-            _safeParse(a.dateDebut).compareTo(_safeParse(b.dateDebut)));
+            a.dateDebut.compareTo(b.dateDebut));
       } else if (option == "Nom") {
         _filtered.sort((a, b) => a.nom.compareTo(b.nom));
       } else {
@@ -142,8 +146,8 @@ class _ProgrammeScreenState extends State<ProgrammeScreen>
       id: existing?.id,
       nom: _nomCtrl.text.trim(),
       objectif: _objectifCtrl.text.trim(),
-      dateDebut: _dateDebut!.toIso8601String().split('T').first,
-      dateFin: _dateFin!.toIso8601String().split('T').first,
+      dateDebut: DateFormat('yyyy-MM-dd').format(_dateDebut!),
+      dateFin: DateFormat('yyyy-MM-dd').format(_dateFin!),
     );
 
     if (existing == null) {
@@ -234,8 +238,8 @@ class _ProgrammeScreenState extends State<ProgrammeScreen>
 
   Widget _buildProgrammeCard(Programme p) {
     final progress = _calculateProgress(p);
-    final debut = _fmt.format(_safeParse(p.dateDebut));
-    final fin = _fmt.format(_safeParse(p.dateFin));
+    final debut = _fmt.format(DateTime.parse(p.dateDebut));
+    final fin = _fmt.format(DateTime.parse(p.dateFin));
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -299,8 +303,8 @@ class _ProgrammeScreenState extends State<ProgrammeScreen>
     if (existing != null) {
       _nomCtrl.text = existing.nom;
       _objectifCtrl.text = existing.objectif;
-      _dateDebut = _safeParse(existing.dateDebut);
-      _dateFin = _safeParse(existing.dateFin);
+      _dateDebut = DateTime.parse(existing.dateDebut);
+      _dateFin = DateTime.parse(existing.dateFin);
     } else {
       _nomCtrl.clear();
       _objectifCtrl.clear();

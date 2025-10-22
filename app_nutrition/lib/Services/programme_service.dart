@@ -1,5 +1,5 @@
 import 'package:sqflite/sqflite.dart';
-import '../Entities/programme.dart';
+import '../Entites/programme.dart';
 import 'database_helper.dart';
 
 /// 🌿 Service de gestion des programmes d'entraînement.

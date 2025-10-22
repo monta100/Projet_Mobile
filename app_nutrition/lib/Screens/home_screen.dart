@@ -1,24 +1,20 @@
-import 'package:flutter/material.dart';
+﻿import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:translator/translator.dart';
 import '../Entites/utilisateur.dart';
 import '../Entites/objectif.dart';
 import '../Services/objectif_service.dart';
 import '../Services/rappel_service.dart';
 import '../Services/user_service.dart';
 import '../Routs/app_routes.dart';
+import '../Theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   final Utilisateur utilisateur;
-
-  const HomeScreen({Key? key, required this.utilisateur}) : super(key: key);
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:translator/translator.dart';
-import '../main.dart'; 
-
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  
+  const HomeScreen({super.key, required this.utilisateur});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -68,14 +64,14 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _loading = false);
   }
 
-  // --- 🌍 API Météo forcée sur Tunis ---
+  // --- ðŸŒ API MÃ©tÃ©o forcÃ©e sur Tunis ---
   Future<void> _getWeather() async {
     try {
-      // Localisation forcée : Tunis 🇹🇳
+      // Localisation forcÃ©e : Tunis ðŸ‡¹ðŸ‡³
       const double latitude = 36.8065;
       const double longitude = 10.1815;
 
-      print("📍 Localisation forcée : $latitude, $longitude (Tunis)");
+      print("ðŸ“ Localisation forcÃ©e : $latitude, $longitude (Tunis)");
 
       final url = Uri.parse(
         "https://api.openweathermap.org/data/2.5/weather?lat=$latitude&lon=$longitude&appid=$_weatherKey&units=metric&lang=fr",
@@ -93,47 +89,47 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _city = "Tunis";
           _temp = 25;
-          _weatherDesc = "ciel dégagé";
+          _weatherDesc = "ciel dÃ©gagÃ©";
         });
       }
     } catch (e) {
-      print("❌ Erreur météo : $e");
+      print("âŒ Erreur mÃ©tÃ©o : $e");
       setState(() {
         _city = "Tunis";
         _temp = 25;
-        _weatherDesc = "ciel dégagé";
+        _weatherDesc = "ciel dÃ©gagÃ©";
       });
     }
   }
 
-  // --- 💬 API Citations + traduction française ---
+  // --- ðŸ’¬ API Citations + traduction franÃ§aise ---
   Future<void> _getQuote() async {
     try {
       final url = Uri.parse("https://zenquotes.io/api/random");
       final res = await http.get(url);
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-        String quote = data[0]["q"] + " — " + data[0]["a"];
+        String quote = data[0]["q"] + " â€” " + data[0]["a"];
 
-        // Traduction automatique 🇫🇷
+        // Traduction automatique ðŸ‡«ðŸ‡·
         final translator = GoogleTranslator();
         var translation = await translator.translate(quote, to: 'fr');
         setState(() => _quote = translation.text);
       } else {
-        _quote = "Le corps accomplit ce que l’esprit croit 💫";
+        _quote = "Le corps accomplit ce que lâ€™esprit croit ðŸ’«";
       }
     } catch (_) {
-      _quote = "Fais un pas aujourd’hui, ton futur te remerciera 🌟";
+      _quote = "Fais un pas aujourdâ€™hui, ton futur te remerciera ðŸŒŸ";
     }
   }
 
-  // --- 🏋️ Message de motivation selon météo ---
+  // --- ðŸ‹ï¸ Message de motivation selon mÃ©tÃ©o ---
   String _getMotivation() {
-    if (_temp == null) return "Prépare-toi à t'entraîner ! 💪";
-    if (_temp! >= 25) return "☀️ ${_temp!.round()}°C - Idéal pour courir dehors !";
-    if (_temp! < 15) return "❄️ ${_temp!.round()}°C - Entraîne-toi en intérieur 🔥";
-    if (_weatherDesc.contains("pluie")) return "🌧️ Pluie - Opte pour une séance indoor.";
-    return "💪 ${_temp!.round()}°C - Conditions parfaites pour bouger !";
+    if (_temp == null) return "PrÃ©pare-toi Ã  t'entraÃ®ner ! ðŸ’ª";
+    if (_temp! >= 25) return "â˜€ï¸ ${_temp!.round()}Â°C - IdÃ©al pour courir dehors !";
+    if (_temp! < 15) return "â„ï¸ ${_temp!.round()}Â°C - EntraÃ®ne-toi en intÃ©rieur ðŸ”¥";
+    if (_weatherDesc.contains("pluie")) return "ðŸŒ§ï¸ Pluie - Opte pour une sÃ©ance indoor.";
+    return "ðŸ’ª ${_temp!.round()}Â°C - Conditions parfaites pour bouger !";
   }
 
   @override
@@ -221,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (ctx) => AlertDialog(
                       title: const Text('Supprimer le compte'),
                       content: const Text(
-                        'Voulez-vous vraiment supprimer votre compte ? Cette action est irréversible.',
+                        'Voulez-vous vraiment supprimer votre compte ? Cette action est irrÃ©versible.',
                       ),
                       actions: [
                         TextButton(
@@ -243,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (success) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Compte supprimé.')),
+                          const SnackBar(content: Text('Compte supprimÃ©.')),
                         );
                         Navigator.pushNamedAndRemoveUntil(
                           context,
@@ -255,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Échec de la suppression.'),
+                            content: Text('Ã‰chec de la suppression.'),
                           ),
                         );
                       }
@@ -297,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Icon(Icons.logout),
                     SizedBox(width: 8),
-                    Text('Déconnexion'),
+                    Text('DÃ©connexion'),
                   ],
                 ),
               ),
@@ -365,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Rôle: ${widget.utilisateur.role}',
+                    'RÃ´le: ${widget.utilisateur.role}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -449,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final coachAliases = {
                     'coach',
                     'coatch',
-                    'entraîneur',
+                    'entraÃ®neur',
                     'entraineur',
                     'trainer',
                   };
@@ -572,7 +568,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête avec bouton d'ajout
+          // En-tÃªte avec bouton d'ajout
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -590,7 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     arguments: widget.utilisateur,
                   );
 
-                  // Si un objectif a été créé, recharger les données
+                  // Si un objectif a Ã©tÃ© crÃ©Ã©, recharger les donnÃ©es
                   if (result == true) {
                     _chargerDonnees();
                   }
@@ -635,13 +631,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Aucun objectif défini',
+                          'Aucun objectif dÃ©fini',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Commencez par créer votre premier objectif !',
+                          'Commencez par crÃ©er votre premier objectif !',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: Colors.grey[500]),
                           textAlign: TextAlign.center,
@@ -701,163 +697,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 600),
-        child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: mainGreen),
-              )
-            : Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFE8F8F5), Color(0xFFD1F2EB)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // --- 📦 Carte météo ---
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                _getWeatherIcon(_weatherDesc),
-                                color: mainGreen,
-                                size: 70,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _city,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: darkGreen,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "${_temp?.toStringAsFixed(1) ?? '--'}°C",
-                                style: const TextStyle(
-                                  fontSize: 42,
-                                  fontWeight: FontWeight.w700,
-                                  color: mainGreen,
-                                ),
-                              ),
-                              Text(
-                                _weatherDesc,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-
-                        // --- 💪 Message météo ---
-                        Text(
-                          _getMotivation(),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 30),
-
-                        // --- 💭 Citation ---
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            "💭 $_quote",
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontStyle: FontStyle.italic,
-                              color: Colors.black87,
-                              height: 1.4,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(height: 50),
-
-                        // --- 🚀 Bouton Continuer ---
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const MyHomePage()),
-                            );
-                          },
-                          icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                          label: const Text("Continuer vers l'application"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: mainGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            elevation: 6,
-                            shadowColor: mainGreen.withOpacity(0.4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
       ),
     );
   }
 
   Widget _buildRappelsView() {
-    return const Center(child: Text('Vue des Rappels - À implémenter'));
+    return const Center(child: Text('Vue des Rappels - Ã€ implÃ©menter'));
   }
 
   Widget _buildStatistiquesView() {
-    return const Center(child: Text('Vue des Statistiques - À implémenter'));
-  // --- 🌤️ Icône météo dynamique ---
+    return const Center(child: Text('Vue des Statistiques - Ã€ implÃ©menter'));
+  }
+
+  // --- ðŸŒ¤ï¸ IcÃ´ne mÃ©tÃ©o dynamique ---
   IconData _getWeatherIcon(String desc) {
     if (desc.contains("nuage")) return Icons.cloud;
     if (desc.contains("pluie")) return Icons.umbrella;
     if (desc.contains("orage")) return Icons.bolt;
     if (desc.contains("neige")) return Icons.ac_unit;
-    if (desc.contains("soleil") || desc.contains("dégagé")) return Icons.wb_sunny;
+    if (desc.contains("soleil") || desc.contains("dÃ©gagÃ©")) return Icons.wb_sunny;
     return Icons.wb_cloudy;
   }
 }

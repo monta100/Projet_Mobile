@@ -1,14 +1,14 @@
 import 'package:sqflite/sqflite.dart';
-import '../Entities/session.dart';
+import '../Entites/session.dart';
 import 'database_helper.dart';
 
-/// 🌿 Service de gestion des séances d’entraînement.
-/// Permet d’ajouter, lire, modifier et supprimer des séances dans la base SQLite.
+/// 🌿 Service de gestion des séances d'entraînement.
+/// Permet d'ajouter, lire, modifier et supprimer des séances dans la base SQLite.
 class SessionService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   /// ➕ Ajoute une nouvelle séance dans la base de données.
-  /// Retourne l’ID auto-généré de la séance.
+  /// Retourne l'ID auto-généré de la séance.
   Future<int> insertSession(Session session) async {
     final db = await _dbHelper.database;
     return await db.insert(
@@ -19,12 +19,12 @@ class SessionService {
   }
 
   /// 🔍 Récupère toutes les séances enregistrées dans la base.
-  /// Retourne une liste d’objets [Session].
+  /// Retourne une liste d'objets [Session].
   Future<List<Session>> getAllSessions() async {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> data = await db.query(
       Session.tableName,
-      orderBy: 'id DESC', // 🔽 Les plus récentes d’abord
+      orderBy: 'id DESC', // 🔽 Les plus récentes d'abord
     );
     return data.map((map) => Session.fromMap(map)).toList();
   }
@@ -43,7 +43,7 @@ class SessionService {
   }
 
   /// ✏️ Met à jour une séance existante.
-  /// Lève une exception si l’ID est manquant.
+  /// Lève une exception si l'ID est manquant.
   Future<int> updateSession(Session session) async {
     if (session.id == null) {
       throw Exception('❌ Impossible de mettre à jour une session sans ID.');
@@ -83,7 +83,7 @@ class SessionService {
     return int.tryParse(value.toString()) ?? 0;
   }
 
-  /// ⏱️ Calcule la durée totale d’entraînement sur toutes les séances.
+  /// ⏱️ Calcule la durée totale d'entraînement sur toutes les séances.
   Future<int> getTotalDuree() async {
     final db = await _dbHelper.database;
     final result = await db.rawQuery(
@@ -96,7 +96,7 @@ class SessionService {
     return int.tryParse(value.toString()) ?? 0;
   }
 
-  /// 📆 Récupère les séances d’un type spécifique (ex: “cardio”, “musculation”)
+  /// 📆 Récupère les séances d'un type spécifique (ex: "cardio", "musculation")
   Future<List<Session>> getSessionsByType(String type) async {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> data = await db.query(

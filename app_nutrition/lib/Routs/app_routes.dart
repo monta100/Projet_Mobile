@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../Screens/login_screen.dart';
 import '../Screens/register_screen.dart';
 import '../Screens/home_user_screen.dart';
+import '../Screens/home_page.dart';
 import '../Screens/nouveau_objectif_screen.dart';
 import '../Screens/mes_objectifs_screen.dart';
 import '../Screens/mes_rappels_screen.dart';
@@ -34,21 +35,11 @@ class AppRoutes {
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
       home: (context) {
-        // Restore original behavior: always show the classic HomeScreen
+        // Redirect to the new HomePage that allows module selection
         final utilisateur =
             ModalRoute.of(context)!.settings.arguments as Utilisateur?;
         if (utilisateur != null) {
-          final role = utilisateur.role.toLowerCase().trim();
-          final coachAliases = {
-            'coach',
-            'coatch',
-            'entraîneur',
-            'entraineur',
-            'trainer',
-          };
-          if (coachAliases.contains(role))
-            return CoachHomeScreen(coach: utilisateur);
-          return HomeUserScreen(utilisateur: utilisateur);
+          return HomePage(utilisateur: utilisateur);
         }
         // If no user provided, redirect to login
         return const LoginScreen();
@@ -134,21 +125,8 @@ class AppRoutes {
       case home:
         final utilisateur = settings.arguments as Utilisateur?;
         if (utilisateur != null) {
-          final role = utilisateur.role.toLowerCase().trim();
-          final coachAliases = {
-            'coach',
-            'coatch',
-            'entraîneur',
-            'entraineur',
-            'trainer',
-          };
-          if (coachAliases.contains(role)) {
-            return MaterialPageRoute(
-              builder: (context) => CoachHomeScreen(coach: utilisateur),
-            );
-          }
           return MaterialPageRoute(
-            builder: (context) => HomeUserScreen(utilisateur: utilisateur),
+            builder: (context) => HomePage(utilisateur: utilisateur),
           );
         }
         // Redirect to login if no user

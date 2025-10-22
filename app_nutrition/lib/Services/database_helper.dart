@@ -24,7 +24,7 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'nutrition_app_2025.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 4; // 🔼 Augmenté pour migration (ajout imageUrl)
 
   // Table names
   static const String tableUtilisateurs = 'utilisateurs';
@@ -38,6 +38,11 @@ class DatabaseHelper {
   static const String tableUserPlanAssignments = 'user_plan_assignments';
   static const String tableUserObjectives = 'user_objectives';
   static const String tableProgressTracking = 'progress_tracking';
+  // 🆕 Tables module activité physique
+  static const String tableProgrammes = 'programmes';
+  static const String tableSessions = 'sessions';
+  static const String tableExercices = 'exercices';
+  static const String tableProgressions = 'progressions';
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -291,6 +296,65 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_recettes_repas ON recettes(repas_id)');
     await db.execute('CREATE INDEX idx_recettes_user ON recettes(utilisateur_id)');
     await db.execute('CREATE INDEX idx_ingredients_recette ON ingredients(recette_id)');
+
+    // 🆕 Tables module activité physique
+    
+    // 🟢 Table des programmes
+    await db.execute('''
+      CREATE TABLE $tableProgrammes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        objectif TEXT NOT NULL,
+        date_debut TEXT NOT NULL,
+        date_fin TEXT NOT NULL
+      )
+    ''');
+
+    // 🔵 Table des sessions
+    await db.execute('''
+      CREATE TABLE $tableSessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type_activite TEXT NOT NULL,
+        duree INTEGER NOT NULL,
+        intensite TEXT NOT NULL,
+        calories INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        programme_id INTEGER DEFAULT NULL,
+        FOREIGN KEY (programme_id) REFERENCES $tableProgrammes (id) ON DELETE SET NULL
+      )
+    ''');
+
+    // 🟣 Table des exercices
+    await db.execute('''
+      CREATE TABLE $tableExercices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT NOT NULL,
+        description TEXT NOT NULL,
+        repetitions INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        video_path TEXT NOT NULL,
+        programme_id INTEGER NOT NULL,
+        FOREIGN KEY (programme_id) REFERENCES $tableProgrammes (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // 🟠 Table des progressions
+    await db.execute('''
+      CREATE TABLE $tableProgressions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        calories_brulees INTEGER NOT NULL,
+        duree_totale INTEGER NOT NULL,
+        commentaire TEXT NOT NULL DEFAULT '',
+        session_id INTEGER DEFAULT NULL,
+        FOREIGN KEY (session_id) REFERENCES $tableSessions (id) ON DELETE SET NULL
+      )
+    ''');
+
+    // Index pour le module activité physique
+    await db.execute('CREATE INDEX idx_sessions_programme ON $tableSessions(programme_id)');
+    await db.execute('CREATE INDEX idx_exercices_programme ON $tableExercices(programme_id)');
+    await db.execute('CREATE INDEX idx_progressions_session ON $tableProgressions(session_id)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -334,73 +398,105 @@ class DatabaseHelper {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_recettes_repas ON recettes(repas_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_recettes_user ON recettes(utilisateur_id)');
     }
-  }
 
-  // Generic helper methods
-  Future<int> insert(String table, Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-    // 🟢 Table des programmes
-    await db.execute('''
-      CREATE TABLE programmes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nom TEXT NOT NULL,
-        objectif TEXT NOT NULL,
-        date_debut TEXT NOT NULL,
-        date_fin TEXT NOT NULL
-      )
-    ''');
-
-    // 🔵 Table des sessions
-    await db.execute('''
-      CREATE TABLE sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type_activite TEXT NOT NULL,
-        duree INTEGER NOT NULL,
-        intensite TEXT NOT NULL,
-        calories INTEGER NOT NULL,
-        date TEXT NOT NULL,
-        programme_id INTEGER DEFAULT 0,
-        FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
-      )
-    ''');
-
-    // 🟣 Table des exercices
-    await db.execute('''
-      CREATE TABLE exercices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nom TEXT NOT NULL,
-        description TEXT NOT NULL,
-        repetitions INTEGER NOT NULL,
-        image_path TEXT NOT NULL,
-        video_path TEXT NOT NULL,
-        programme_id INTEGER NOT NULL,
-        FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE CASCADE
-      )
-    ''');
-
-    // 🟠 Table des progressions
-    await db.execute('''
-      CREATE TABLE progressions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
-        calories_brulees INTEGER NOT NULL,
-        duree_totale INTEGER NOT NULL,
-        commentaire TEXT NOT NULL,
-        session_id INTEGER,
-        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
-      )
-    ''');
-  }
-
-  // --- Mise à jour de la base (migration si version change) ---
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // 🆕 Migration vers version 2 : ajout des tables module activité physique
     if (oldVersion < 2) {
-      // ✅ Ajout des colonnes manquantes pour la table sessions
-      await db.execute('ALTER TABLE sessions ADD COLUMN date TEXT DEFAULT ""');
-      await db.execute('ALTER TABLE sessions ADD COLUMN programme_id INTEGER DEFAULT 0');
+      // 🟢 Table des programmes
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableProgrammes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nom TEXT NOT NULL,
+          objectif TEXT NOT NULL,
+          date_debut TEXT NOT NULL,
+          date_fin TEXT NOT NULL
+        )
+      ''');
+
+      // 🔵 Table des sessions
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableSessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type_activite TEXT NOT NULL,
+          duree INTEGER NOT NULL,
+          intensite TEXT NOT NULL,
+          calories INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          programme_id INTEGER DEFAULT NULL,
+          FOREIGN KEY (programme_id) REFERENCES $tableProgrammes (id) ON DELETE SET NULL
+        )
+      ''');
+
+      // 🟣 Table des exercices
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableExercices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nom TEXT NOT NULL,
+          description TEXT NOT NULL,
+          repetitions INTEGER NOT NULL,
+          image_path TEXT NOT NULL,
+          video_path TEXT NOT NULL,
+          programme_id INTEGER NOT NULL,
+          FOREIGN KEY (programme_id) REFERENCES $tableProgrammes (id) ON DELETE CASCADE
+        )
+      ''');
+
+      // 🟠 Table des progressions
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableProgressions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date TEXT NOT NULL,
+          calories_brulees INTEGER NOT NULL,
+          duree_totale INTEGER NOT NULL,
+          commentaire TEXT NOT NULL DEFAULT '',
+          session_id INTEGER DEFAULT NULL,
+          FOREIGN KEY (session_id) REFERENCES $tableSessions (id) ON DELETE SET NULL
+        )
+      ''');
+
+      // Index pour le module activité physique
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_sessions_programme ON $tableSessions(programme_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_exercices_programme ON $tableExercices(programme_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_progressions_session ON $tableProgressions(session_id)');
+    }
+
+    // 🆕 Migration vers version 3 : fix contraintes FK pour accepter NULL
+    if (oldVersion < 3) {
+      // Recréer la table sessions avec programme_id nullable
+      await db.execute('DROP TABLE IF EXISTS ${tableSessions}_old');
+      await db.execute('ALTER TABLE $tableSessions RENAME TO ${tableSessions}_old');
+      
+      await db.execute('''
+        CREATE TABLE $tableSessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type_activite TEXT NOT NULL,
+          duree INTEGER NOT NULL,
+          intensite TEXT NOT NULL,
+          calories INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          programme_id INTEGER DEFAULT NULL,
+          FOREIGN KEY (programme_id) REFERENCES $tableProgrammes (id) ON DELETE SET NULL
+        )
+      ''');
+      
+      await db.execute('''
+        INSERT INTO $tableSessions (id, type_activite, duree, intensite, calories, date, programme_id)
+        SELECT id, type_activite, duree, intensite, calories, date, 
+               CASE WHEN programme_id = 0 THEN NULL ELSE programme_id END
+        FROM ${tableSessions}_old
+      ''');
+      
+      await db.execute('DROP TABLE ${tableSessions}_old');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_sessions_programme ON $tableSessions(programme_id)');
+    }
+
+    // 🆕 Migration vers version 4 : ajout colonne imageUrl à recettes
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE recettes ADD COLUMN imageUrl TEXT');
+        print('✅ Colonne imageUrl ajoutée à la table recettes');
+      } catch (e) {
+        print('⚠️ La colonne imageUrl existe déjà : $e');
+      }
     }
   }
 
@@ -902,4 +998,5 @@ class DatabaseHelper {
     );
     await insertUtilisateur(user);
   }
+
 }

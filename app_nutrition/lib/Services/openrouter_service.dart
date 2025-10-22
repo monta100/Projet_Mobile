@@ -98,12 +98,41 @@ Message utilisateur: "$message"
       final start = content.indexOf("{");
       final end = content.lastIndexOf("}");
       if (start != -1 && end != -1 && end > start) {
-        final jsonPart = content.substring(start, end + 1);
+        var jsonPart = content.substring(start, end + 1);
+        
+        // 🔧 Correction du JSON malformé : ajouter les ":" manquants
+        // Remplace "key""value" par "key": "value"
+        jsonPart = jsonPart.replaceAllMapped(
+          RegExp(r'"([^"]+)"\s*"'),
+          (match) => '"${match.group(1)}": "',
+        );
+        
+        // Remplace "key"[ par "key": [
+        jsonPart = jsonPart.replaceAllMapped(
+          RegExp(r'"([^"]+)"\s*\['),
+          (match) => '"${match.group(1)}": [',
+        );
+        
+        // Remplace "key"{ par "key": {
+        jsonPart = jsonPart.replaceAllMapped(
+          RegExp(r'"([^"]+)"\s*\{'),
+          (match) => '"${match.group(1)}": {',
+        );
+        
+        // Remplace "key"123 par "key": 123 (nombres)
+        jsonPart = jsonPart.replaceAllMapped(
+          RegExp(r'"([^"]+)"\s*(\d+)'),
+          (match) => '"${match.group(1)}": ${match.group(2)}',
+        );
+        
+        print("JSON après correction: $jsonPart");
+        
         try {
           final Map<String, dynamic> parsed = jsonDecode(jsonPart);
           return await _handleStructuredResponse(parsed);
         } catch (e) {
           print("Erreur JSON parsing: $e");
+          print("JSON qui a échoué: $jsonPart");
         }
       }
 

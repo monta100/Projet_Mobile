@@ -3,6 +3,7 @@ import '../Entites/utilisateur.dart';
 import 'user_main_screen.dart';
 import 'main_navigation_screen.dart';
 import 'coach_main_screen.dart';
+import 'activity_welcome_screen.dart';
 
 /// 🏠 Page d'accueil centrale qui permet de basculer entre les modules
 class HomePage extends StatelessWidget {
@@ -128,6 +129,25 @@ class HomePage extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const MainNavigationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Carte Module Activité Physique (pour tous)
+                  _buildModuleCard(
+                    context,
+                    title: 'Module Activité Physique',
+                    subtitle: 'Programmes, exercices & progression',
+                    icon: Icons.fitness_center,
+                    color: const Color(0xFF2196F3),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ActivityWelcomeScreen(utilisateur: utilisateur),
                         ),
                       );
                     },

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../Entities/session.dart';
+import '../Entites/session.dart';
 import '../Services/session_service.dart';
 
 const Color mainGreen = Color(0xFF2ECC71);
@@ -87,7 +87,7 @@ class _SessionScreenState extends State<SessionScreen> {
       intensite: _intensiteCtrl.text.trim(),
       calories: calories.round(),
       date: existing?.date ?? today,
-      programmeId: existing?.programmeId ?? 0,
+      programmeId: existing?.programmeId,
     );
 
     if (existing == null) {

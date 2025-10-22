@@ -6,7 +6,7 @@ class Progression {
   final int caloriesBrulees;
   final int dureeTotale;
   final String commentaire;
-  final int sessionId;
+  final int? sessionId;
 
   Progression({
     this.id,
@@ -14,7 +14,7 @@ class Progression {
     required this.caloriesBrulees,
     required this.dureeTotale,
     required this.commentaire,
-    required this.sessionId,
+    this.sessionId,
   });
 
   Progression copyWith({
@@ -50,6 +50,6 @@ class Progression {
         caloriesBrulees: map['calories_brulees'] as int,
         dureeTotale: map['duree_totale'] as int,
         commentaire: map['commentaire'] as String,
-        sessionId: map['session_id'] as int,
+        sessionId: map['session_id'] as int?,
       );
 }

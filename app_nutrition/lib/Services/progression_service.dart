@@ -1,5 +1,5 @@
 import 'package:sqflite/sqflite.dart';
-import '../Entities/progression.dart';
+import '../Entites/progression.dart';
 import 'database_helper.dart';
 
 class ProgressionService {

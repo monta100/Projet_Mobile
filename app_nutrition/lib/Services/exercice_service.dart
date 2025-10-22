@@ -1,4 +1,4 @@
-import '../Entities/exercice.dart';
+import '../Entites/exercice.dart';
 import 'database_helper.dart';
 
 class ExerciceService {

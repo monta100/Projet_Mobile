@@ -864,16 +864,14 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
   );
 
   Widget _buildSaveButton() => GestureDetector(
-    onTap: _formKey.currentState?.validate() == true ? _save : null,
+    onTap: _save, // ✅ Toujours actif, la validation se fait dans _save()
     child: Container(
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: _formKey.currentState?.validate() == true
-            ? const LinearGradient(
-                colors: [AppColors.primaryColor, AppColors.accentColor],
-              )
-            : const LinearGradient(colors: [Colors.grey, Colors.grey]),
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryColor, AppColors.accentColor],
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -886,10 +884,8 @@ class _AddRecetteModalState extends State<_AddRecetteModal> {
       child: Center(
         child: Text(
           'Créer la recette',
-          style: TextStyle(
-            color: _formKey.currentState?.validate() == true
-                ? Colors.white
-                : Colors.grey[400],
+          style: const TextStyle(
+            color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1504,16 +1500,14 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
   );
 
   Widget _buildSaveButton() => GestureDetector(
-    onTap: _formKey.currentState?.validate() == true ? _save : null,
+    onTap: _save, // ✅ Toujours actif, la validation se fait dans _save()
     child: Container(
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: _formKey.currentState?.validate() == true
-            ? const LinearGradient(
-                colors: [AppColors.primaryColor, AppColors.accentColor],
-              )
-            : const LinearGradient(colors: [Colors.grey, Colors.grey]),
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryColor, AppColors.accentColor],
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -1526,10 +1520,8 @@ class _EditRecetteModalState extends State<_EditRecetteModal> {
       child: Center(
         child: Text(
           'Créer la recette',
-          style: TextStyle(
-            color: _formKey.currentState?.validate() == true
-                ? Colors.white
-                : Colors.grey[400],
+          style: const TextStyle(
+            color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),

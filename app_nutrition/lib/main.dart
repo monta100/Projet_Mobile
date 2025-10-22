@@ -4,10 +4,13 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Screens/login_screen.dart';
 import 'Screens/register_screen.dart';
+import 'Screens/home_page.dart';
 import 'Services/email_service.dart';
 import 'Services/user_service.dart';
 import 'Services/database_helper.dart';
 import 'Services/exercise_service.dart';
+import 'Services/activity_data_initializer.dart';
+import 'Theme/app_colors.dart';
 import 'Routs/app_routes.dart';
 
 Future<void> main() async {
@@ -80,6 +83,8 @@ Future<void> main() async {
     await DatabaseHelper().initTestData();
     // Initialize demo exercises
     await ExerciseService().initializeDemoExercises();
+    // Initialize activity module data
+    await ActivityDataInitializer().initAll();
   } catch (e) {
     // ignore: avoid_print
     print('Warning: failed to init test data: $e');
@@ -102,11 +107,11 @@ class MyApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: mainGreen),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primaryColor),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
-          backgroundColor: mainGreen,
+          backgroundColor: AppColors.primaryColor,
           foregroundColor: Colors.white,
           centerTitle: true,
           elevation: 2,
@@ -117,7 +122,22 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const HomeScreen(), // 🏠 Démarre sur ton accueil météo + citation
+      // Configuration du système de routes
+      initialRoute: '/',
+      onGenerateRoute: AppRoutes.generateRoute,
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Text('Route inconnue: ${settings.name}'),
+            ),
+          ),
+        );
+      },
+      routes: {
+        '/': (context) => const WelcomeScreen(),
+        ...AppRoutes.getRoutes(),
+      },
     );
   }
 }
@@ -255,64 +275,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ),
-        child: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            height: 70,
-            backgroundColor: Colors.white,
-            indicatorColor: mainGreen.withOpacity(0.15),
-            labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>(
-              (states) => TextStyle(
-                fontWeight: states.contains(MaterialState.selected)
-                    ? FontWeight.bold
-                    : FontWeight.w500,
-                color: states.contains(MaterialState.selected)
-                    ? mainGreen
-                    : Colors.black54,
-                fontSize: 13,
-              ),
-            ),
-            iconTheme: MaterialStateProperty.resolveWith<IconThemeData>(
-              (states) => IconThemeData(
-                color: states.contains(MaterialState.selected)
-                    ? mainGreen
-                    : Colors.black45,
-                size: states.contains(MaterialState.selected) ? 28 : 24,
-              ),
-            ),
-          ),
-          child: NavigationBar(
-            animationDuration: const Duration(milliseconds: 450),
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _onItemTapped,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.fitness_center_outlined),
-                selectedIcon: Icon(Icons.fitness_center),
-                label: 'Séances',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.list_alt_outlined),
-                selectedIcon: Icon(Icons.list_alt),
-                label: 'Programmes',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.sports_gymnastics_outlined),
-                selectedIcon: Icon(Icons.sports_gymnastics),
-                label: 'Exercices',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.show_chart_outlined),
-                selectedIcon: Icon(Icons.show_chart),
-                label: 'Progression',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.auto_awesome_outlined),
-                selectedIcon: Icon(Icons.auto_awesome),
-                label: 'Recommandations',
-              ),
-            ],
           ),
         ),
       ),
@@ -632,13 +594,13 @@ class _FeatureItem extends StatelessWidget {
                   title,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(
+            Text(
                   subtitle,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
-              ],
             ),
-          ),
+          ],
+        ),
+      ),
         ],
       ),
     );

@@ -35,12 +35,7 @@ dependencies:
     sdk: flutter
   
   # 🗄️ Base de données et stockage
-  lottie: ^3.1.2   
-  http: ^1.2.0
   sqflite: ^2.3.3
-  geolocator: ^11.0.0
-  translator: ^1.0.4
-  url_launcher: ^6.3.0
   path: ^1.9.0
   path_provider: ^2.0.15
   shared_preferences: ^2.5.3
@@ -51,35 +46,36 @@ dependencies:
   flutter_dotenv: ^5.1.0        # 🔒 Gestion sécurisée des variables d'environnement
   
   # 📷 Images et médias
-  image_picker: ^1.1.1
+  image_picker: ^1.1.2
   model_viewer_plus: ^1.9.3     # rendu 3D .glb/.gltf (mascotte Snacky)
   
   # 🎨 UI et animations
   animate_do: ^3.1.2
-  image_picker: ^1.1.2
+  lottie: ^3.1.2
   video_player: ^2.9.1
   fl_chart: ^0.68.0
+  
+  # 📄 Documents
   pdf: ^3.11.0
   printing: ^5.13.0
-  flutter_localizations:
-    sdk: flutter       
-  intl: ^0.20.2        
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  
+  # 🌍 Localisation et Internationalisation
+  intl: ^0.20.2
+  translator: ^1.0.4
+  geolocator: ^11.0.0
+  url_launcher: ^6.3.0
   
   # 🔊 Audio
   flutter_tts: ^4.2.3           # voix de synthèse (Text-to-Speech)
   
   # 🔧 Utilitaires
-  intl: ^0.20.2
   mailer: ^6.2.7
   crypto: ^3.0.2
+  cupertino_icons: ^1.0.8
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

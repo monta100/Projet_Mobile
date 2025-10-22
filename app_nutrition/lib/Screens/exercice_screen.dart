@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-import '../Entities/exercice.dart';
+import '../Entites/exercice.dart';
+import '../Entites/programme.dart';
 import '../Services/exercice_service.dart';
+import '../Services/programme_service.dart';
 
 const Color mainGreen = Color(0xFF2ECC71);
 const Color darkGreen = Color(0xFF1E8449);
@@ -19,8 +21,10 @@ class ExerciceScreen extends StatefulWidget {
 
 class _ExerciceScreenState extends State<ExerciceScreen> {
   final ExerciceService _service = ExerciceService();
+  final ProgrammeService _programmeService = ProgrammeService();
   List<Exercice> _exercices = [];
   List<Exercice> _filtered = [];
+  List<Programme> _programmes = [];
 
   final _nomCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -32,11 +36,28 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
   final _searchCtrl = TextEditingController();
   String _selectedMuscle = "Tous";
   String _sortOption = "Aucun";
+  int? _selectedProgrammeId;
 
   @override
   void initState() {
     super.initState();
-    _loadExercices();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await _loadProgrammes();
+    await _loadExercices();
+  }
+
+  Future<void> _loadProgrammes() async {
+    final data = await _programmeService.getAllProgrammes();
+    setState(() {
+      _programmes = data;
+      // Sélectionner le premier programme par défaut s'il existe
+      if (data.isNotEmpty && _selectedProgrammeId == null) {
+        _selectedProgrammeId = data.first.id;
+      }
+    });
   }
 
   Future<void> _loadExercices() async {
@@ -89,6 +110,17 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
       return;
     }
 
+    // Vérifier qu'un programme est sélectionné
+    if (_selectedProgrammeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("⚠️ Veuillez d'abord créer un programme !"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final exercice = Exercice(
       id: existing?.id,
       nom: _nomCtrl.text.trim(),
@@ -96,7 +128,7 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
       repetitions: int.parse(_repsCtrl.text),
       imagePath: _imagePath ?? existing?.imagePath ?? '',
       videoPath: _videoPath ?? existing?.videoPath ?? '',
-      programmeId: 1,
+      programmeId: _selectedProgrammeId!,
     );
 
     if (existing == null) {
@@ -146,12 +178,14 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
       _repsCtrl.text = existing.repetitions.toString();
       _imagePath = existing.imagePath;
       _videoPath = existing.videoPath;
+      _selectedProgrammeId = existing.programmeId;
     } else {
       _nomCtrl.clear();
       _descCtrl.clear();
       _repsCtrl.clear();
       _imagePath = null;
       _videoPath = null;
+      // Le programme par défaut est déjà défini dans _loadProgrammes()
     }
 
     showDialog(
@@ -165,6 +199,59 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
               _field("Nom", _nomCtrl),
               _field("Description (ex: Bras, Jambes...)", _descCtrl),
               _field("Répétitions", _repsCtrl, number: true),
+              const SizedBox(height: 16),
+              // Dropdown pour sélectionner le programme
+              if (_programmes.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.warning, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Aucun programme disponible.\nCréez d\'abord un programme dans l\'onglet "Plans".',
+                          style: TextStyle(color: Colors.orange, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: mainGreen),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: _selectedProgrammeId,
+                      hint: const Text('Sélectionner un programme'),
+                      icon: const Icon(Icons.arrow_drop_down, color: mainGreen),
+                      items: _programmes.map((prog) {
+                        return DropdownMenuItem<int>(
+                          value: prog.id,
+                          child: Text(
+                            prog.nom,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedProgrammeId = value;
+                        });
+                      },
+                    ),
+                  ),
+                ),
               const SizedBox(height: 10),
               ElevatedButton.icon(
                 onPressed: _pickImage,

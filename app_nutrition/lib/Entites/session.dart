@@ -7,7 +7,7 @@ class Session {
   final String intensite; // faible, moyenne, forte
   final int calories; // calories brûlées
   final String date; // date de la séance
-  final int programmeId; // lien avec un programme (facultatif)
+  final int? programmeId; // lien avec un programme (facultatif)
 
   Session({
     this.id,
@@ -16,7 +16,7 @@ class Session {
     required this.intensite,
     required this.calories,
     required this.date,
-    required this.programmeId,
+    this.programmeId,
   });
 
   Session copyWith({
@@ -60,8 +60,10 @@ class Session {
             ? map['calories'] as int
             : int.tryParse(map['calories'].toString()) ?? 0,
         date: map['date']?.toString() ?? '',
-        programmeId: map['programme_id'] is int
-            ? map['programme_id'] as int
-            : int.tryParse(map['programme_id']?.toString() ?? '0') ?? 0,
+        programmeId: map['programme_id'] == null
+            ? null
+            : (map['programme_id'] is int
+                ? map['programme_id'] as int
+                : int.tryParse(map['programme_id'].toString())),
       );
 }

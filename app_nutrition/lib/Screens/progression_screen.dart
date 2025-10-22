@@ -11,7 +11,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../Entities/progression.dart';
+import '../Entites/progression.dart';
 import '../Services/session_service.dart';
 
 const Color mainGreen = Color(0xFF2ECC71);
@@ -76,7 +76,7 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       );
     }
 
-    built.sort((a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)));
+    built.sort((a, b) => a.date.compareTo(b.date));
 
     setState(() {
       _all = built;
@@ -101,19 +101,34 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
     if (_range == "Semaine") {
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1)); // lundi
       out = _all.where((p) {
-        final d = DateTime.parse(p.date);
-        return !d.isBefore(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day));
+        try {
+          final d = DateTime.parse(p.date);
+          return !d.isBefore(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day));
+        } catch (e) {
+          return false;
+        }
       }).toList();
     } else if (_range == "Année") {
-      out = _all.where((p) => DateTime.parse(p.date).year == now.year).toList();
+      out = _all.where((p) {
+        try {
+          final d = DateTime.parse(p.date);
+          return d.year == now.year;
+        } catch (e) {
+          return false;
+        }
+      }).toList();
     } else {
       out = _all.where((p) {
-        final d = DateTime.parse(p.date);
-        return d.year == now.year && d.month == now.month;
+        try {
+          final d = DateTime.parse(p.date);
+          return d.year == now.year && d.month == now.month;
+        } catch (e) {
+          return false;
+        }
       }).toList();
     }
 
-    out.sort((a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)));
+    out.sort((a, b) => a.date.compareTo(b.date));
 
     setState(() {
       _view = out;
@@ -127,8 +142,12 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
   Widget _monthlyGoalCard() {
     final now = DateTime.now();
     final monthCalories = _all.where((p) {
-      final d = DateTime.parse(p.date);
-      return d.year == now.year && d.month == now.month;
+      try {
+        final d = DateTime.parse(p.date);
+        return d.year == now.year && d.month == now.month;
+      } catch (e) {
+        return false;
+      }
     }).fold<int>(0, (sum, p) => sum + p.caloriesBrulees);
 
     final ratio = (_monthlyGoalKcal == 0) ? 0.0 : (monthCalories / _monthlyGoalKcal).clamp(0.0, 1.0);

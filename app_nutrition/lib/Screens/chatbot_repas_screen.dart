@@ -34,8 +34,8 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
   late AnimationController _waveController;
 
   final List<String> _examplePrompts = [
-    " Donner moi recette burger "
-        "Quels sont les bienfaits des carottes ? 🥕",
+    " Donner moi recette burger ",
+    "Quels sont les bienfaits des carottes ? 🥕",
     "J'ai envie de quelque chose de sucré 🍰",
     "j ai mange salade ce midi",
     " j ai poulet et riz ",
@@ -216,7 +216,7 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
               ElevatedButton(
                 onPressed: _toggleGuide,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
+                  backgroundColor: theme_colors.AppColors.accentColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -245,7 +245,7 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.orange.shade100,
+                color: theme_colors.AppColors.primaryLight.withOpacity(0.3),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -273,7 +273,10 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
       child: Container(
         width: 8,
         height: 8,
-        decoration: BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: theme_colors.AppColors.accentColor,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
@@ -321,7 +324,15 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
   Widget _buildExamplePrompts() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      color: Colors.orange.shade50,
+      decoration: BoxDecoration(
+        color: theme_colors.AppColors.primaryLight.withOpacity(0.1),
+        border: Border(
+          bottom: BorderSide(
+            color: theme_colors.AppColors.primaryLight.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -334,11 +345,12 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
                   _sendMessage();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade100,
-                  foregroundColor: Colors.orange.shade800,
+                  backgroundColor: theme_colors.AppColors.primaryLight.withOpacity(0.2),
+                  foregroundColor: theme_colors.AppColors.primaryDark,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
+                  elevation: 0,
                 ),
                 child: Text(prompt, style: const TextStyle(fontSize: 14)),
               ),
@@ -352,9 +364,13 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF8F4),
+      backgroundColor: theme_colors.AppColors.backgroundColor,
       appBar: AppBar(
-        backgroundColor: theme_colors.AppColors.primaryColor,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: theme_colors.AppColors.primaryGradient,
+          ),
+        ),
         elevation: 0,
         title: Row(
           children: const [
@@ -524,7 +540,7 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
                       IconButton(
                         icon: Icon(
                           Icons.lightbulb_outline,
-                          color: Colors.orange.shade400,
+                          color: theme_colors.AppColors.accentColor,
                         ),
                         tooltip: "Idée de plat",
                         onPressed: () async {
@@ -551,14 +567,19 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
+                            color: theme_colors.AppColors.primaryLight.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: Colors.orange.shade200),
+                            border: Border.all(
+                              color: theme_colors.AppColors.primaryLight.withOpacity(0.3),
+                            ),
                           ),
                           child: TextField(
                             controller: _controller,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: "Dis quelque chose à Snacky 🍊",
+                              hintStyle: TextStyle(
+                                color: theme_colors.AppColors.textSecondary.withOpacity(0.6),
+                              ),
                               border: InputBorder.none,
                             ),
                             onSubmitted: (_) => _sendMessage(),
@@ -570,11 +591,11 @@ class _ChatbotRepasScreenState extends State<ChatbotRepasScreen>
                         onTap: _sendMessage,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade400,
+                            gradient: theme_colors.AppColors.accentGradient,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.orangeAccent.withOpacity(0.4),
+                                color: theme_colors.AppColors.accentColor.withOpacity(0.4),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),

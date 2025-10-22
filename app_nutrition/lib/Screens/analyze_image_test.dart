@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../Services/image_ai_analysis_service.dart';
 import 'package:flutter/foundation.dart';
 
@@ -30,8 +31,25 @@ class _AnalyzeImageTestState extends State<AnalyzeImageTest> {
       _imageFile = File(picked.path);
     });
 
-    // Utilise compute pour l'analyse sur un isolate
-    final res = await compute(analyzeImageInIsolate, picked.path);
+    // 🔒 Récupérer la clé API depuis dotenv
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    
+    if (apiKey.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _result = "❌ Clé API Gemini manquante. Vérifiez votre fichier .env";
+      });
+      return;
+    }
+
+    // Créer les paramètres avec la clé API
+    final params = ImageAnalysisParams(
+      imagePath: picked.path,
+      apiKey: apiKey,
+    );
+
+    // Utilise compute pour l'analyse sur un isolate avec la clé API
+    final res = await compute(analyzeImageInIsolate, params);
 
     setState(() {
       _isLoading = false;

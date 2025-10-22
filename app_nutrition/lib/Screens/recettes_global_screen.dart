@@ -292,16 +292,16 @@ class _RecetteCard extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.local_fire_department,
-                      color: Colors.orange[700],
+                      color: AppColors.accentColor,
                       size: 16,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${recette.calories.toStringAsFixed(0)} kcal',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.orange[800],
+                        color: AppColors.primaryDark,
                       ),
                     ),
                   ],

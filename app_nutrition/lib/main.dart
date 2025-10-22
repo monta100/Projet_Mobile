@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'Screens/main_navigation_screen.dart';
+import 'Theme/app_colors.dart';
 
-void main() {
+Future<void> main() async {
+  // 🔒 Charger les variables d'environnement (clés API)
+  await dotenv.load(fileName: ".env");
+  
   runApp(const MyApp());
 }
 
@@ -14,12 +19,138 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'App Nutrition',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        // (Option) personnalisation thème du DatePicker
-        datePickerTheme: const DatePickerThemeData(
-          headerBackgroundColor: Color(0xFF43A047),
-          headerForegroundColor: Colors.white,
+        // Schéma de couleurs personnalisé basé sur le vert
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primaryColor,
+          primary: AppColors.primaryColor,
+          secondary: AppColors.secondaryColor,
+          tertiary: AppColors.accentColor,
+          surface: AppColors.surfaceColor,
+          background: AppColors.backgroundColor,
+          error: AppColors.errorColor,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onSurface: AppColors.textColor,
+          onBackground: AppColors.textColor,
+          brightness: Brightness.light,
         ),
+        
+        // Thème des composants
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppColors.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
+          backgroundColor: AppColors.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 4,
+        ),
+        
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryColor,
+            foregroundColor: Colors.white,
+            elevation: 2,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        
+        cardTheme: CardThemeData(
+          color: AppColors.cardColor,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: AppColors.surfaceColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.primaryLight),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.primaryLight.withOpacity(0.3)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.errorColor),
+          ),
+          prefixIconColor: AppColors.primaryColor,
+          labelStyle: TextStyle(color: AppColors.textSecondary),
+        ),
+        
+        chipTheme: ChipThemeData(
+          backgroundColor: AppColors.primaryLight.withOpacity(0.1),
+          selectedColor: AppColors.primaryColor.withOpacity(0.2),
+          labelStyle: const TextStyle(color: AppColors.primaryColor),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.3)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: AppColors.primaryColor,
+          circularTrackColor: AppColors.primaryLight,
+        ),
+        
+        datePickerTheme: const DatePickerThemeData(
+          headerBackgroundColor: AppColors.primaryColor,
+          headerForegroundColor: Colors.white,
+          dayForegroundColor: MaterialStatePropertyAll(AppColors.textColor),
+          todayForegroundColor: MaterialStatePropertyAll(AppColors.primaryColor),
+          todayBackgroundColor: MaterialStatePropertyAll(AppColors.primaryLight),
+        ),
+        
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textColor,
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textColor,
+          ),
+          titleLarge: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textColor,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textColor,
+          ),
+          bodyLarge: TextStyle(
+            fontSize: 16,
+            color: AppColors.textColor,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        
+        // Police par défaut
+        fontFamily: 'Roboto',
+        
+        useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
       locale: const Locale('fr', 'FR'),

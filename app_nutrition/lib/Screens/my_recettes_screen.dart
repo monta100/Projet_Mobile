@@ -265,19 +265,19 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
                 'Publiées',
                 publishedCount.toString(),
                 Icons.check_circle,
-                color: Colors.green,
+                color: AppColors.successColor,
               ),
               _buildStatCard(
                 'Brouillons',
                 draftCount.toString(),
                 Icons.edit,
-                color: Colors.orange,
+                color: AppColors.warningColor,
               ),
               _buildStatCard(
                 'Calories Moy.',
                 averageCalories.toStringAsFixed(1),
                 Icons.local_fire_department,
-                color: Colors.red,
+                color: AppColors.accentColor,
               ),
             ],
           ),
@@ -438,16 +438,16 @@ class _RecetteCard extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.local_fire_department,
-                        color: Colors.orange[700],
+                        color: AppColors.accentColor,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${recette.calories.toStringAsFixed(0)} kcal',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.orange[800],
+                          color: AppColors.primaryDark,
                         ),
                       ),
                     ],
@@ -461,8 +461,8 @@ class _RecetteCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: isPublished
-                            ? Colors.green.withOpacity(0.15)
-                            : Colors.grey.withOpacity(0.2),
+                            ? AppColors.successColor.withOpacity(0.15)
+                            : AppColors.warningColor.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -471,8 +471,8 @@ class _RecetteCard extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: isPublished
-                              ? Colors.green[800]
-                              : Colors.grey[700],
+                              ? AppColors.primaryDark
+                              : AppColors.textSecondary,
                         ),
                       ),
                     ),

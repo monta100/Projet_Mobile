@@ -81,7 +81,7 @@ class _RecetteDetailsScreenState extends State<RecetteDetailsScreen> {
                     children: [
                       const Icon(
                         Icons.local_fire_department,
-                        color: Colors.orange,
+                        color: AppColors.accentColor,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -89,7 +89,7 @@ class _RecetteDetailsScreenState extends State<RecetteDetailsScreen> {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: Colors.orange,
+                          color: AppColors.primaryDark,
                         ),
                       ),
                     ],

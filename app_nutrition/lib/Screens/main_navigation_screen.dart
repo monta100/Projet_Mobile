@@ -39,25 +39,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       icon: Icons.menu_book_outlined,
       activeIcon: Icons.menu_book,
       label: 'Mes Recettes',
-      color: theme_colors.AppColors.accentColor,
+      color: theme_colors.AppColors.primaryDark,
     ),
     NavigationItem(
       icon: Icons.public_outlined,
       activeIcon: Icons.public,
       label: 'Global',
-      color: Colors.teal,
+      color: theme_colors.AppColors.secondaryColor,
     ),
     NavigationItem(
       icon: Icons.smart_toy_outlined, // 🤖 icône de chatbot
       activeIcon: Icons.smart_toy,
       label: 'Assistant IA',
-      color: Colors.deepOrange, // couleur qui ressort bien
+      color: theme_colors.AppColors.accentColor,
     ),
     NavigationItem(
       icon: Icons.image_search_outlined, // 🖼️ icône pour VisionAI
       activeIcon: Icons.image_search,
-      label: 'VisionAI', // Nom créatif pour l'analyse d'image
-      color: Colors.purple,
+      label: 'VisionAI',
+      color: theme_colors.AppColors.accentLight,
     ),
   ];
 
@@ -76,23 +76,60 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: _navigationItems[_currentIndex].color,
-        unselectedItemColor: theme_colors.AppColors.textColor.withOpacity(0.6),
-        showUnselectedLabels: true,
-        items: _navigationItems
-            .map(
-              (item) => BottomNavigationBarItem(
-                icon: Icon(item.icon),
-                activeIcon: Icon(item.activeIcon),
-                label: item.label,
-                backgroundColor: Colors.white,
-              ),
-            )
-            .toList(),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: theme_colors.AppColors.primaryColor.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: _navigationItems[_currentIndex].color,
+            unselectedItemColor: theme_colors.AppColors.textSecondary.withOpacity(0.5),
+            showUnselectedLabels: true,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 11,
+            ),
+            elevation: 0,
+            items: _navigationItems
+                .map(
+                  (item) => BottomNavigationBarItem(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(item.icon, size: 24),
+                    ),
+                    activeIcon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: item.color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(item.activeIcon, size: 26),
+                    ),
+                    label: item.label,
+                  ),
+                )
+                .toList(),
+          ),
+        ),
       ),
     );
   }

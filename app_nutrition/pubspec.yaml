@@ -45,8 +45,8 @@ dependencies:
   http: ^1.5.0
   shared_preferences: ^2.5.3
   model_viewer_plus: ^1.9.3     # rendu 3D .glb/.gltf (mascotte Snacky)
-  flutter_tts: ^4.2.3
-flutter_tts: ^4.0.2           # voix de synthèse (Text-to-Speech)
+  flutter_tts: ^4.2.3           # voix de synthèse (Text-to-Speech)
+  flutter_dotenv: ^5.1.0        # 🔒 Gestion sécurisée des variables d'environnement
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -65,17 +65,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
-
-
-
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - .env
+    - assets/3d/
+    - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

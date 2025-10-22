@@ -1,10 +1,13 @@
 // ignore_for_file: avoid_print
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class NutritionAIService {
   static const String _baseUrl = 'api.spoonacular.com';
-  static const String _apiKey = '1f6fa3aff2334e7fb4254f735eb58d5b'; // 🔑 ta clé API
+  
+  // 🔒 Clé API chargée depuis les variables d'environnement
+  static String get _apiKey => dotenv.env['SPOONACULAR_API_KEY'] ?? '';
 
   /// Retourne le nombre de calories estimé pour un plat donné
   Future<double> estimateCalories(String dishName) async {

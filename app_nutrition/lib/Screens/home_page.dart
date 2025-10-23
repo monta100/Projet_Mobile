@@ -4,6 +4,7 @@ import 'user_main_screen.dart';
 import 'main_navigation_screen.dart';
 import 'coach_main_screen.dart';
 import 'activity_welcome_screen.dart';
+import 'expense_screen.dart';
 
 /// 🏠 Page d'accueil centrale qui permet de basculer entre les modules
 class HomePage extends StatelessWidget {
@@ -82,9 +83,9 @@ class HomePage extends StatelessWidget {
                   if (!isCoach)
                     _buildModuleCard(
                       context,
-                      title: 'Module Sportif',
-                      subtitle: 'Exercices, progression & récompenses',
-                      icon: Icons.fitness_center,
+                      title: 'Mon Profil & Objectifs',
+                      subtitle: 'Gérer mon profil et suivre mes objectifs',
+                      icon: Icons.person_pin,
                       color: Colors.blue,
                       onTap: () {
                         Navigator.push(
@@ -100,8 +101,8 @@ class HomePage extends StatelessWidget {
                   if (isCoach)
                     _buildModuleCard(
                       context,
-                      title: 'Module Coach',
-                      subtitle: 'Clients, programmes & suivi',
+                      title: 'Espace Coach Pro',
+                      subtitle: 'Gérer mes clients et leurs programmes',
                       icon: Icons.sports,
                       color: Colors.orange,
                       onTap: () {
@@ -120,8 +121,8 @@ class HomePage extends StatelessWidget {
                   // Carte Module Nutrition (pour tous)
                   _buildModuleCard(
                     context,
-                    title: 'Module Nutrition',
-                    subtitle: 'Repas, recettes & assistant IA',
+                    title: 'Nutrition',
+                    subtitle: 'Recettes personnalisées & conseils nutritionnels',
                     icon: Icons.restaurant_menu,
                     color: const Color(0xFF4CAF50),
                     onTap: () {
@@ -139,8 +140,8 @@ class HomePage extends StatelessWidget {
                   // Carte Module Activité Physique (pour tous)
                   _buildModuleCard(
                     context,
-                    title: 'Module Activité Physique',
-                    subtitle: 'Programmes, exercices & progression',
+                    title: 'Activité Physique',
+                    subtitle: 'Mes programmes & suivi de progression',
                     icon: Icons.fitness_center,
                     color: const Color(0xFF2196F3),
                     onTap: () {
@@ -148,6 +149,25 @@ class HomePage extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => ActivityWelcomeScreen(utilisateur: utilisateur),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Carte Module Dépenses (pour tous)
+                  _buildModuleCard(
+                    context,
+                    title: 'Budget & Dépenses',
+                    subtitle: 'Gérer mon budget fitness & alimentation',
+                    icon: Icons.account_balance_wallet,
+                    color: const Color(0xFFFF5722),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ExpenseScreen(),
                         ),
                       );
                     },

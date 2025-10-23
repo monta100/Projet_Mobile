@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../Services/database_helper.dart';
 import '../Services/gemini_ai_service.dart';
 import '../Services/local_storage_service.dart';
+import 'saved_plans_screen.dart';
 
 class ResultsScreen extends StatefulWidget {
   final double currentWeight;
@@ -81,8 +82,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cost Summary'),
-        backgroundColor: Colors.blue.shade900,
+        title: const Text('Résumé des Coûts'),
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -99,16 +100,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Training Summary',
+                        'Résumé de l\'Entraînement',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildInfoRow('Duration', '${widget.trainingWeeks} weeks'),
-                      _buildInfoRow('Sessions per Week', '${widget.sessionsPerWeek} sessions'),
-                      _buildInfoRow('Weight Goal', '${(widget.targetWeight - widget.currentWeight).abs()} kg ${widget.targetWeight > widget.currentWeight ? 'gain' : 'loss'}'),
+                      _buildInfoRow('Durée', '${widget.trainingWeeks} semaines'),
+                      _buildInfoRow('Séances par Semaine', '${widget.sessionsPerWeek} séances'),
+                      _buildInfoRow('Objectif de Poids', '${(widget.targetWeight - widget.currentWeight).abs().toStringAsFixed(2)} kg ${widget.targetWeight > widget.currentWeight ? 'gain' : 'perte'}'),
                     ],
                   ),
                 ),
@@ -122,19 +123,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Cost Breakdown',
+                        'Détail des Coûts',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildCostRow('Monthly Gym Cost', monthlyGymCost),
-                      _buildCostRow('Total Gym Cost', totalGymCost),
-                      _buildCostRow('Daily Food Budget', widget.dailyFoodBudget),
-                      _buildCostRow('Total Food Cost', totalFoodCost),
+                      _buildCostRow('Coût Mensuel Gym', monthlyGymCost),
+                      _buildCostRow('Coût Total Gym', totalGymCost),
+                      _buildCostRow('Budget Alimentaire Quotidien', widget.dailyFoodBudget),
+                      _buildCostRow('Coût Total Alimentaire', totalFoodCost),
                       const Divider(thickness: 2),
-                      _buildCostRow('Total Program Cost', totalCost, isTotal: true),
+                      _buildCostRow('Coût Total du Programme', totalCost, isTotal: true),
                     ],
                   ),
                 ),
@@ -152,7 +153,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           const Icon(Icons.lightbulb_outline, color: Colors.amber),
                           const SizedBox(width: 8),
                           const Text(
-                            'AI Budget Recommendations',
+                            'Recommandations IA Budget',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -174,11 +175,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       const SizedBox(height: 20),
                       if (_isLoading)
                         const Center(
-                          child: Text('Generating personalized advice...'),
+                          child: Text('Génération de conseils personnalisés...'),
                         )
                       else ...[
                         const Text(
-                          'Budget Optimization Tips:',
+                          'Conseils d\'Optimisation du Budget :',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -186,12 +187,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          _budgetAdvice ?? 'Unable to load budget advice.',
+                          _budgetAdvice ?? 'Impossible de charger les conseils budgétaires.',
                           style: const TextStyle(fontSize: 16),
                         ),
                         const SizedBox(height: 20),
                         const Text(
-                          'Suggested Meal Plan:',
+                          'Plan de Repas Suggéré :',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -199,7 +200,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          _mealPlan ?? 'Unable to load meal plan.',
+                          _mealPlan ?? 'Impossible de charger le plan de repas.',
                           style: const TextStyle(fontSize: 16),
                         ),
                       ],
@@ -210,66 +211,96 @@ class _ResultsScreenState extends State<ResultsScreen> {
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: () async {
-                  final localStorage = LocalStorageService();
-                  
-                  // Precompute snapshot values for persistence
-                  final int _totalDays = widget.trainingWeeks * 7;
-                  final double _totalGymCost = (widget.trainingWeeks / 4) * widget.gymCost;
-                  final double _totalFoodCost = _totalDays * widget.dailyFoodBudget;
-                  final double _totalProgramCost = _totalGymCost + _totalFoodCost;
+                  try {
+                    final localStorage = LocalStorageService();
+                    
+                    // Precompute snapshot values for persistence
+                    final int _totalDays = widget.trainingWeeks * 7;
+                    final double _totalGymCost = (widget.trainingWeeks / 4) * widget.gymCost;
+                    final double _totalFoodCost = _totalDays * widget.dailyFoodBudget;
+                    final double _totalProgramCost = _totalGymCost + _totalFoodCost;
 
-                  // If not web, also persist to SQLite. On web, skip SQLite entirely.
-                  if (!kIsWeb) {
-                    final dbHelper = DatabaseHelper();
-                    // Save user data
-                    final userId = await dbHelper.createUser({
+                    // If not web, also persist to SQLite. On web, skip SQLite entirely.
+                    if (!kIsWeb) {
+                      final dbHelper = DatabaseHelper();
+                      // Save user data
+                      final userId = await dbHelper.createUser({
+                        'current_weight': widget.currentWeight,
+                        'target_weight': widget.targetWeight,
+                        'height': 0.0, // Add these from previous screen if needed
+                        'age': 0,
+                        'gender': '',
+                        'activity_level': '',
+                      });
+
+                      // Save training plan
+                      final planId = await dbHelper.createTrainingPlan({
+                        'user_id': userId,
+                        'duration_weeks': widget.trainingWeeks,
+                        'training_frequency': widget.sessionsPerWeek,
+                        'start_date': DateTime.now().toIso8601String(),
+                        'end_date': DateTime.now().add(Duration(days: widget.trainingWeeks * 7)).toIso8601String(),
+                      });
+
+                      // Save expenses
+                      await dbHelper.calculateAndSaveExpenses(planId, widget.gymCost, widget.dailyFoodBudget);
+                      
+                      print('✅ Plan sauvegardé dans la base de données avec ID: $planId');
+                    }
+
+                    // Also store a lightweight copy in SharedPreferences for quick reloads
+                    final planData = {
+                      'created_at': DateTime.now().toIso8601String(),
                       'current_weight': widget.currentWeight,
                       'target_weight': widget.targetWeight,
-                      'height': 0.0, // Add these from previous screen if needed
-                      'age': 0,
-                      'gender': '',
-                      'activity_level': '',
-                    });
+                      'training_weeks': widget.trainingWeeks,
+                      'sessions_per_week': widget.sessionsPerWeek,
+                      'gym_cost_monthly': widget.gymCost,
+                      'daily_food_budget': widget.dailyFoodBudget,
+                      // precomputed snapshot values for quick display
+                      'total_gym_cost': _totalGymCost,
+                      'total_food_cost': _totalFoodCost,
+                      'total_program_cost': _totalProgramCost,
+                      // capture generated advice/plan if available
+                      'budget_advice': _budgetAdvice ?? '',
+                      'meal_plan': _mealPlan ?? '',
+                    };
+                    
+                    print('📝 Sauvegarde du plan dans SharedPreferences: $planData');
+                    await localStorage.addPlan(planData);
+                    print('✅ Plan sauvegardé dans SharedPreferences');
 
-                    // Save training plan
-                    final planId = await dbHelper.createTrainingPlan({
-                      'user_id': userId,
-                      'duration_weeks': widget.trainingWeeks,
-                      'training_frequency': widget.sessionsPerWeek,
-                      'start_date': DateTime.now().toIso8601String(),
-                      'end_date': DateTime.now().add(Duration(days: widget.trainingWeeks * 7)).toIso8601String(),
-                    });
-
-                    // Save expenses
-                    await dbHelper.calculateAndSaveExpenses(planId, widget.gymCost, widget.dailyFoodBudget);
-                  }
-
-                  // Also store a lightweight copy in SharedPreferences for quick reloads
-                  await localStorage.addPlan({
-                    'created_at': DateTime.now().toIso8601String(),
-                    'current_weight': widget.currentWeight,
-                    'target_weight': widget.targetWeight,
-                    'training_weeks': widget.trainingWeeks,
-                    'sessions_per_week': widget.sessionsPerWeek,
-                    'gym_cost_monthly': widget.gymCost,
-                    'daily_food_budget': widget.dailyFoodBudget,
-                    // precomputed snapshot values for quick display
-                    'total_gym_cost': _totalGymCost,
-                    'total_food_cost': _totalFoodCost,
-                    'total_program_cost': _totalProgramCost,
-                    // capture generated advice/plan if available
-                    'budget_advice': _budgetAdvice,
-                    'meal_plan': _mealPlan,
-                  });
-
-                  // Show success message
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Your plan has been saved successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    // Show success message
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Votre plan a été sauvegardé avec succès !'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      
+                      // Redirection vers la page des plans sauvegardés
+                      await Future.delayed(const Duration(seconds: 1));
+                      
+                      // Pop all screens and navigate to SavedPlansScreen
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const SavedPlansScreen(),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    print('❌ Erreur lors de la sauvegarde: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur lors de la sauvegarde : $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -281,7 +312,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 ),
                 child: const Text(
-                  'Save Plan',
+                  'Sauvegarder le Plan',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

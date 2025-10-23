@@ -3,8 +3,10 @@ import 'dart:io';
 import '../Entites/utilisateur.dart';
 import '../Services/exercise_service.dart';
 import '../Services/database_helper.dart';
-import 'user_exercise_programs_screen.dart';
 import 'profil_screen.dart';
+import 'activity_navigation_screen.dart';
+import 'expense_screen.dart';
+import 'main_navigation_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -67,12 +69,23 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     try {
-      final stats = await _exerciseService.getUserStats(widget.utilisateur.id!);
-      final sessions = await _exerciseService.getUserSessions(widget.utilisateur.id!);
+      // 🧪 TEST: Récupérer les stats pour utilisateur 3
+      final stats = await _exerciseService.getUserStats(3);
+      final sessions = await _exerciseService.getUserSessions(3);
       final recentSessions = sessions.take(5).toList();
+      
+      // 🧪 TEST: Créer des données de test pour l'utilisateur 3
+      await _db.createTestSessionsForUser3();
+      await _db.createTestMealsForUser3();
+      
+      // Récupérer les calories nutritionnelles pour utilisateur 3 (test)
+      print('🔍 Récupération calories pour utilisateur ID: 3 (TEST)');
+      final nutritionCalories = await _db.getTotalNutritionCalories(3);
+      print('📊 Calories nutrition récupérées: $nutritionCalories');
       
       setState(() {
         _userStats = stats;
+        _userStats['nutritionCalories'] = nutritionCalories;
         _recentSessions = recentSessions;
         _isLoading = false;
       });
@@ -119,7 +132,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                           const SizedBox(height: 24),
                           _buildQuickStats(),
                           const SizedBox(height: 24),
-                          _buildQuickActions(),
+                          _buildQuickAccess(),
                           const SizedBox(height: 24),
                           _buildRecentActivity(),
                           const SizedBox(height: 24),
@@ -201,18 +214,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         Expanded(
           child: _buildStatCard(
             'Calories',
-            '${_userStats['totalCalories'] ?? 0}',
+            '${_userStats['nutritionCalories'] ?? 0}',
             Icons.local_fire_department,
             Colors.red,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            'Durée',
-            '${_userStats['totalDuration'] ?? 0} min',
-            Icons.timer,
-            Colors.green,
           ),
         ),
       ],
@@ -264,12 +268,12 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickAccess() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Actions Rapides',
+          'Accès Rapide',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -280,41 +284,74 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         Row(
           children: [
             Expanded(
-              child: _buildActionCard(
-                'Commencer l\'entraînement',
-                'Démarrez votre séance',
-                Icons.play_arrow,
-                Colors.green,
-                () => _startWorkout(),
+              child: _buildAccessCard(
+                'Activité Physique',
+                'Programmes & Exercices',
+                Icons.fitness_center,
+                Colors.blue,
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ActivityNavigationScreen(
+                        utilisateur: widget.utilisateur,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildActionCard(
-                'Mes Programmes',
-                'Voir tous les plans',
-                Icons.list_alt,
-                Colors.blue,
-                () => _viewPrograms(),
+              child: _buildAccessCard(
+                'Budget Fitness',
+                'Gérer vos dépenses',
+                Icons.account_balance_wallet,
+                Colors.orange,
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ExpenseScreen(),
+                    ),
+                  );
+                },
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _buildAccessCard(
+          'Nutrition',
+          'Repas, recettes & conseils alimentaires',
+          Icons.restaurant_menu,
+          Colors.green,
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MainNavigationScreen(),
+              ),
+            );
+          },
+          fullWidth: true,
         ),
       ],
     );
   }
 
-  Widget _buildActionCard(
+  Widget _buildAccessCard(
     String title,
     String subtitle,
     IconData icon,
     Color color,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    bool fullWidth = false,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -326,8 +363,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
@@ -337,21 +373,34 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               ),
               child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: fullWidth ? 16 : 14,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: fullWidth ? 13 : 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: color,
+              size: 16,
             ),
           ],
         ),
@@ -560,27 +609,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     }
   }
 
-  void _startWorkout() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => UserExerciseProgramsScreen(
-          utilisateurId: widget.utilisateur.id!,
-        ),
-      ),
-    );
-  }
-
-  void _viewPrograms() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => UserExerciseProgramsScreen(
-          utilisateurId: widget.utilisateur.id!,
-        ),
-      ),
-    );
-  }
 
   Widget _buildAvatar() {
     // Si l'utilisateur a une photo de profil, l'afficher

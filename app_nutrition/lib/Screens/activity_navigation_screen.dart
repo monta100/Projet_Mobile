@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../Theme/app_colors.dart';
 import 'programme_screen.dart';
 import 'exercice_screen.dart';
 import 'session_screen.dart';

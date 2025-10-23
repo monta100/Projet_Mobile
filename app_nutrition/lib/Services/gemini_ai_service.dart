@@ -45,20 +45,20 @@ class GeminiAIService {
       print('Debug: Preparing to generate budget advice');
 
       final prompt = '''
-      As a fitness and nutrition expert, provide personalized advice for budget optimization with these details:
-      - Current weight: $currentWeight kg
-      - Target weight: $targetWeight kg (${targetWeight > currentWeight ? 'gain' : 'loss'} of ${(targetWeight - currentWeight).abs()} kg)
-      - Training duration: $trainingWeeks weeks
-      - Training frequency: $sessionsPerWeek sessions per week
-      - Monthly gym cost: \$$gymCost
-      - Daily food budget: \$$dailyFoodBudget
+      En tant qu'expert en fitness et nutrition, fournis des conseils personnalisés pour l'optimisation du budget avec ces détails :
+      - Poids actuel : $currentWeight kg
+      - Poids cible : $targetWeight kg (${targetWeight > currentWeight ? 'gain' : 'perte'} de ${(targetWeight - currentWeight).abs().toStringAsFixed(2)} kg)
+      - Durée d'entraînement : $trainingWeeks semaines
+      - Fréquence d'entraînement : $sessionsPerWeek séances par semaine
+      - Coût mensuel gym : \$$gymCost
+      - Budget alimentaire quotidien : \$$dailyFoodBudget
 
-      Please provide 3 specific tips to:
-      1. Optimize the food budget while meeting nutritional needs
-      2. Get the most value from the gym membership
-      3. Save money on supplements or equipment if needed
+      Fournis 3 conseils spécifiques pour :
+      1. Optimiser le budget alimentaire tout en répondant aux besoins nutritionnels
+      2. Tirer le meilleur parti de l'abonnement gym
+      3. Économiser sur les suppléments ou l'équipement si nécessaire
 
-      Format the response in bullet points and keep it concise.
+      Formate la réponse en points et reste concis. RÉPONDS EN FRANÇAIS.
       ''';
 
       print('Debug: Sending prompt to Gemini API');
@@ -68,7 +68,7 @@ class GeminiAIService {
       
       if (response.text == null || response.text!.isEmpty) {
         print('Debug: Received empty response from Gemini API');
-        return 'Unable to generate advice at this moment. Please try again.';
+        return 'Impossible de générer des conseils pour le moment. Veuillez réessayer.';
       }
 
       print('Debug: Successfully generated advice');
@@ -77,12 +77,12 @@ class GeminiAIService {
       print('Error generating budget advice: $e');
       print('Stack trace: $stackTrace');
       return '''
-Error generating advice. Please check:
-1. Your internet connection
-2. API key validity
-3. Daily quota limits
+Erreur lors de la génération des conseils. Veuillez vérifier :
+1. Votre connexion internet
+2. La validité de la clé API
+3. Les limites de quota quotidien
 
-Technical details: ${e.toString()}
+Détails techniques : ${e.toString()}
 ''';
     }
   }
@@ -100,18 +100,18 @@ Technical details: ${e.toString()}
       print('Debug: Preparing to generate meal plan');
 
       final prompt = '''
-      Create a budget-friendly meal plan considering:
-      - Current weight: $currentWeight kg
-      - Target weight: $targetWeight kg
-      - Daily food budget: \$$dailyFoodBudget
+      Crée un plan de repas économique en tenant compte de :
+      - Poids actuel : $currentWeight kg
+      - Poids cible : $targetWeight kg
+      - Budget alimentaire quotidien : \$$dailyFoodBudget
 
-      Provide a one-day sample meal plan that:
-      1. Fits within the daily budget
-      2. Supports the weight ${targetWeight > currentWeight ? 'gain' : 'loss'} goal
-      3. Includes affordable, nutritious foods
-      4. Lists estimated cost per meal
+      Fournis un exemple de plan de repas d'une journée qui :
+      1. Respecte le budget quotidien
+      2. Soutient l'objectif de ${targetWeight > currentWeight ? 'prise' : 'perte'} de poids
+      3. Inclut des aliments nutritifs et abordables
+      4. Liste le coût estimé par repas
 
-      Keep the response concise and practical.
+      Reste concis et pratique. RÉPONDS EN FRANÇAIS.
       ''';
 
       print('Debug: Sending meal plan prompt to Gemini API');
@@ -121,7 +121,7 @@ Technical details: ${e.toString()}
       
       if (response.text == null || response.text!.isEmpty) {
         print('Debug: Received empty meal plan response from Gemini API');
-        return 'Unable to generate meal plan at this moment. Please try again.';
+        return 'Impossible de générer un plan de repas pour le moment. Veuillez réessayer.';
       }
 
       print('Debug: Successfully generated meal plan');
@@ -130,12 +130,12 @@ Technical details: ${e.toString()}
       print('Error generating meal plan: $e');
       print('Stack trace: $stackTrace');
       return '''
-Error generating meal plan. Please check:
-1. Your internet connection
-2. API key validity
-3. Daily quota limits
+Erreur lors de la génération du plan de repas. Veuillez vérifier :
+1. Votre connexion internet
+2. La validité de la clé API
+3. Les limites de quota quotidien
 
-Technical details: ${e.toString()}
+Détails techniques : ${e.toString()}
 ''';
     }
   }

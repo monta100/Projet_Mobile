@@ -243,7 +243,7 @@ class NutriBotBrain {
         calories: _estimerCalories(nom),
         publie: 1,
         imageUrl: imageUrl, // Ajout de l'image IA si trouvée
-        utilisateurId: 1,
+        utilisateurId: 3, // Fixé pour test
       );
       final recetteId = await _recetteService.insertRecette(recette);
       for (final ing in ingredients) {
@@ -329,7 +329,7 @@ class NutriBotBrain {
           calories: _lastCalories ?? 400,
           publie: 1,
           imageUrl: null,
-          utilisateurId: 1,
+          utilisateurId: 3, // Fixé pour test
         );
         await _recetteService.insertRecette(recette);
         _resetContext();
@@ -403,7 +403,7 @@ class NutriBotBrain {
           date: DateTime.now(),
           nom: nomRepas,
           caloriesTotales: _estimerCalories(nomRepas),
-          utilisateurId: 1,
+          utilisateurId: 3, // Fixé pour test
         );
         await _repasService.insertRepas(repas);
 
@@ -657,7 +657,7 @@ Ta mission :
         calories: _estimerCalories(nom),
         publie: 1,
         imageUrl: imageUrl, // Ajout de l'image IA si trouvée
-        utilisateurId: 1,
+        utilisateurId: 3, // Fixé pour test
       );
       final recetteId = await _recetteService.insertRecette(recette);
       for (final ing in ingredients) {

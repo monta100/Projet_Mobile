@@ -13,6 +13,7 @@ import '../Entites/exercise_session.dart';
 import '../Entites/plan_exercise_assignment.dart';
 import '../Entites/user_plan_assignment.dart';
 import '../Entites/user_objective.dart';
+import '../Entites/expense.dart';
 
 class DatabaseHelper {
   // --- Singleton ---
@@ -24,7 +25,7 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'nutrition_app_2025.db';
-  static const int _dbVersion = 4; // 🔼 Augmenté pour migration (ajout imageUrl)
+  static const int _dbVersion = 5; // 🔼 Augmenté pour migration (ajout module dépenses)
 
   // Table names
   static const String tableUtilisateurs = 'utilisateurs';
@@ -43,6 +44,10 @@ class DatabaseHelper {
   static const String tableSessions = 'sessions';
   static const String tableExercices = 'exercices';
   static const String tableProgressions = 'progressions';
+  // 🆕 Tables module dépenses
+  static const String tableUsers = 'users';
+  static const String tableTrainingPlans = 'training_plans';
+  static const String tableExpenses = 'expenses';
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -355,6 +360,51 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_sessions_programme ON $tableSessions(programme_id)');
     await db.execute('CREATE INDEX idx_exercices_programme ON $tableExercices(programme_id)');
     await db.execute('CREATE INDEX idx_progressions_session ON $tableProgressions(session_id)');
+
+    // 🆕 Tables module dépenses
+    // Table des utilisateurs (pour le module dépenses)
+    await db.execute('''
+      CREATE TABLE $tableUsers(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        current_weight REAL NOT NULL,
+        target_weight REAL NOT NULL,
+        height REAL,
+        age INTEGER,
+        gender TEXT,
+        activity_level TEXT
+      )
+    ''');
+
+    // Table des plans d'entraînement
+    await db.execute('''
+      CREATE TABLE $tableTrainingPlans(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        duration_weeks INTEGER NOT NULL,
+        training_frequency INTEGER NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES $tableUsers(id)
+      )
+    ''');
+
+    // Table des dépenses
+    await db.execute('''
+      CREATE TABLE $tableExpenses(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER,
+        gym_subscription REAL NOT NULL,
+        food_costs REAL NOT NULL,
+        supplements_costs REAL,
+        equipment_costs REAL,
+        other_costs REAL,
+        total_cost REAL NOT NULL,
+        FOREIGN KEY(plan_id) REFERENCES $tableTrainingPlans(id)
+      )
+    ''');
+
+    // Index pour le module dépenses
+    await db.execute('CREATE INDEX idx_expenses_plan ON $tableExpenses(plan_id)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -498,46 +548,53 @@ class DatabaseHelper {
         print('⚠️ La colonne imageUrl existe déjà : $e');
       }
     }
-    // Table des utilisateurs
-    await db.execute('''
-      CREATE TABLE users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        current_weight REAL NOT NULL,
-        target_weight REAL NOT NULL,
-        height REAL,
-        age INTEGER,
-        gender TEXT,
-        activity_level TEXT
-      )
-    ''');
 
-    // Table des plans d'entraînement
-    await db.execute('''
-      CREATE TABLE training_plans(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        duration_weeks INTEGER NOT NULL,
-        training_frequency INTEGER NOT NULL,
-        start_date TEXT NOT NULL,
-        end_date TEXT NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-      )
-    ''');
+    // 🆕 Migration vers version 5 : ajout tables module dépenses
+    if (oldVersion < 5) {
+      // Table des utilisateurs (pour le module dépenses)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableUsers(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          current_weight REAL NOT NULL,
+          target_weight REAL NOT NULL,
+          height REAL,
+          age INTEGER,
+          gender TEXT,
+          activity_level TEXT
+        )
+      ''');
 
-    // Table des coûts
-    await db.execute('''
-      CREATE TABLE expenses(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        plan_id INTEGER,
-        gym_subscription REAL NOT NULL,
-        food_costs REAL NOT NULL,
-        supplements_costs REAL,
-        equipment_costs REAL,
-        other_costs REAL,
-        total_cost REAL NOT NULL,
-        FOREIGN KEY(plan_id) REFERENCES training_plans(id)
-      )
-    ''');
+      // Table des plans d'entraînement
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableTrainingPlans(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          duration_weeks INTEGER NOT NULL,
+          training_frequency INTEGER NOT NULL,
+          start_date TEXT NOT NULL,
+          end_date TEXT NOT NULL,
+          FOREIGN KEY(user_id) REFERENCES $tableUsers(id)
+        )
+      ''');
+
+      // Table des dépenses
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableExpenses(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          plan_id INTEGER,
+          gym_subscription REAL NOT NULL,
+          food_costs REAL NOT NULL,
+          supplements_costs REAL,
+          equipment_costs REAL,
+          other_costs REAL,
+          total_cost REAL NOT NULL,
+          FOREIGN KEY(plan_id) REFERENCES $tableTrainingPlans(id)
+        )
+      ''');
+
+      // Index pour le module dépenses
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_plan ON $tableExpenses(plan_id)');
+    }
   }
 
   // --- Méthodes génériques ---
@@ -1037,6 +1094,362 @@ class DatabaseHelper {
       verificationExpiry: DateTime.now(),
     );
     await insertUtilisateur(user);
+  }
+
+  // ===== Module Dépenses - Users =====
+  Future<int> createUser(Map<String, dynamic> userData) async {
+    final db = await database;
+    return await db.insert(tableUsers, userData);
+  }
+
+  Future<Map<String, dynamic>?> getUserById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableUsers,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (maps.isNotEmpty) return maps.first;
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    final db = await database;
+    return await db.query(tableUsers);
+  }
+
+  Future<int> updateUser(int id, Map<String, dynamic> userData) async {
+    final db = await database;
+    return await db.update(
+      tableUsers,
+      userData,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteUser(int id) async {
+    final db = await database;
+    return await db.delete(tableUsers, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ===== Module Dépenses - Training Plans =====
+  Future<int> createTrainingPlan(Map<String, dynamic> planData) async {
+    final db = await database;
+    return await db.insert(tableTrainingPlans, planData);
+  }
+
+  Future<Map<String, dynamic>?> getTrainingPlanById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableTrainingPlans,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (maps.isNotEmpty) return maps.first;
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getTrainingPlansByUser(int userId) async {
+    final db = await database;
+    return await db.query(
+      tableTrainingPlans,
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllTrainingPlans() async {
+    final db = await database;
+    return await db.query(tableTrainingPlans);
+  }
+
+  Future<int> updateTrainingPlan(int id, Map<String, dynamic> planData) async {
+    final db = await database;
+    return await db.update(
+      tableTrainingPlans,
+      planData,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteTrainingPlan(int id) async {
+    final db = await database;
+    return await db.delete(tableTrainingPlans, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ===== Module Dépenses - Expenses =====
+  
+  /// Calcule et enregistre les dépenses pour un plan d'entraînement
+  Future<int> calculateAndSaveExpenses(int planId, double gymCost, double dailyFoodBudget) async {
+    final db = await database;
+    
+    // Récupérer le plan pour calculer les coûts totaux
+    final plan = await getTrainingPlanById(planId);
+    if (plan == null) {
+      throw Exception('Training plan not found');
+    }
+    
+    final durationWeeks = plan['duration_weeks'] as int;
+    final totalDays = durationWeeks * 7;
+    
+    // Calculer les coûts
+    final totalGymCost = (durationWeeks / 4) * gymCost;
+    final totalFoodCost = totalDays * dailyFoodBudget;
+    final totalCost = totalGymCost + totalFoodCost;
+    
+    // Créer l'objet Expense
+    final expense = Expense(
+      planId: planId,
+      gymSubscription: totalGymCost,
+      foodCosts: totalFoodCost,
+      supplementsCosts: 0,
+      equipmentCosts: 0,
+      otherCosts: 0,
+      totalCost: totalCost,
+    );
+    
+    return await db.insert(tableExpenses, expense.toMap());
+  }
+
+  Future<int> insertExpense(Expense expense) async {
+    final db = await database;
+    return await db.insert(tableExpenses, expense.toMap());
+  }
+
+  Future<Expense?> getExpenseById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableExpenses,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (maps.isNotEmpty) return Expense.fromMap(maps.first);
+    return null;
+  }
+
+  Future<List<Expense>> getExpensesByPlan(int planId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableExpenses,
+      where: 'plan_id = ?',
+      whereArgs: [planId],
+    );
+    return List.generate(maps.length, (i) => Expense.fromMap(maps[i]));
+  }
+
+  Future<List<Expense>> getAllExpenses() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(tableExpenses);
+    return List.generate(maps.length, (i) => Expense.fromMap(maps[i]));
+  }
+
+  Future<int> updateExpense(Expense expense) async {
+    final db = await database;
+    return await db.update(
+      tableExpenses,
+      expense.toMap(),
+      where: 'id = ?',
+      whereArgs: [expense.id],
+    );
+  }
+
+  Future<int> deleteExpense(int id) async {
+    final db = await database;
+    return await db.delete(tableExpenses, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Calcule le total des dépenses pour un utilisateur
+  Future<double> getTotalExpensesByUser(int userId) async {
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT SUM(e.total_cost) as total
+      FROM $tableExpenses e
+      JOIN $tableTrainingPlans p ON e.plan_id = p.id
+      WHERE p.user_id = ?
+    ''', [userId]);
+    
+    if (result.isNotEmpty && result.first['total'] != null) {
+      return (result.first['total'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  /// Récupère toutes les dépenses avec les détails du plan associé
+  Future<List<Map<String, dynamic>>> getExpensesWithPlanDetails() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT 
+        e.*,
+        p.duration_weeks,
+        p.training_frequency,
+        p.start_date,
+        p.end_date,
+        u.current_weight,
+        u.target_weight
+      FROM $tableExpenses e
+      JOIN $tableTrainingPlans p ON e.plan_id = p.id
+      JOIN $tableUsers u ON p.user_id = u.id
+      ORDER BY p.start_date DESC
+    ''');
+  }
+
+  // ===== Module Activité Physique - Sessions de test =====
+  
+  /// Créer des sessions d'exercice de test pour l'utilisateur 3
+  Future<void> createTestSessionsForUser3() async {
+    try {
+      final db = await database;
+      
+      // Vérifier si des sessions existent déjà pour l'utilisateur 3
+      final existing = await db.query(
+        tableExerciseSessions,
+        where: 'utilisateur_id = ?',
+        whereArgs: [3],
+      );
+      
+      if (existing.isEmpty) {
+        print('📝 Création de sessions d\'exercice de test pour utilisateur 3...');
+        
+        // Créer 3 sessions d'exercice de test
+        await db.insert(tableExerciseSessions, {
+          'utilisateur_id': 3,
+          'plan_id': null,
+          'exercise_id': null,
+          'date_debut': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+          'date_fin': DateTime.now().subtract(const Duration(days: 2, hours: -1)).toIso8601String(),
+          'duree_reelle': 60,
+          'calories_brulees': 350,
+          'nombre_series_completees': 3,
+          'repetitions_totales': 45,
+          'notes_utilisateur': 'Session de test 1',
+          'est_terminee': 1,
+        });
+        
+        await db.insert(tableExerciseSessions, {
+          'utilisateur_id': 3,
+          'plan_id': null,
+          'exercise_id': null,
+          'date_debut': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+          'date_fin': DateTime.now().subtract(const Duration(days: 1, hours: -1)).toIso8601String(),
+          'duree_reelle': 45,
+          'calories_brulees': 280,
+          'nombre_series_completees': 3,
+          'repetitions_totales': 36,
+          'notes_utilisateur': 'Session de test 2',
+          'est_terminee': 1,
+        });
+        
+        await db.insert(tableExerciseSessions, {
+          'utilisateur_id': 3,
+          'plan_id': null,
+          'exercise_id': null,
+          'date_debut': DateTime.now().toIso8601String(),
+          'date_fin': DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
+          'duree_reelle': 55,
+          'calories_brulees': 320,
+          'nombre_series_completees': 4,
+          'repetitions_totales': 48,
+          'notes_utilisateur': 'Session de test 3',
+          'est_terminee': 1,
+        });
+        
+        print('✅ 3 sessions d\'exercice de test créées (Total: 3 sessions, 950 calories brûlées)');
+      } else {
+        print('ℹ️ L\'utilisateur 3 a déjà ${existing.length} sessions d\'exercice');
+      }
+    } catch (e) {
+      print('❌ Erreur création sessions test: $e');
+    }
+  }
+  
+  // ===== Module Nutrition - Calories =====
+  
+  /// Créer des repas de test pour l'utilisateur 3
+  Future<void> createTestMealsForUser3() async {
+    try {
+      final db = await database;
+      
+      // Vérifier si des repas existent déjà pour l'utilisateur 3
+      final existing = await db.query(
+        'repas',
+        where: 'utilisateur_id = ?',
+        whereArgs: [3],
+      );
+      
+      if (existing.isEmpty) {
+        print('📝 Création de repas de test pour utilisateur 3...');
+        
+        // Ajouter quelques repas de test
+        await db.insert('repas', {
+          'type': 'Petit-déjeuner',
+          'date': DateTime.now().toIso8601String(),
+          'nom': 'Omelette et toast',
+          'calories_totales': 450.0,
+          'utilisateur_id': 3,
+        });
+        
+        await db.insert('repas', {
+          'type': 'Déjeuner',
+          'date': DateTime.now().toIso8601String(),
+          'nom': 'Poulet grillé et légumes',
+          'calories_totales': 650.0,
+          'utilisateur_id': 3,
+        });
+        
+        await db.insert('repas', {
+          'type': 'Dîner',
+          'date': DateTime.now().toIso8601String(),
+          'nom': 'Salade de quinoa',
+          'calories_totales': 550.0,
+          'utilisateur_id': 3,
+        });
+        
+        print('✅ 3 repas de test créés (Total: 1650 calories)');
+      } else {
+        print('ℹ️ L\'utilisateur 3 a déjà ${existing.length} repas');
+      }
+    } catch (e) {
+      print('❌ Erreur création repas test: $e');
+    }
+  }
+  
+  /// Récupère le total des calories consommées pour un utilisateur
+  Future<int> getTotalNutritionCalories(int utilisateurId) async {
+    try {
+      final db = await database;
+      
+      // D'abord, compter le nombre de repas
+      final countResult = await db.rawQuery('''
+        SELECT COUNT(*) as count
+        FROM repas
+        WHERE utilisateur_id = ?
+      ''', [utilisateurId]);
+      
+      print('🍽️ Nombre de repas pour utilisateur $utilisateurId: ${countResult.first['count']}');
+      
+      // Ensuite, récupérer le total des calories
+      final result = await db.rawQuery('''
+        SELECT SUM(calories_totales) as total
+        FROM repas
+        WHERE utilisateur_id = ?
+      ''', [utilisateurId]);
+      
+      print('🔥 Requête calories result: $result');
+      
+      if (result.isNotEmpty && result.first['total'] != null) {
+        final total = (result.first['total'] as num).toInt();
+        print('✅ Total calories nutrition: $total');
+        return total;
+      }
+      
+      print('⚠️ Aucune calorie trouvée, retour 0');
+      return 0;
+    } catch (e) {
+      print('❌ Erreur getTotalNutritionCalories: $e');
+      return 0;
+    }
   }
 
 }

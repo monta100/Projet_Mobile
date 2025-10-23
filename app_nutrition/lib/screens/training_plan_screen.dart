@@ -3,22 +3,7 @@ import 'results_screen.dart';
 import '../Services/local_storage_service.dart';
 
 class TrainingPlanScreen extends StatefulWidget {
-  final double currentWeight;
-  final double targetWeight;
-  final double height;
-  final int age;
-  final String gender;
-  final String activityLevel;
-
-  const TrainingPlanScreen({
-    super.key,
-    required this.currentWeight,
-    required this.targetWeight,
-    required this.height,
-    required this.age,
-    required this.gender,
-    required this.activityLevel,
-  });
+  const TrainingPlanScreen({super.key});
 
   @override
   State<TrainingPlanScreen> createState() => _TrainingPlanScreenState();
@@ -26,6 +11,8 @@ class TrainingPlanScreen extends StatefulWidget {
 
 class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
   final _formKey = GlobalKey<FormState>();
+  double? currentWeight;
+  double? targetWeight;
   int? trainingWeeks;
   int? sessionsPerWeek;
   double? gymCost;
@@ -51,8 +38,8 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Training Plan'),
-        backgroundColor: Colors.blue.shade900,
+        title: const Text('Plan d\'Entraînement'),
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -65,7 +52,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
               children: [
                 if (_savedPlans.isNotEmpty) ...[
                   const Text(
-                    'Previous Plans',
+                    'Plans Précédents',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -91,7 +78,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                   const SizedBox(height: 20),
                 ],
                 const Text(
-                  'Plan Your Training',
+                  'Planifiez Votre Entraînement',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -100,17 +87,51 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                 const SizedBox(height: 30),
                 TextFormField(
                   decoration: const InputDecoration(
-                    labelText: 'Training Duration (weeks)',
+                    labelText: 'Poids Actuel (kg)',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter training duration';
+                      return 'Veuillez entrer votre poids actuel';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) {
+                    currentWeight = double.tryParse(value!);
+                  },
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Poids Cible (kg)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer votre poids cible';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) {
+                    targetWeight = double.tryParse(value!);
+                  },
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Durée d\'Entraînement (semaines)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer la durée d\'entraînement';
                     }
                     final weeks = int.tryParse(value);
                     if (weeks == null || weeks < 1) {
-                      return 'Please enter a valid number of weeks';
+                      return 'Veuillez entrer un nombre de semaines valide';
                     }
                     return null;
                   },
@@ -121,17 +142,17 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                 const SizedBox(height: 20),
                 TextFormField(
                   decoration: const InputDecoration(
-                    labelText: 'Training Sessions per Week',
+                    labelText: 'Séances par Semaine',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter sessions per week';
+                      return 'Veuillez entrer le nombre de séances par semaine';
                     }
                     final sessions = int.tryParse(value);
                     if (sessions == null || sessions < 1 || sessions > 7) {
-                      return 'Please enter a number between 1 and 7';
+                      return 'Veuillez entrer un nombre entre 1 et 7';
                     }
                     return null;
                   },
@@ -142,14 +163,14 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                 const SizedBox(height: 20),
                 TextFormField(
                   decoration: const InputDecoration(
-                    labelText: 'Monthly Gym Subscription Cost',
+                    labelText: 'Coût Abonnement Gym (mensuel)',
                     border: OutlineInputBorder(),
                     prefixText: '\$',
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter gym subscription cost';
+                      return 'Veuillez entrer le coût de l\'abonnement';
                     }
                     return null;
                   },
@@ -160,14 +181,14 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                 const SizedBox(height: 20),
                 TextFormField(
                   decoration: const InputDecoration(
-                    labelText: 'Daily Food Budget',
+                    labelText: 'Budget Alimentaire (quotidien)',
                     border: OutlineInputBorder(),
                     prefixText: '\$',
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter daily food budget';
+                      return 'Veuillez entrer le budget alimentaire quotidien';
                     }
                     return null;
                   },
@@ -184,8 +205,8 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => ResultsScreen(
-                            currentWeight: widget.currentWeight,
-                            targetWeight: widget.targetWeight,
+                            currentWeight: currentWeight!,
+                            targetWeight: targetWeight!,
                             trainingWeeks: trainingWeeks!,
                             sessionsPerWeek: sessionsPerWeek!,
                             gymCost: gymCost!,
@@ -196,7 +217,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade900,
+                    backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
@@ -204,7 +225,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                     ),
                   ),
                   child: const Text(
-                    'Calculate Costs',
+                    'Calculer les Coûts',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

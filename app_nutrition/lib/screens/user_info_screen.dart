@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'training_plan_screen.dart';
-import 'saved_plans_screen.dart';
 
 class UserInfoScreen extends StatefulWidget {
   const UserInfoScreen({super.key});
@@ -201,25 +200,6 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SavedPlansScreen()),
-                  );
-                },
-                icon: const Icon(Icons.history),
-                label: const Text('View Saved Plans'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue.shade900,
-                  side: BorderSide(color: Colors.blue.shade900),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
               ],
             ),
           ),

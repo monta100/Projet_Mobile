@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../Entites/utilisateur.dart';
 import 'user_dashboard_screen.dart';
-import 'user_exercise_programs_screen.dart';
 import 'user_achievements_screen.dart';
 import 'user_nutrition_tracking_screen.dart';
 import 'user_reminders_screen.dart';
@@ -30,7 +29,6 @@ class _UserMainScreenState extends State<UserMainScreen> {
     super.initState();
     _screens.addAll([
       UserDashboardScreen(utilisateur: widget.utilisateur),
-      UserExerciseProgramsScreen(utilisateurId: widget.utilisateur.id!),
       UserProgressDashboardScreen(utilisateur: widget.utilisateur),
       UserAchievementsScreen(utilisateurId: widget.utilisateur.id!),
       UserNutritionTrackingScreen(utilisateur: widget.utilisateur),
@@ -70,39 +68,33 @@ class _UserMainScreenState extends State<UserMainScreen> {
                   Colors.blue,
                 ),
                 _buildNavItem(
-                  Icons.fitness_center,
-                  'Exercices',
-                  1,
-                  Colors.orange,
-                ),
-                _buildNavItem(
                   Icons.trending_up,
                   'Progression',
-                  2,
+                  1,
                   Colors.purple,
                 ),
                 _buildNavItem(
                   Icons.emoji_events,
                   'Récompenses',
-                  3,
+                  2,
                   Colors.amber,
                 ),
                 _buildNavItem(
                   Icons.restaurant_menu,
                   'Nutrition',
-                  4,
+                  3,
                   Colors.green,
                 ),
                 _buildNavItem(
                   Icons.notifications,
                   'Rappels',
-                  5,
+                  4,
                   Colors.indigo,
                 ),
                 _buildNavItem(
                   Icons.person,
                   'Profil',
-                  6,
+                  5,
                   Colors.teal,
                 ),
               ],

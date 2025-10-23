@@ -4,7 +4,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Screens/login_screen.dart';
 import 'Screens/register_screen.dart';
-import 'Screens/home_page.dart';
 import 'Services/email_service.dart';
 import 'Services/user_service.dart';
 import 'Services/database_helper.dart';

@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _chargerDonnees();
+    _loadData(); // Charger la météo au démarrage
   }
 
   Future<void> _chargerDonnees() async {
@@ -128,7 +129,30 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_temp! >= 25) return "â˜€ï¸ ${_temp!.round()}Â°C - IdÃ©al pour courir dehors !";
     if (_temp! < 15) return "â„ï¸ ${_temp!.round()}Â°C - EntraÃ®ne-toi en intÃ©rieur ðŸ”¥";
     if (_weatherDesc.contains("pluie")) return "ðŸŒ§ï¸ Pluie - Opte pour une sÃ©ance indoor.";
-    return "ðŸ’ª ${_temp!.round()}Â°C - Conditions parfaites pour bouger !";
+    return "ðŸ'ª ${_temp!.round()}Â°C - Conditions parfaites pour bouger !";
+  }
+
+  // --- ðŸŒ¤ï¸ Icône mÃ©tÃ©o selon description ---
+  IconData _getWeatherIcon() {
+    if (_weatherDesc.isEmpty) return Icons.wb_sunny;
+    
+    final desc = _weatherDesc.toLowerCase();
+    
+    if (desc.contains("pluie") || desc.contains("rain")) {
+      return Icons.umbrella;
+    } else if (desc.contains("nuage") || desc.contains("cloud") || desc.contains("couvert")) {
+      return Icons.wb_cloudy;
+    } else if (desc.contains("orage") || desc.contains("thunder")) {
+      return Icons.flash_on;
+    } else if (desc.contains("neige") || desc.contains("snow")) {
+      return Icons.ac_unit;
+    } else if (desc.contains("brouillard") || desc.contains("fog") || desc.contains("mist")) {
+      return Icons.cloud;
+    } else if (desc.contains("clair") || desc.contains("clear") || desc.contains("dÃ©gagÃ©")) {
+      return Icons.wb_sunny;
+    } else {
+      return Icons.wb_sunny;
+    }
   }
 
   @override
@@ -345,6 +369,104 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Carte météo et localisation Tunisie
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Localisation
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.white, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        _city.isEmpty ? 'Tunis, Tunisie 🇹🇳' : '$_city, Tunisie 🇹🇳',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Température et météo
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _temp != null ? '${_temp!.round()}°C' : '--°C',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            _weatherDesc.isEmpty ? 'Chargement...' : _weatherDesc,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Icon(
+                        _getWeatherIcon(),
+                        color: Colors.white,
+                        size: 64,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Message de motivation
+                  if (!_loading)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.fitness_center, color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _getMotivation(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Carte de bienvenue
           Card(
             child: Padding(

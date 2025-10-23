@@ -42,41 +42,25 @@ class _ActivityWelcomeScreenState extends State<ActivityWelcomeScreen> {
     setState(() => _loading = false);
   }
 
-  // --- 🌍 API Météo avec localisation GPS + IP Fallback ---
+  // --- 🌍 API Météo forcée sur Tunis, Tunisie 🇹🇳 ---
   Future<void> _getWeather() async {
     try {
-      // 🔒 Vérifier les permissions de localisation
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print("⚠️ Permission de localisation refusée - Utilisation géolocalisation IP");
-          await _getWeatherByIP();
-          return;
-        }
-      }
+      // 📍 Localisation forcée : Tunis, capitale de la Tunisie
+      const double latitude = 36.8065;
+      const double longitude = 10.1815;
 
-      if (permission == LocationPermission.deniedForever) {
-        print("⚠️ Permission de localisation refusée définitivement - Utilisation géolocalisation IP");
-        await _getWeatherByIP();
-        return;
-      }
+      print("📍 Localisation forcée : Tunis, Tunisie 🇹🇳 ($latitude, $longitude)");
 
-      // 📍 Obtenir la position GPS actuelle (réelle ou émulateur configuré)
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
-      );
-
-      final latitude = position.latitude;
-      final longitude = position.longitude;
-
-      print("📍 Localisation GPS : $latitude, $longitude");
-
-      // ✅ Utiliser la position GPS (que ce soit un vrai téléphone ou émulateur configuré)
+      // ✅ Utiliser les coordonnées de Tunis
       await _getWeatherByCoordinates(latitude, longitude);
     } catch (e) {
-      print("❌ Erreur GPS : $e - Tentative géolocalisation IP");
-      await _getWeatherByIP();
+      print("❌ Erreur météo : $e");
+      // Fallback avec données par défaut pour Tunis
+      setState(() {
+        _city = "Tunis";
+        _temp = 25;
+        _weatherDesc = "ciel dégagé";
+      });
     }
   }
 

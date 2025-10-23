@@ -309,6 +309,10 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.15.6"
+      sha256: f666a8c09225630a9ab366296407b38c6dab87ba7b1bce15a7db35e9411c17d3
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.3"
   http:
     dependency: "direct main"
     description:
@@ -653,6 +657,10 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.4"
+      sha256: "1c33a907142607c40a7542768ec9badfd16293bac51da3a4482623d15845f88b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.5.5"
   shared_preferences_linux:
     dependency: transitive
     description:

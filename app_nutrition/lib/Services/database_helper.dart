@@ -498,6 +498,46 @@ class DatabaseHelper {
         print('⚠️ La colonne imageUrl existe déjà : $e');
       }
     }
+    // Table des utilisateurs
+    await db.execute('''
+      CREATE TABLE users(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        current_weight REAL NOT NULL,
+        target_weight REAL NOT NULL,
+        height REAL,
+        age INTEGER,
+        gender TEXT,
+        activity_level TEXT
+      )
+    ''');
+
+    // Table des plans d'entraînement
+    await db.execute('''
+      CREATE TABLE training_plans(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        duration_weeks INTEGER NOT NULL,
+        training_frequency INTEGER NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      )
+    ''');
+
+    // Table des coûts
+    await db.execute('''
+      CREATE TABLE expenses(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER,
+        gym_subscription REAL NOT NULL,
+        food_costs REAL NOT NULL,
+        supplements_costs REAL,
+        equipment_costs REAL,
+        other_costs REAL,
+        total_cost REAL NOT NULL,
+        FOREIGN KEY(plan_id) REFERENCES training_plans(id)
+      )
+    ''');
   }
 
   // --- Méthodes génériques ---

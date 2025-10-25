@@ -25,7 +25,7 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'nutrition_app_2025.db';
-  static const int _dbVersion = 5; // 🔼 Augmenté pour migration (ajout module dépenses)
+  static const int _dbVersion = 8; // 🔼 Augmenté pour migration (ajout colonne imageUrl dans recettes)
 
   // Table names
   static const String tableUtilisateurs = 'utilisateurs';
@@ -416,7 +416,7 @@ class DatabaseHelper {
     }
     
     if (oldVersion < 7) {
-      // Rebuild table recettes avec utilisateur_id
+      // Rebuild table recettes avec utilisateur_id ET imageUrl
       await db.execute('''
         CREATE TABLE recettes_new(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -425,6 +425,7 @@ class DatabaseHelper {
           calories REAL NOT NULL DEFAULT 0,
           repas_id INTEGER NULL,
           publie INTEGER NOT NULL DEFAULT 0,
+          imageUrl TEXT,
           utilisateur_id INTEGER NULL,
           FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
           FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
@@ -433,13 +434,13 @@ class DatabaseHelper {
       
       try {
         await db.execute('''
-          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
-          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), utilisateur_id FROM recettes
+          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, imageUrl, utilisateur_id)
+          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), imageUrl, utilisateur_id FROM recettes
         ''');
       } catch (_) {
         await db.execute('''
-          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
-          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), NULL FROM recettes
+          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, imageUrl, utilisateur_id)
+          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), NULL, NULL FROM recettes
         ''');
       }
       
@@ -594,6 +595,25 @@ class DatabaseHelper {
 
       // Index pour le module dépenses
       await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_plan ON $tableExpenses(plan_id)');
+    }
+
+    // 🆕 Migration vers version 8 : Ajout colonne imageUrl dans recettes si manquante
+    if (oldVersion < 8) {
+      try {
+        // Vérifier si la colonne imageUrl existe déjà
+        final result = await db.rawQuery('PRAGMA table_info(recettes)');
+        final hasImageUrl = result.any((column) => column['name'] == 'imageUrl');
+        
+        if (!hasImageUrl) {
+          // Ajouter la colonne imageUrl si elle n'existe pas
+          await db.execute('ALTER TABLE recettes ADD COLUMN imageUrl TEXT');
+          print('✅ Colonne imageUrl ajoutée à la table recettes');
+        } else {
+          print('ℹ️ Colonne imageUrl existe déjà dans la table recettes');
+        }
+      } catch (e) {
+        print('⚠️ Erreur lors de l\'ajout de la colonne imageUrl: $e');
+      }
     }
   }
 

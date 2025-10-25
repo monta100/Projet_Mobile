@@ -413,35 +413,8 @@ class NutriBotBrain {
 
         return "✅ J’ai ajouté ton repas : **$nomRepas** dans *$typeRepas* (${repas.caloriesTotales} kcal).";
       }
-      return "Je n’ai pas compris le plat, peux-tu reformuler ?";
+      return "Je n'ai pas compris le plat, peux-tu reformuler ?";
     }
-
-    // 🔹 Vérifier le temps depuis le dernier repas
-    final lastMeal = await PreferencesService.getLastMealTime();
-    if (lastMeal != null) {
-      final hoursSinceLastMeal = DateTime.now().difference(lastMeal).inHours;
-      print(
-        "Heures depuis le dernier repas : $hoursSinceLastMeal",
-      ); // Log pour débogage
-      if (hoursSinceLastMeal >= 6) {
-        return "😋 Ça fait plus de 6h depuis ton dernier repas ! Tu veux que je te propose une idée pour ${_momentDeJournee()} ?";
-      }
-    }
-
-    // 🔹 Vérifier si l’utilisateur a déjà bien mangé aujourd’hui
-    final mealsToday = await PreferencesService.getMealCountToday();
-    if (mealsToday >= 3 && text.contains("repas")) {
-      return "Tu as déjà bien mangé aujourd’hui 🍽️, je te suggère juste un petit snack ou une boisson légère.";
-    }
-
-    // 🔹 Vérifier l’humeur (NE PAS BLOQUER la génération de recette)
-    // (Supprimez ou commentez ce bloc pour ne pas bloquer les suggestions de recettes)
-    /*
-    final mood = await PreferencesService.getUserMood();
-    if (mood == "fatigué") {
-      return "💤 Tu sembles encore fatigué. Je te conseille un repas réconfortant, comme une soupe chaude 🍲.";
-    }
-    */
 
     // 3) —— Suggestions de repas
     if ((text.contains("repas") ||
@@ -739,7 +712,25 @@ Ta mission :
       return "Pas de souci on garde ca pour plus tard";
     }
 
-    // 7) —— Fallback
+    // 7) —— Vérifications contextuelles (seulement si aucune autre logique n'a répondu)
+    
+    // 🔹 Vérifier le temps depuis le dernier repas
+    final lastMeal = await PreferencesService.getLastMealTime();
+    if (lastMeal != null) {
+      final hoursSinceLastMeal = DateTime.now().difference(lastMeal).inHours;
+      print("Heures depuis le dernier repas : $hoursSinceLastMeal");
+      if (hoursSinceLastMeal >= 6) {
+        return "😋 Ça fait plus de 6h depuis ton dernier repas ! Tu veux que je te propose une idée pour ${_momentDeJournee()} ?";
+      }
+    }
+
+    // 🔹 Vérifier si l'utilisateur a déjà bien mangé aujourd'hui
+    final mealsToday = await PreferencesService.getMealCountToday();
+    if (mealsToday >= 3 && text.contains("repas")) {
+      return "Tu as déjà bien mangé aujourd'hui 🍽️, je te suggère juste un petit snack ou une boisson légère.";
+    }
+
+    // 8) —— Fallback IA générique
     final generic = await _openRouter.processUserMessage(
       userText,
       structured: false,

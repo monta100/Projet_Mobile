@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../Services/user_service.dart';
+import '../Theme/app_colors.dart';
 import 'verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -133,6 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(title: const Text('Connexion'), centerTitle: true),
       body: Padding(
@@ -147,7 +149,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Icon(
                   Icons.restaurant_menu,
                   size: 80,
-                  color: Theme.of(context).primaryColor,
+                  color: isDark
+                      ? AppColors.primaryColor
+                      : Theme.of(context).primaryColor,
                 ),
                 const SizedBox(height: 32),
 
@@ -215,6 +219,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark
+                          ? AppColors.primaryColor
+                          : Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
                     onPressed: _isLoading ? null : _login,
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)

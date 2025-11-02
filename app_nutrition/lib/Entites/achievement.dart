@@ -50,8 +50,12 @@ class Achievement {
       points: map['points'],
       type: map['type'],
       conditionValue: map['condition_value'],
-      isUnlocked: map['is_unlocked'] == null ? false : (map['is_unlocked'] == 1),
-      unlockedAt: map['unlocked_at'] != null ? DateTime.parse(map['unlocked_at']) : null,
+      isUnlocked: map['is_unlocked'] == null
+          ? false
+          : (map['is_unlocked'] == 1),
+      unlockedAt: map['unlocked_at'] != null
+          ? DateTime.parse(map['unlocked_at'])
+          : null,
     );
   }
 
@@ -72,5 +76,4 @@ class Achievement {
   String toString() {
     return 'Achievement{id: $id, nom: $nom, type: $type, isUnlocked: $isUnlocked}';
   }
-  aaaaa
 }

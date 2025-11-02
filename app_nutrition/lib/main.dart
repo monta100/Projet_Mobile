@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Screens/login_screen.dart';
 import 'Screens/register_screen.dart';
+import 'Theme/app_colors.dart';
 import 'Services/email_service.dart';
 import 'Services/user_service.dart';
 import 'Services/database_helper.dart';
@@ -120,7 +121,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     // Enregistrer l'état pour permettre le changement de thème depuis d'autres écrans
     AppThemeNotifier.register(this);
-    
+
     return MaterialApp(
       title: 'App Nutrition',
       debugShowCheckedModeBanner: false,
@@ -161,6 +162,8 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -195,7 +198,9 @@ class WelcomeScreen extends StatelessWidget {
                       child: Icon(
                         Icons.restaurant_menu,
                         size: 80,
-                        color: Theme.of(context).primaryColor,
+                        color: isDark
+                            ? AppColors.primaryColor
+                            : Theme.of(context).primaryColor,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -240,10 +245,14 @@ class WelcomeScreen extends StatelessWidget {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white.withOpacity(0.2)
-                              : Colors.white,
-                          foregroundColor: Theme.of(context).primaryColor,
+                          backgroundColor: isDark
+                              ? AppColors.primaryColor
+                              : (Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white.withOpacity(0.2)
+                                    : Colors.white),
+                          foregroundColor: isDark
+                              ? Colors.white
+                              : Theme.of(context).primaryColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -273,11 +282,16 @@ class WelcomeScreen extends StatelessWidget {
                           );
                         },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
+                          foregroundColor: isDark
+                              ? AppColors.primaryColor
+                              : Colors.white,
                           side: BorderSide(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white.withOpacity(0.9)
-                                : Colors.white,
+                            color: isDark
+                                ? AppColors.primaryColor
+                                : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.white.withOpacity(0.9)
+                                      : Colors.white),
                             width: 2,
                           ),
                           shape: RoundedRectangleBorder(

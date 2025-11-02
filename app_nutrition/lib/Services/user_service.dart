@@ -155,29 +155,6 @@ class UserService {
     }
   }
 
-  /// Récupère les clients associés à un coach
-  Future<List<Utilisateur>> obtenirClientsPourCoach(int coachId) async {
-    try {
-      return await _databaseHelper.getClientsByCoach(coachId);
-    } catch (e) {
-      print('Erreur lors de la récupération des clients du coach: $e');
-      return [];
-    }
-  }
-
-  /// Assigne un client à un coach (met à jour coachId du client)
-  Future<bool> assignerClientAuCoach(int clientId, int coachId) async {
-    try {
-      final client = await _databaseHelper.getUtilisateurById(clientId);
-      if (client == null) return false;
-      client.coachId = coachId;
-      final result = await _databaseHelper.updateUtilisateur(client);
-      return result > 0;
-    } catch (e) {
-      print('Erreur lors de l\'assignation du client au coach: $e');
-      return false;
-    }
-  }
 
   /// Met à jour un utilisateur
   Future<bool> modifierUtilisateur(Utilisateur utilisateur) async {

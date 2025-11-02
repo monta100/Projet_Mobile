@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../Entites/utilisateur.dart';
-import '../Services/exercise_service.dart';
+import '../Entites/user_objective.dart';
 import '../Services/database_helper.dart';
-import 'user_exercise_programs_screen.dart';
-import 'exercise_session_screen.dart';
+import '../Services/theme_service.dart';
+import '../main.dart';
 import 'profil_screen.dart';
+import 'create_user_objective_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -21,16 +22,31 @@ class UserDashboardScreen extends StatefulWidget {
 
 class _UserDashboardScreenState extends State<UserDashboardScreen>
     with TickerProviderStateMixin {
-  final ExerciseService _exerciseService = ExerciseService();
   final DatabaseHelper _db = DatabaseHelper();
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   
-  Map<String, dynamic> _userStats = {};
-  List<dynamic> _recentSessions = [];
   bool _isLoading = true;
+  List<UserObjective> _userObjectives = [];
+  
+  // Données nutritionnelles simulées pour la page d'accueil
+  Map<String, double> _dailyNutrition = {
+    'calories': 1850,
+    'proteins': 120,
+    'carbs': 200,
+    'fats': 65,
+    'water': 1.8,
+  };
+  
+  Map<String, double> _dailyGoals = {
+    'calories': 2000,
+    'proteins': 150,
+    'carbs': 250,
+    'fats': 70,
+    'water': 2.5,
+  };
 
   @override
   void initState() {
@@ -68,13 +84,11 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     try {
-      final stats = await _exerciseService.getUserStats(widget.utilisateur.id!);
-      final sessions = await _exerciseService.getUserSessions(widget.utilisateur.id!);
-      final recentSessions = sessions.take(5).toList();
+      // Charger les objectifs de l'utilisateur
+      final objectives = await _db.getUserObjectives(widget.utilisateur.id!);
       
       setState(() {
-        _userStats = stats;
-        _recentSessions = recentSessions;
+        _userObjectives = objectives;
         _isLoading = false;
       });
       
@@ -118,13 +132,11 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                         children: [
                           _buildHeader(),
                           const SizedBox(height: 24),
-                          _buildQuickStats(),
+                          _buildNutritionOverview(),
                           const SizedBox(height: 24),
                           _buildQuickActions(),
                           const SizedBox(height: 24),
-                          _buildRecentActivity(),
-                          const SizedBox(height: 24),
-                          _buildMotivationalCard(),
+                          _buildObjectivesSection(),
                         ],
                       ),
                     ),
@@ -170,7 +182,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                'Prêt pour votre séance d\'aujourd\'hui ?',
+                'Suivez vos objectifs au quotidien',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.white.withOpacity(0.9),
@@ -179,6 +191,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             ],
           ),
         ),
+        _buildThemeToggleButton(),
+        const SizedBox(width: 8),
         IconButton(
           onPressed: _loadDashboardData,
           icon: const Icon(Icons.refresh, color: Colors.white),
@@ -187,78 +201,351 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildQuickStats() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            'Séances',
-            '${_userStats['totalSessions'] ?? 0}',
-            Icons.fitness_center,
-            Colors.orange,
+  Widget _buildThemeToggleButton() {
+    return FutureBuilder<ThemeMode>(
+      future: ThemeService.getThemeMode(),
+      builder: (context, snapshot) {
+        final currentTheme = snapshot.data ?? ThemeMode.light;
+        final isDark = currentTheme == ThemeMode.dark;
+        
+        return IconButton(
+          onPressed: () async {
+            final newTheme = isDark ? ThemeMode.light : ThemeMode.dark;
+            await ThemeService.setThemeMode(newTheme);
+            AppThemeNotifier.changeTheme(newTheme);
+            setState(() {});
+          },
+          icon: Icon(
+            isDark ? Icons.light_mode : Icons.dark_mode,
+            color: Colors.white,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
+          tooltip: isDark ? 'Activer le thème clair' : 'Activer le thème sombre',
+        );
+      },
+    );
+  }
+
+
+  Widget _buildNutritionOverview() {
+    final caloriesProgress = _dailyNutrition['calories']! / _dailyGoals['calories']!;
+    final proteinsProgress = _dailyNutrition['proteins']! / _dailyGoals['proteins']!;
+    final waterProgress = _dailyNutrition['water']! / _dailyGoals['water']!;
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.restaurant_menu, color: Colors.green, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Nutrition du jour',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildNutritionProgressItem(
             'Calories',
-            '${_userStats['totalCalories'] ?? 0}',
+            '${_dailyNutrition['calories']!.toInt()}',
+            '${_dailyGoals['calories']!.toInt()} kcal',
+            caloriesProgress,
+            Colors.orange,
             Icons.local_fire_department,
-            Colors.red,
           ),
+          const SizedBox(height: 16),
+          _buildNutritionProgressItem(
+            'Protéines',
+            '${_dailyNutrition['proteins']!.toInt()}',
+            '${_dailyGoals['proteins']!.toInt()}g',
+            proteinsProgress,
+            Colors.red,
+            Icons.fitness_center,
+          ),
+          const SizedBox(height: 16),
+          _buildNutritionProgressItem(
+            'Eau',
+            '${(_dailyNutrition['water']! * 10).toInt() / 10}',
+            '${_dailyGoals['water']!.toInt()}L',
+            waterProgress,
+            Colors.blue,
+            Icons.water_drop,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutritionProgressItem(
+    String label,
+    String current,
+    String goal,
+    double progress,
+    Color color,
+    IconData icon,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              '$current / $goal',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            'Durée',
-            '${_userStats['totalDuration'] ?? 0} min',
-            Icons.timer,
-            Colors.green,
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+            minHeight: 8,
+            backgroundColor: color.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildObjectivesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Mes Objectifs',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _userObjectives.isEmpty
+            ? _buildEmptyObjectivesCard()
+            : Column(
+                children: _userObjectives.map((objective) => 
+                  _buildObjectiveCard(objective)
+                ).toList(),
+              ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyObjectivesCard() {
     return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.track_changes, size: 48, color: Colors.white.withOpacity(0.8)),
+          const SizedBox(height: 12),
+          const Text(
+            'Aucun objectif',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Créez votre premier objectif pour commencer',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObjectiveCard(UserObjective objective) {
+    final progress = objective.progressionPourcentage / 100;
+    final isCompleted = objective.estAtteint;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isCompleted ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isCompleted ? Icons.check_circle : Icons.track_changes,
+                  color: isCompleted ? Colors.green : Colors.blue,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      objective.typeObjectif,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : null,
+                      ),
+                    ),
+                    Text(
+                      '${objective.poidsActuel}kg → ${objective.poidsCible}kg',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[300]
+                      : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Icônes d'action (modifier et supprimer)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icône modifier
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    color: Colors.blue,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _editObjective(objective),
+                  ),
+                  const SizedBox(width: 8),
+                  // Icône supprimer
+                  IconButton(
+                    icon: const Icon(Icons.delete, size: 20),
+                    color: Colors.red,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _deleteObjective(objective),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[700]
+                  : Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isCompleted ? Colors.green : Colors.blue,
+              ),
             ),
-            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Progression: ${objective.progressionPourcentage.toInt()}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[300]
+                      : Colors.grey.shade600,
+                ),
+              ),
+              Text(
+                '${objective.joursRestants} jours restants',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[300]
+                      : Colors.grey.shade600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -270,7 +557,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Actions Rapides',
+          'Nouvel objectif',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -278,28 +565,24 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionCard(
-                'Commencer l\'entraînement',
-                'Démarrez votre séance',
-                Icons.play_arrow,
-                Colors.green,
-                () => _startWorkout(),
+        _buildActionCard(
+          'Créer un objectif',
+          'Définissez vos objectifs personnalisés',
+          Icons.add_circle_outline,
+          Colors.green,
+          () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CreateUserObjectiveScreen(
+                  utilisateur: widget.utilisateur,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionCard(
-                'Mes Programmes',
-                'Voir tous les plans',
-                Icons.list_alt,
-                Colors.blue,
-                () => _viewPrograms(),
-              ),
-            ),
-          ],
+            );
+            if (result == true) {
+              _loadDashboardData();
+            }
+          },
         ),
       ],
     );
@@ -315,20 +598,24 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[800]
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
@@ -338,21 +625,40 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               ),
               child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[300]
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[400]
+                  : Colors.grey.shade600,
+              size: 20,
             ),
           ],
         ),
@@ -360,228 +666,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildRecentActivity() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Activité Récente',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: _recentSessions.isEmpty
-              ? Column(
-                  children: [
-                    Icon(
-                      Icons.fitness_center,
-                      size: 48,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Aucune séance récente',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Commencez votre première séance !',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                )
-              : Column(
-                  children: _recentSessions.map((session) => _buildSessionItem(session)).toList(),
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSessionItem(dynamic session) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Séance terminée',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${session.dureeReelle ?? 0} min • ${session.caloriesBrulees ?? 0} cal',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            _formatDate(session.dateFin ?? DateTime.now()),
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMotivationalCard() {
-    final sessions = _userStats['totalSessions'] ?? 0;
-    String message = '';
-    String emoji = '';
-    
-    if (sessions == 0) {
-      message = 'Commencez votre parcours fitness dès aujourd\'hui !';
-      emoji = '🚀';
-    } else if (sessions < 5) {
-      message = 'Excellent début ! Continuez sur cette lancée.';
-      emoji = '💪';
-    } else if (sessions < 15) {
-      message = 'Vous êtes sur la bonne voie ! Félicitations.';
-      emoji = '🎉';
-    } else {
-      message = 'Vous êtes un vrai champion ! Inspirant !';
-      emoji = '🏆';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade400, Colors.pink.shade400],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: 32),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Motivation du jour',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  message,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    
-    if (difference.inDays == 0) {
-      return 'Aujourd\'hui';
-    } else if (difference.inDays == 1) {
-      return 'Hier';
-    } else if (difference.inDays < 7) {
-      return 'Il y a ${difference.inDays} jours';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
-  }
-
-  void _startWorkout() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => UserExerciseProgramsScreen(
-          utilisateurId: widget.utilisateur.id!,
-        ),
-      ),
-    );
-  }
-
-  void _viewPrograms() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => UserExerciseProgramsScreen(
-          utilisateurId: widget.utilisateur.id!,
-        ),
-      ),
-    );
-  }
 
   Widget _buildAvatar() {
     // Si l'utilisateur a une photo de profil, l'afficher
@@ -628,5 +712,93 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _editObjective(UserObjective objective) async {
+    // Navigation vers l'écran de création/modification d'objectif
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateUserObjectiveScreen(
+          utilisateur: widget.utilisateur,
+          existingObjective: objective, // Passer l'objectif existant pour modification
+        ),
+      ),
+    );
+    
+    if (result == true) {
+      _loadDashboardData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Objectif modifié avec succès'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteObjective(UserObjective objective) async {
+    // Afficher une boîte de dialogue de confirmation
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer l\'objectif'),
+        content: Text(
+          'Êtes-vous sûr de vouloir supprimer l\'objectif "${objective.typeObjectif}" ?\n\nCette action est irréversible.',
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _db.deleteUserObjective(objective.id!);
+        _loadDashboardData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Objectif supprimé avec succès'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la suppression: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
   }
 }

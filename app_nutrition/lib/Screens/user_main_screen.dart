@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import '../Entites/utilisateur.dart';
 import 'user_dashboard_screen.dart';
-import 'user_exercise_programs_screen.dart';
 import 'user_achievements_screen.dart';
 import 'user_nutrition_tracking_screen.dart';
-import 'user_reminders_screen.dart';
-import 'user_progress_dashboard_screen.dart';
 import 'profil_screen.dart';
 
 class UserMainScreen extends StatefulWidget {
@@ -30,11 +27,8 @@ class _UserMainScreenState extends State<UserMainScreen> {
     super.initState();
     _screens.addAll([
       UserDashboardScreen(utilisateur: widget.utilisateur),
-      UserExerciseProgramsScreen(utilisateurId: widget.utilisateur.id!),
-      UserProgressDashboardScreen(utilisateur: widget.utilisateur),
       UserAchievementsScreen(utilisateurId: widget.utilisateur.id!),
       UserNutritionTrackingScreen(utilisateur: widget.utilisateur),
-      UserRemindersScreen(utilisateur: widget.utilisateur),
       ProfilScreen(utilisateur: widget.utilisateur),
     ]);
   }
@@ -48,7 +42,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[900]
+              : Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.3),
@@ -70,39 +66,21 @@ class _UserMainScreenState extends State<UserMainScreen> {
                   Colors.blue,
                 ),
                 _buildNavItem(
-                  Icons.fitness_center,
-                  'Exercices',
-                  1,
-                  Colors.orange,
-                ),
-                _buildNavItem(
-                  Icons.trending_up,
-                  'Progression',
-                  2,
-                  Colors.purple,
-                ),
-                _buildNavItem(
                   Icons.emoji_events,
                   'Récompenses',
-                  3,
+                  1,
                   Colors.amber,
                 ),
                 _buildNavItem(
                   Icons.restaurant_menu,
                   'Nutrition',
-                  4,
+                  2,
                   Colors.green,
-                ),
-                _buildNavItem(
-                  Icons.notifications,
-                  'Rappels',
-                  5,
-                  Colors.indigo,
                 ),
                 _buildNavItem(
                   Icons.person,
                   'Profil',
-                  6,
+                  3,
                   Colors.teal,
                 ),
               ],
@@ -134,7 +112,11 @@ class _UserMainScreenState extends State<UserMainScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? color : Colors.grey.shade600,
+              color: isSelected 
+                  ? color 
+                  : (Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[400]
+                      : Colors.grey.shade600),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -143,7 +125,11 @@ class _UserMainScreenState extends State<UserMainScreen> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? color : Colors.grey.shade600,
+                color: isSelected 
+                    ? color 
+                    : (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[400]
+                        : Colors.grey.shade600),
               ),
             ),
           ],

@@ -9,7 +9,6 @@ class UserObjective {
   int age;
   String niveauActivite;
   int dureeObjectif; // en semaines
-  int coachId;
   DateTime dateCreation;
   DateTime dateDebut;
   DateTime dateFin;
@@ -28,7 +27,6 @@ class UserObjective {
     required this.age,
     required this.niveauActivite,
     required this.dureeObjectif,
-    required this.coachId,
     required this.dateCreation,
     required this.dateDebut,
     required this.dateFin,
@@ -49,7 +47,6 @@ class UserObjective {
       'age': age,
       'niveauActivite': niveauActivite,
       'dureeObjectif': dureeObjectif,
-      'coachId': coachId,
       'dateCreation': dateCreation.toIso8601String(),
       'dateDebut': dateDebut.toIso8601String(),
       'dateFin': dateFin.toIso8601String(),
@@ -71,7 +68,6 @@ class UserObjective {
       age: map['age'],
       niveauActivite: map['niveauActivite'],
       dureeObjectif: map['dureeObjectif'],
-      coachId: map['coachId'],
       dateCreation: DateTime.parse(map['dateCreation']),
       dateDebut: DateTime.parse(map['dateDebut']),
       dateFin: DateTime.parse(map['dateFin']),

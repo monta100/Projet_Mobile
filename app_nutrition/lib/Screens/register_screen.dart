@@ -22,9 +22,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  String _selectedRole = 'Utilisateur';
-
-  final List<String> _roles = ['Utilisateur', 'Nutritionniste', 'Coach'];
 
   @override
   void dispose() {
@@ -48,7 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           prenom: _prenomController.text.trim(),
           email: _emailController.text.trim(),
           motDePasse: _passwordController.text,
-          role: _selectedRole,
+          role: 'User',
         );
 
         await _userService.creerUtilisateur(utilisateur);
@@ -172,30 +169,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return 'Format d\'email invalide';
                     }
                     return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Sélection du rôle
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(
-                    labelText: 'Rôle',
-                    prefixIcon: Icon(Icons.badge),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _roles.map((String role) {
-                    return DropdownMenuItem<String>(
-                      value: role,
-                      child: Text(role),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        _selectedRole = newValue;
-                      });
-                    }
                   },
                 ),
                 const SizedBox(height: 16),

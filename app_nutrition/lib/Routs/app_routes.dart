@@ -5,12 +5,8 @@ import '../Screens/home_screen.dart';
 import '../Screens/home_user_screen.dart';
 import '../Screens/nouveau_objectif_screen.dart';
 import '../Screens/mes_objectifs_screen.dart';
-import '../Screens/mes_rappels_screen.dart';
-import '../Screens/nouveau_rappel_screen.dart';
 import '../Screens/profil_screen.dart';
 import '../Screens/test_database_screen.dart';
-import '../Screens/mes_clients_screen.dart';
-import '../Screens/coach_home_screen.dart';
 import '../Entites/utilisateur.dart';
 
 class AppRoutes {
@@ -20,41 +16,22 @@ class AppRoutes {
   static const String profil = '/profil';
   static const String objectifs = '/objectifs';
   static const String objectifsNouveau = '/objectifs/nouveau';
-  static const String rappels = '/rappels';
-  static const String rappelsNouveau = '/rappels/nouveau';
   static const String testDatabase = '/test-database';
-  static const String mesClients = '/mes-clients';
-  static const String exerciseLibrary = '/exercise-library';
-  static const String createExercisePlan = '/create-exercise-plan';
-  static const String coachPlans = '/coach-plans';
-  static const String userExercisePrograms = '/user-exercise-programs';
-  static const String exerciseSession = '/exercise-session';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
       home: (context) {
-        // Restore original behavior: always show the classic HomeScreen
         final utilisateur =
             ModalRoute.of(context)!.settings.arguments as Utilisateur?;
         if (utilisateur != null) {
-          final role = utilisateur.role.toLowerCase().trim();
-          final coachAliases = {
-            'coach',
-            'coatch',
-            'entraîneur',
-            'entraineur',
-            'trainer',
-          };
-          if (coachAliases.contains(role))
-            return CoachHomeScreen(coach: utilisateur);
           return HomeUserScreen(utilisateur: utilisateur);
         }
         // If no user provided, redirect to login
         return const LoginScreen();
       },
-      // Routes pour objectifs et rappels
+      // Routes pour objectifs
       profil: (context) {
         final utilisateur =
             ModalRoute.of(context)!.settings.arguments as Utilisateur?;
@@ -100,27 +77,7 @@ class AppRoutes {
         // Si pas d'utilisateur, rediriger vers login
         return const LoginScreen();
       },
-      rappels: (context) {
-        final utilisateur =
-            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
-        if (utilisateur != null)
-          return MesRappelsScreen(utilisateur: utilisateur);
-        return const LoginScreen();
-      },
-      rappelsNouveau: (context) {
-        final utilisateur =
-            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
-        if (utilisateur != null)
-          return NouveauRappelScreen(utilisateur: utilisateur);
-        return const LoginScreen();
-      },
       testDatabase: (context) => const TestDatabaseScreen(),
-      mesClients: (context) {
-        final utilisateur =
-            ModalRoute.of(context)!.settings.arguments as Utilisateur?;
-        if (utilisateur != null) return MesClientsScreen(coach: utilisateur);
-        return const LoginScreen();
-      },
     };
   }
 
@@ -135,19 +92,6 @@ class AppRoutes {
       case home:
         final utilisateur = settings.arguments as Utilisateur?;
         if (utilisateur != null) {
-          final role = utilisateur.role.toLowerCase().trim();
-          final coachAliases = {
-            'coach',
-            'coatch',
-            'entraîneur',
-            'entraineur',
-            'trainer',
-          };
-          if (coachAliases.contains(role)) {
-            return MaterialPageRoute(
-              builder: (context) => CoachHomeScreen(coach: utilisateur),
-            );
-          }
           return MaterialPageRoute(
             builder: (context) => HomeUserScreen(utilisateur: utilisateur),
           );
@@ -205,37 +149,10 @@ class AppRoutes {
         }
         return MaterialPageRoute(builder: (context) => const LoginScreen());
 
-      case rappels:
-        final utilisateur = settings.arguments as Utilisateur?;
-        if (utilisateur != null) {
-          return MaterialPageRoute(
-            builder: (context) => MesRappelsScreen(utilisateur: utilisateur),
-          );
-        }
-        return MaterialPageRoute(builder: (context) => const LoginScreen());
-
-      case rappelsNouveau:
-        final utilisateur = settings.arguments as Utilisateur?;
-        if (utilisateur != null) {
-          return MaterialPageRoute(
-            builder: (context) => NouveauRappelScreen(utilisateur: utilisateur),
-          );
-        }
-        return MaterialPageRoute(builder: (context) => const LoginScreen());
-
       case testDatabase:
         return MaterialPageRoute(
           builder: (context) => const TestDatabaseScreen(),
         );
-
-      case mesClients:
-        final utilisateur = settings.arguments as Utilisateur?;
-        if (utilisateur != null) {
-          return MaterialPageRoute(
-            builder: (context) => MesClientsScreen(coach: utilisateur),
-          );
-        }
-        return MaterialPageRoute(builder: (context) => const LoginScreen());
 
       default:
         return MaterialPageRoute(

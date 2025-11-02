@@ -5,7 +5,6 @@ class Utilisateur {
   String email;
   String motDePasse;
   String role;
-  int? coachId;
   String? avatarPath;
   String? avatarColor;
   String? avatarInitials;
@@ -20,7 +19,6 @@ class Utilisateur {
     required this.email,
     required this.motDePasse,
     required this.role,
-    this.coachId,
     this.avatarPath,
     this.avatarColor,
     this.avatarInitials,
@@ -38,7 +36,6 @@ class Utilisateur {
       'email': email,
       'motDePasse': motDePasse,
       'role': role,
-      'coach_id': coachId,
       'avatarPath': avatarPath,
       'avatarColor': avatarColor,
       'avatarInitials': avatarInitials,
@@ -57,7 +54,6 @@ class Utilisateur {
       email: map['email'],
       motDePasse: map['motDePasse'],
       role: map['role'],
-      coachId: map['coach_id'],
       avatarPath: map['avatarPath'],
       avatarColor: map['avatarColor'],
       avatarInitials: map['avatarInitials'],
@@ -105,6 +101,6 @@ class Utilisateur {
 
   @override
   String toString() {
-    return 'Utilisateur{id: $id, nom: $nom, prenom: $prenom, email: $email, role: $role, coachId: $coachId}';
+    return 'Utilisateur{id: $id, nom: $nom, prenom: $prenom, email: $email, role: $role}';
   }
 }

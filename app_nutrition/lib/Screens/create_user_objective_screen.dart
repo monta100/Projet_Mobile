@@ -6,10 +6,12 @@ import '../Services/user_service.dart';
 
 class CreateUserObjectiveScreen extends StatefulWidget {
   final Utilisateur utilisateur;
+  final UserObjective? existingObjective;
 
   const CreateUserObjectiveScreen({
     Key? key,
     required this.utilisateur,
+    this.existingObjective,
   }) : super(key: key);
 
   @override
@@ -35,9 +37,7 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
   String _selectedObjectiveType = '';
   String _selectedActivityLevel = '';
   int _selectedDuration = 12;
-  int _selectedCoachId = 0;
   
-  List<Utilisateur> _coaches = [];
   bool _isLoading = true;
   bool _isCreating = false;
   
@@ -157,7 +157,33 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
       curve: Curves.easeOutCubic,
     ));
     
-    _loadCoaches();
+    // Si c'est une modification, pré-remplir les champs
+    if (widget.existingObjective != null) {
+      final obj = widget.existingObjective!;
+      _poidsActuelController.text = obj.poidsActuel.toString();
+      _poidsCibleController.text = obj.poidsCible.toString();
+      _tailleController.text = obj.taille.toString();
+      _ageController.text = obj.age.toString();
+      _notesController.text = obj.notes ?? '';
+      _selectedDuration = obj.dureeObjectif;
+      
+      // Trouver l'ID du type d'objectif correspondant
+      final objectiveType = _objectiveTypes.firstWhere(
+        (type) => type['title'] == obj.typeObjectif,
+        orElse: () => _objectiveTypes.first,
+      );
+      _selectedObjectiveType = objectiveType['id'];
+      
+      // Trouver l'ID du niveau d'activité correspondant
+      final activityLevel = _activityLevels.firstWhere(
+        (level) => level['title'] == obj.niveauActivite,
+        orElse: () => _activityLevels.first,
+      );
+      _selectedActivityLevel = activityLevel['id'];
+    }
+    
+    setState(() => _isLoading = false);
+    _animationController.forward();
   }
 
   @override
@@ -171,31 +197,15 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     super.dispose();
   }
 
-  Future<void> _loadCoaches() async {
-    try {
-      final allUsers = await _db.getAllUtilisateurs();
-      final coaches = allUsers.where((user) => user.role.toLowerCase() == 'coach').toList();
-      setState(() {
-        _coaches = coaches;
-        _isLoading = false;
-      });
-      _animationController.forward();
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des coaches: $e')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF121212)
+          : Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Créer un Objectif'),
+        title: Text(widget.existingObjective != null ? 'Modifier l\'Objectif' : 'Créer un Objectif'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -222,8 +232,6 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
                         _buildActivityLevelSection(),
                         const SizedBox(height: 30),
                         _buildDurationSection(),
-                        const SizedBox(height: 30),
-                        _buildCoachSelectionSection(),
                         const SizedBox(height: 30),
                         _buildNotesSection(),
                         const SizedBox(height: 40),
@@ -311,11 +319,14 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Type d\'Objectif',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : null,
           ),
         ),
         const SizedBox(height: 16),
@@ -343,10 +354,18 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isSelected ? objective['color'] : Colors.white,
+                  color: isSelected 
+                      ? objective['color'] 
+                      : (Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[800]
+                          : Colors.white),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isSelected ? objective['color'] : Colors.grey.shade300,
+                    color: isSelected 
+                        ? objective['color'] 
+                        : (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[700]!
+                            : Colors.grey.shade300),
                     width: isSelected ? 2 : 1,
                   ),
                   boxShadow: [
@@ -372,7 +391,11 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : Colors.black87,
+                        color: isSelected 
+                            ? Colors.white 
+                            : (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Colors.black87),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -381,7 +404,11 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
                       objective['description'],
                       style: TextStyle(
                         fontSize: 10,
-                        color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                        color: isSelected 
+                            ? Colors.white70 
+                            : (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[300]
+                                : Colors.grey.shade600),
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
@@ -401,11 +428,14 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Informations Personnelles',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : null,
           ),
         ),
         const SizedBox(height: 16),
@@ -514,7 +544,9 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
           borderRadius: BorderRadius.circular(12),
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.white,
       ),
     );
   }
@@ -523,11 +555,14 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Niveau d\'Activité',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : null,
           ),
         ),
         const SizedBox(height: 16),
@@ -549,10 +584,18 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? level['color'] : Colors.white,
+          color: isSelected 
+              ? level['color'] 
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[800]
+                  : Colors.white),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? level['color'] : Colors.grey.shade300,
+            color: isSelected 
+                ? level['color'] 
+                : (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[700]!
+                    : Colors.grey.shade300),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: [
@@ -581,14 +624,22 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : Colors.black87,
+                      color: isSelected 
+                          ? Colors.white 
+                          : (Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black87),
                     ),
                   ),
                   Text(
                     level['description'],
                     style: TextStyle(
                       fontSize: 14,
-                      color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                      color: isSelected 
+                          ? Colors.white70 
+                          : (Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[300]
+                              : Colors.grey.shade600),
                     ),
                   ),
                 ],
@@ -610,18 +661,23 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Durée de l\'Objectif',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : null,
           ),
         ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey[800]
+                : Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -635,7 +691,7 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
             children: [
               Text(
                 '$_selectedDuration semaines',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.green,
@@ -663,14 +719,18 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
                     '1 mois',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[300]
+                        : Colors.grey.shade600,
                     ),
                   ),
                   Text(
                     '1 an',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[300]
+                          : Colors.grey.shade600,
                     ),
                   ),
                 ],
@@ -682,129 +742,19 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     );
   }
 
-  Widget _buildCoachSelectionSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Choisir votre Coach',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _coaches.isEmpty
-            ? Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Aucun coach disponible',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              )
-            : Column(
-                children: _coaches.map((coach) => _buildCoachCard(coach)).toList(),
-              ),
-      ],
-    );
-  }
-
-  Widget _buildCoachCard(Utilisateur coach) {
-    final isSelected = _selectedCoachId == coach.id;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedCoachId = coach.id!;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.green : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.green : Colors.grey.shade300,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected 
-                  ? Colors.green.withOpacity(0.2)
-                  : Colors.grey.withOpacity(0.1),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: isSelected ? Colors.white : Colors.green,
-              child: Text(
-                coach.prenom[0].toUpperCase(),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.green : Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${coach.prenom} ${coach.nom}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    coach.email,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Icon(
-                Icons.check_circle,
-                color: Colors.white,
-                size: 24,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildNotesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Notes (Optionnel)',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : null,
           ),
         ),
         const SizedBox(height: 16),
@@ -817,7 +767,9 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.white,
           ),
         ),
       ],
@@ -840,9 +792,9 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
         ),
         child: _isCreating
             ? const CircularProgressIndicator(color: Colors.white)
-            : const Text(
-                'Créer l\'Objectif',
-                style: TextStyle(
+            : Text(
+                widget.existingObjective != null ? 'Modifier l\'Objectif' : 'Créer l\'Objectif',
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -867,13 +819,6 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
       );
       return;
     }
-    
-    if (_selectedCoachId == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un coach')),
-      );
-      return;
-    }
 
     setState(() => _isCreating = true);
 
@@ -887,39 +832,74 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
       );
 
       final now = DateTime.now();
-      final objective = UserObjective(
-        utilisateurId: widget.utilisateur.id!,
-        typeObjectif: selectedObjective['title'],
-        description: selectedObjective['description'],
-        poidsActuel: double.parse(_poidsActuelController.text),
-        poidsCible: double.parse(_poidsCibleController.text),
-        taille: double.parse(_tailleController.text),
-        age: int.parse(_ageController.text),
-        niveauActivite: selectedActivity['title'],
-        dureeObjectif: _selectedDuration,
-        coachId: _selectedCoachId,
-        dateCreation: now,
-        dateDebut: now,
-        dateFin: now.add(Duration(days: _selectedDuration * 7)),
-        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
-      );
-
-      await _db.insertUserObjective(objective);
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Objectif créé avec succès !'),
-            backgroundColor: Colors.green,
-          ),
+      if (widget.existingObjective != null) {
+        // Modification d'un objectif existant
+        final updatedObjective = UserObjective(
+          id: widget.existingObjective!.id,
+          utilisateurId: widget.utilisateur.id!,
+          typeObjectif: selectedObjective['title'],
+          description: selectedObjective['description'],
+          poidsActuel: double.parse(_poidsActuelController.text),
+          poidsCible: double.parse(_poidsCibleController.text),
+          taille: double.parse(_tailleController.text),
+          age: int.parse(_ageController.text),
+          niveauActivite: selectedActivity['title'],
+          dureeObjectif: _selectedDuration,
+          dateCreation: widget.existingObjective!.dateCreation, // Conserver la date de création
+          dateDebut: widget.existingObjective!.dateDebut, // Conserver la date de début
+          dateFin: widget.existingObjective!.dateDebut.add(Duration(days: _selectedDuration * 7)), // Recalculer la date de fin
+          progression: widget.existingObjective!.progression, // Conserver la progression
+          estAtteint: widget.existingObjective!.estAtteint, // Conserver l'état
+          notes: _notesController.text.isNotEmpty ? _notesController.text : null,
         );
-        Navigator.pop(context, true);
+
+        await _db.updateUserObjective(updatedObjective);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Objectif modifié avec succès !'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        // Création d'un nouvel objectif
+        final objective = UserObjective(
+          utilisateurId: widget.utilisateur.id!,
+          typeObjectif: selectedObjective['title'],
+          description: selectedObjective['description'],
+          poidsActuel: double.parse(_poidsActuelController.text),
+          poidsCible: double.parse(_poidsCibleController.text),
+          taille: double.parse(_tailleController.text),
+          age: int.parse(_ageController.text),
+          niveauActivite: selectedActivity['title'],
+          dureeObjectif: _selectedDuration,
+          dateCreation: now,
+          dateDebut: now,
+          dateFin: now.add(Duration(days: _selectedDuration * 7)),
+          notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        );
+
+        await _db.insertUserObjective(objective);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Objectif créé avec succès !'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la création: $e'),
+            content: Text('Erreur: $e'),
             backgroundColor: Colors.red,
           ),
         );

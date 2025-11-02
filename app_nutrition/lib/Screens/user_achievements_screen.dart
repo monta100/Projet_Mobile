@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../Entites/achievement.dart';
 import '../Entites/user_achievement.dart';
-import '../Services/exercise_service.dart';
+import '../Entites/user_objective.dart';
 import '../Services/database_helper.dart';
 
 class UserAchievementsScreen extends StatefulWidget {
@@ -18,12 +18,10 @@ class UserAchievementsScreen extends StatefulWidget {
 
 class _UserAchievementsScreenState extends State<UserAchievementsScreen>
     with TickerProviderStateMixin {
-  final ExerciseService _exerciseService = ExerciseService();
   final DatabaseHelper _db = DatabaseHelper();
   
   List<Achievement> _achievements = [];
   List<UserAchievement> _userAchievements = [];
-  Map<String, dynamic> _userStats = {};
   bool _isLoading = true;
   
   late AnimationController _animationController;
@@ -56,15 +54,15 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
   Future<void> _loadAchievements() async {
     setState(() => _isLoading = true);
     try {
-      final stats = await _exerciseService.getUserStats(widget.utilisateurId);
+      // Charger les objectifs de l'utilisateur pour calculer les achievements
+      final objectives = await _db.getUserObjectives(widget.utilisateurId);
       final achievements = await _getAllAchievements();
       final userAchievements = await _getUserAchievements();
       
-      // Vérifier et débloquer de nouveaux achievements
-      await _checkAndUnlockAchievements(stats);
+      // Vérifier et débloquer de nouveaux achievements basés sur les objectifs
+      await _checkAndUnlockAchievements(objectives);
       
       setState(() {
-        _userStats = stats;
         _achievements = achievements;
         _userAchievements = userAchievements;
         _isLoading = false;
@@ -82,87 +80,57 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
   }
 
   Future<List<Achievement>> _getAllAchievements() async {
-    // Pour l'instant, retournons des achievements prédéfinis
+    // Achievements basés sur les objectifs
     return [
       Achievement(
         id: 1,
-        nom: 'Premier Pas',
-        description: 'Terminez votre première séance d\'entraînement',
-        icone: '🚀',
+        nom: 'Premier Objectif',
+        description: 'Créez votre premier objectif',
+        icone: '🎯',
         couleur: '#4CAF50',
         points: 10,
-        type: 'workout',
+        type: 'objective',
         conditionValue: 1,
       ),
       Achievement(
         id: 2,
-        nom: 'Débutant Confirmé',
-        description: 'Terminez 5 séances d\'entraînement',
-        icone: '💪',
+        nom: 'Objectif Atteint',
+        description: 'Atteignez votre premier objectif',
+        icone: '✅',
         couleur: '#2196F3',
         points: 25,
-        type: 'workout',
-        conditionValue: 5,
+        type: 'objective_completed',
+        conditionValue: 1,
       ),
       Achievement(
         id: 3,
-        nom: 'Athlète',
-        description: 'Terminez 15 séances d\'entraînement',
-        icone: '🏆',
+        nom: 'Détermination',
+        description: 'Créez 3 objectifs',
+        icone: '💪',
         couleur: '#FF9800',
-        points: 50,
-        type: 'workout',
-        conditionValue: 15,
+        points: 30,
+        type: 'objective',
+        conditionValue: 3,
       ),
       Achievement(
         id: 4,
         nom: 'Champion',
-        description: 'Terminez 30 séances d\'entraînement',
-        icone: '👑',
+        description: 'Atteignez 5 objectifs',
+        icone: '🏆',
         couleur: '#9C27B0',
-        points: 100,
-        type: 'workout',
-        conditionValue: 30,
+        points: 50,
+        type: 'objective_completed',
+        conditionValue: 5,
       ),
       Achievement(
         id: 5,
-        nom: 'Brûleur de Calories',
-        description: 'Brûlez 1000 calories au total',
-        icone: '🔥',
-        couleur: '#F44336',
-        points: 30,
-        type: 'calories',
-        conditionValue: 1000,
-      ),
-      Achievement(
-        id: 6,
-        nom: 'Marathonien',
-        description: 'Cumulez 300 minutes d\'entraînement',
-        icone: '⏱️',
-        couleur: '#00BCD4',
-        points: 40,
-        type: 'duration',
-        conditionValue: 300,
-      ),
-      Achievement(
-        id: 7,
         nom: 'Régularité',
-        description: 'Entraînez-vous 3 jours consécutifs',
+        description: 'Créez un objectif chaque mois pendant 3 mois',
         icone: '📅',
         couleur: '#8BC34A',
-        points: 35,
+        points: 40,
         type: 'streak',
         conditionValue: 3,
-      ),
-      Achievement(
-        id: 8,
-        nom: 'Détermination',
-        description: 'Entraînez-vous 7 jours consécutifs',
-        icone: '💎',
-        couleur: '#E91E63',
-        points: 75,
-        type: 'streak',
-        conditionValue: 7,
       ),
     ];
   }
@@ -173,27 +141,26 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
     return [];
   }
 
-  Future<void> _checkAndUnlockAchievements(Map<String, dynamic> stats) async {
-    final totalSessions = stats['totalSessions'] ?? 0;
-    final totalCalories = stats['totalCalories'] ?? 0;
-    final totalDuration = stats['totalDuration'] ?? 0;
+  Future<void> _checkAndUnlockAchievements(List<UserObjective> objectives) async {
+    final totalObjectives = objectives.length;
+    final completedObjectives = objectives.where((obj) => obj.estAtteint).length;
     
     for (final achievement in _achievements) {
       int currentValue = 0;
       
       switch (achievement.type) {
-        case 'workout':
-          currentValue = totalSessions;
+        case 'objective':
+          currentValue = totalObjectives;
           break;
-        case 'calories':
-          currentValue = totalCalories;
-          break;
-        case 'duration':
-          currentValue = totalDuration;
+        case 'objective_completed':
+          currentValue = completedObjectives;
           break;
         case 'streak':
-          // Pour l'instant, on simule une streak
-          currentValue = totalSessions > 0 ? 1 : 0;
+          // Pour l'instant, on simule une streak basée sur le nombre d'objectifs
+          currentValue = totalObjectives > 0 ? 1 : 0;
+          break;
+        default:
+          currentValue = 0;
           break;
       }
       
@@ -348,9 +315,9 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
           ),
           Expanded(
             child: _buildStatItem(
-              'Séances',
-              '${_userStats['totalSessions'] ?? 0}',
-              Icons.fitness_center,
+              'Objectifs',
+              '${_achievements.where((a) => a.isUnlocked).length}',
+              Icons.track_changes,
               Colors.green,
             ),
           ),
@@ -410,7 +377,13 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
     
     return Container(
       decoration: BoxDecoration(
-        color: isUnlocked ? Colors.white : Colors.grey.shade100,
+        color: isUnlocked 
+            ? (Theme.of(context).brightness == Brightness.dark 
+                ? Colors.grey[800] 
+                : Colors.white)
+            : (Theme.of(context).brightness == Brightness.dark 
+                ? Colors.grey[900] 
+                : Colors.grey.shade100),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isUnlocked 
@@ -438,14 +411,20 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
               decoration: BoxDecoration(
                 color: isUnlocked 
                     ? _getColorFromHex(achievement.couleur).withOpacity(0.1)
-                    : Colors.grey.shade200,
+                    : (Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.grey[700] 
+                        : Colors.grey.shade200),
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Text(
                 achievement.icone,
                 style: TextStyle(
                   fontSize: 32,
-                  color: isUnlocked ? null : Colors.grey.shade400,
+                  color: isUnlocked 
+                      ? null 
+                      : (Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.grey[600] 
+                          : Colors.grey.shade400),
                 ),
               ),
             ),
@@ -455,7 +434,13 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: isUnlocked ? Colors.black : Colors.grey.shade600,
+                color: isUnlocked 
+                    ? (Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.white 
+                        : Colors.black)
+                    : (Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.grey[400] 
+                        : Colors.grey.shade600),
               ),
               textAlign: TextAlign.center,
             ),
@@ -464,7 +449,13 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
               achievement.description,
               style: TextStyle(
                 fontSize: 12,
-                color: isUnlocked ? Colors.grey.shade600 : Colors.grey.shade500,
+                color: isUnlocked 
+                    ? (Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.grey[300] 
+                        : Colors.grey.shade600)
+                    : (Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.grey[500] 
+                        : Colors.grey.shade500),
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -476,7 +467,9 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
               decoration: BoxDecoration(
                 color: isUnlocked 
                     ? _getColorFromHex(achievement.couleur)
-                    : Colors.grey.shade400,
+                    : (Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.grey[600] 
+                        : Colors.grey.shade400),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(

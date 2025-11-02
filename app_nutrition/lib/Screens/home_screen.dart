@@ -3,7 +3,6 @@ import 'dart:io';
 import '../Entites/utilisateur.dart';
 import '../Entites/objectif.dart';
 import '../Services/objectif_service.dart';
-import '../Services/rappel_service.dart';
 import '../Services/user_service.dart';
 import '../Routs/app_routes.dart';
 
@@ -18,10 +17,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ObjectifService _objectifService = ObjectifService();
-  final RappelService _rappelService = RappelService();
 
   int _selectedIndex = 0;
-  int _nombreRappelsNonLus = 0;
   double _progressionGlobale = 0.0;
 
   @override
@@ -31,11 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _chargerDonnees() async {
-    final nombreRappels = await _rappelService.compterRappelsNonLus();
     final progression = await _objectifService.calculerProgressionGlobale();
 
     setState(() {
-      _nombreRappelsNonLus = nombreRappels;
       _progressionGlobale = progression;
     });
   }
@@ -65,54 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         title: Text('Bonjour, ${widget.utilisateur.prenom}'),
         actions: [
-          // Badge pour les rappels
-          if (_nombreRappelsNonLus > 0)
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications),
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.rappels,
-                      arguments: widget.utilisateur,
-                    );
-                  },
-                ),
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '$_nombreRappelsNonLus',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.notifications_none),
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.rappels,
-                  arguments: widget.utilisateur,
-                );
-              },
-            ),
-
           // Menu profil
           PopupMenuButton<String>(
             onSelected: (value) async {
@@ -227,10 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Objectifs',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Rappels',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Statistiques',
           ),
@@ -246,8 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return _buildObjectifsView();
       case 2:
-        return _buildRappelsView();
-      case 3:
         return _buildStatistiquesView();
       default:
         return _buildDashboard();
@@ -334,55 +275,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 _buildActionCard(
-                  'Nouveau Rappel',
-                  Icons.add_alarm,
-                  Colors.orange,
-                  () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.rappelsNouveau,
-                    arguments: widget.utilisateur,
-                  ),
-                ),
-                _buildActionCard(
                   'Mes Objectifs',
                   Icons.list_alt,
                   Colors.green,
                   () => Navigator.pushNamed(
                     context,
                     AppRoutes.objectifs,
-                    arguments: widget.utilisateur,
-                  ),
-                ),
-                // Show 'Mes clients' for common coach-role variants
-                (() {
-                  final role = widget.utilisateur.role.toLowerCase().trim();
-                  final coachAliases = {
-                    'coach',
-                    'coatch',
-                    'entraîneur',
-                    'entraineur',
-                    'trainer',
-                  };
-                  return coachAliases.contains(role)
-                      ? _buildActionCard(
-                          'Mes Clients',
-                          Icons.group,
-                          Colors.teal,
-                          () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.mesClients,
-                            arguments: widget.utilisateur,
-                          ),
-                        )
-                      : const SizedBox.shrink();
-                }()),
-                _buildActionCard(
-                  'Mes Rappels',
-                  Icons.notifications_active,
-                  Colors.purple,
-                  () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.rappels,
                     arguments: widget.utilisateur,
                   ),
                 ),
@@ -613,10 +511,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildRappelsView() {
-    return const Center(child: Text('Vue des Rappels - À implémenter'));
   }
 
   Widget _buildStatistiquesView() {

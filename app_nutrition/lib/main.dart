@@ -7,7 +7,7 @@ import 'Screens/register_screen.dart';
 import 'Services/email_service.dart';
 import 'Services/user_service.dart';
 import 'Services/database_helper.dart';
-import 'Services/exercise_service.dart';
+import 'Services/theme_service.dart';
 import 'Routs/app_routes.dart';
 
 Future<void> main() async {
@@ -78,8 +78,6 @@ Future<void> main() async {
   try {
     // Initialize database and test data
     await DatabaseHelper().initTestData();
-    // Initialize demo exercises
-    await ExerciseService().initializeDemoExercises();
   } catch (e) {
     // ignore: avoid_print
     print('Warning: failed to init test data: $e');
@@ -88,11 +86,41 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemeMode();
+  }
+
+  Future<void> _loadThemeMode() async {
+    final themeMode = await ThemeService.getThemeMode();
+    setState(() {
+      _themeMode = themeMode;
+    });
+  }
+
+  void changeThemeMode(ThemeMode mode) {
+    setState(() {
+      _themeMode = mode;
+    });
+    ThemeService.setThemeMode(mode);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Enregistrer l'état pour permettre le changement de thème depuis d'autres écrans
+    AppThemeNotifier.register(this);
+    
     return MaterialApp(
       title: 'App Nutrition',
       debugShowCheckedModeBanner: false,
@@ -106,17 +134,25 @@ class MyApp extends StatelessWidget {
         Locale('en', 'US'), // Anglais
       ],
       locale: const Locale('fr', 'FR'), // Forcer le français
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4CAF50),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-      ),
+      theme: ThemeService.getLightTheme(),
+      darkTheme: ThemeService.getDarkTheme(),
+      themeMode: _themeMode,
       home: const WelcomeScreen(),
       routes: AppRoutes.getRoutes(),
     );
+  }
+}
+
+// Classe statique pour permettre l'accès au changement de thème depuis n'importe où
+class AppThemeNotifier {
+  static _MyAppState? _appState;
+
+  static void register(_MyAppState state) {
+    _appState = state;
+  }
+
+  static void changeTheme(ThemeMode mode) {
+    _appState?.changeThemeMode(mode);
   }
 }
 
@@ -151,7 +187,9 @@ class WelcomeScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(50),
                       ),
                       child: Icon(
@@ -163,22 +201,29 @@ class WelcomeScreen extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Titre
-                    const Text(
+                    Text(
                       'App Nutrition',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.white,
                       ),
                     ),
                     const SizedBox(height: 16),
 
                     // Sous-titre
-                    const Text(
-                      'Gérez vos objectifs nutritionnels\net vos rappels quotidiens',
+                    Text(
+                      'Gérez vos objectifs nutritionnels\net suivez votre progression',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, color: Colors.white70),
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withOpacity(0.9)
+                            : Colors.white70,
+                      ),
                     ),
                     const SizedBox(height: 64),
 
@@ -195,7 +240,9 @@ class WelcomeScreen extends StatelessWidget {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.white,
                           foregroundColor: Theme.of(context).primaryColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -227,7 +274,12 @@ class WelcomeScreen extends StatelessWidget {
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white, width: 2),
+                          side: BorderSide(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white.withOpacity(0.9)
+                                : Colors.white,
+                            width: 2,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -244,10 +296,15 @@ class WelcomeScreen extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Texte supplémentaire
-                    const Text(
+                    Text(
                       'Commencez votre parcours\nvers une meilleure nutrition',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: Colors.white60),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withOpacity(0.7)
+                            : Colors.white60,
+                      ),
                     ),
                   ],
                 ),
@@ -303,9 +360,9 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       const _FeatureItem(
                         icon: Icons.person,
-                        title: '3 Entités complètes',
+                        title: 'Entités complètes',
                         subtitle:
-                            'Utilisateur, Objectif, Rappel avec toutes leurs méthodes',
+                            'Utilisateur, Objectif avec toutes leurs méthodes',
                       ),
                       const _FeatureItem(
                         icon: Icons.storage,
@@ -315,7 +372,7 @@ class HomeScreen extends StatelessWidget {
                       const _FeatureItem(
                         icon: Icons.business_center,
                         title: 'Services métier',
-                        subtitle: 'UserService, ObjectifService, RappelService',
+                        subtitle: 'UserService, ObjectifService',
                       ),
                       const _FeatureItem(
                         icon: Icons.phone_android,

@@ -61,9 +61,9 @@ class TestHomeScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     const _FeatureItem(
                       icon: Icons.person,
-                      title: '3 Entités complètes',
+                      title: 'Entités complètes',
                       subtitle:
-                          'Utilisateur, Objectif, Rappel avec toutes leurs méthodes',
+                          'Utilisateur, Objectif avec toutes leurs méthodes',
                     ),
                     const _FeatureItem(
                       icon: Icons.storage,
@@ -73,7 +73,7 @@ class TestHomeScreen extends StatelessWidget {
                     const _FeatureItem(
                       icon: Icons.business_center,
                       title: 'Services métier',
-                      subtitle: 'UserService, ObjectifService, RappelService',
+                      subtitle: 'UserService, ObjectifService',
                     ),
                     const _FeatureItem(
                       icon: Icons.phone_android,

@@ -3,8 +3,20 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../Services/image_ai_analysis_service.dart';
 import 'package:flutter/foundation.dart';
+
+// Helper top-level function for compute isolate call
+Future<String> analyzeImageInIsolate(String imagePath) async {
+  // Simple heuristic: infer a dish name from the file name.
+  final fileName = imagePath.split(Platform.pathSeparator).last;
+  final inferredName = fileName
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .replaceAll(RegExp(r'\.[^.]+$'), '')
+      .trim();
+  final fallback = 'Analyse simulée pour $fileName';
+  // For now, just return a friendly message.
+  return inferredName.isEmpty ? fallback : 'Plat détecté: $inferredName';
+}
 
 class AnalyzeImageTest extends StatefulWidget {
   const AnalyzeImageTest({super.key});

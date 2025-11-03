@@ -15,7 +15,7 @@ class OpenRouterService {
       "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";
 
   // 🧠 Choix du modèle IA
-final String model = "openai/gpt-3.5-turbo";
+  final String model = "openai/gpt-3.5-turbo";
 
   // Services SQLite
   final _repasService = RepasService();
@@ -23,8 +23,12 @@ final String model = "openai/gpt-3.5-turbo";
   final _ingredientService = IngredientService();
 
   /// 🚀 Envoie un message à l’IA et traite la réponse
-  Future<String> processUserMessage(String message) async {
-    final prompt = """
+  Future<String> processUserMessage(
+    String message, {
+    bool structured = false,
+  }) async {
+    final prompt =
+        """
 Tu es un assistant de nutrition intelligent.
 Quand l’utilisateur te demande de créer un repas ou une recette, 
 réponds UNIQUEMENT en JSON structuré selon le cas :
@@ -65,10 +69,15 @@ Message utilisateur: "$message"
     final body = jsonEncode({
       "model": model,
       "messages": [
-        {"role": "system", "content": "Tu es un assistant expert en nutrition."},
+        {
+          "role": "system",
+          "content": structured
+              ? "Réponds en JSON strictement valide quand c'est possible."
+              : "Tu es un assistant expert en nutrition.",
+        },
         {"role": "user", "content": prompt},
       ],
-      "temperature": 0.7
+      "temperature": 0.7,
     });
 
     try {

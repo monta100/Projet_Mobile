@@ -732,7 +732,6 @@ class _RepasListScreenState extends State<RepasListScreen>
                       caloriesTotales: calories,
                       utilisateurId: 1,
                     );
-
                     await _repasService.insertRepas(newRepas);
                     _loadRepas();
                     Navigator.pop(context);
@@ -901,191 +900,200 @@ class _RepasListScreenState extends State<RepasListScreen>
     );
   }
 
- void _showEditRepasModal(Repas repas) {
-  final nomController = TextEditingController(text: repas.nom);
-  final typeController = TextEditingController(text: repas.type);
-  final caloriesController =
-      TextEditingController(text: repas.caloriesTotales.toString());
+  void _showEditRepasModal(Repas repas) {
+    final nomController = TextEditingController(text: repas.nom);
+    final typeController = TextEditingController(text: repas.type);
+    final caloriesController = TextEditingController(
+      text: repas.caloriesTotales.toString(),
+    );
 
-  // 🟥 Messages d’erreur dynamiques
-  String? nomError;
-  String? typeError;
-  String? caloriesError;
+    // 🟥 Messages d’erreur dynamiques
+    String? nomError;
+    String? typeError;
+    String? caloriesError;
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setStateModal) {
-          // 🔁 Validation dynamique à chaque frappe
-          void _validateInputs() {
-            final nom = nomController.text.trim();
-            final type = typeController.text.trim();
-            final calText = caloriesController.text.trim();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateModal) {
+            // 🔁 Validation dynamique à chaque frappe
+            void _validateInputs() {
+              final nom = nomController.text.trim();
+              final type = typeController.text.trim();
+              final calText = caloriesController.text.trim();
 
-            if (nom.isEmpty) {
-              nomError = 'Veuillez entrer un nom de repas';
-            } else if (nom.length < 2) {
-              nomError = 'Nom trop court';
-            } else if (!RegExp(r"^[a-zA-ZÀ-ÿ\s'\-]+$").hasMatch(nom)) {
-              nomError = 'Caractères non valides';
-            } else {
-              nomError = null;
+              if (nom.isEmpty) {
+                nomError = 'Veuillez entrer un nom de repas';
+              } else if (nom.length < 2) {
+                nomError = 'Nom trop court';
+              } else if (!RegExp(r"^[a-zA-ZÀ-ÿ\s'\-]+$").hasMatch(nom)) {
+                nomError = 'Caractères non valides';
+              } else {
+                nomError = null;
+              }
+
+              if (type.isEmpty) {
+                typeError = 'Veuillez entrer un type de repas';
+              } else {
+                typeError = null;
+              }
+
+              if (calText.isEmpty) {
+                caloriesError = 'Veuillez entrer une valeur';
+              } else if (double.tryParse(calText) == null) {
+                caloriesError = 'Entrez un nombre valide';
+              } else if (double.parse(calText) < 0) {
+                caloriesError = 'Les calories doivent être positives';
+              } else {
+                caloriesError = null;
+              }
+
+              setStateModal(() {});
             }
 
-            if (type.isEmpty) {
-              typeError = 'Veuillez entrer un type de repas';
-            } else {
-              typeError = null;
-            }
+            // 🎧 Ajout des listeners
+            nomController.addListener(_validateInputs);
+            typeController.addListener(_validateInputs);
+            caloriesController.addListener(_validateInputs);
 
-            if (calText.isEmpty) {
-              caloriesError = 'Veuillez entrer une valeur';
-            } else if (double.tryParse(calText) == null) {
-              caloriesError = 'Entrez un nombre valide';
-            } else if (double.parse(calText) < 0) {
-              caloriesError = 'Les calories doivent être positives';
-            } else {
-              caloriesError = null;
-            }
-
-            setStateModal(() {});
-          }
-
-          // 🎧 Ajout des listeners
-          nomController.addListener(_validateInputs);
-          typeController.addListener(_validateInputs);
-          caloriesController.addListener(_validateInputs);
-
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.9,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Modifier le repas',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // 🧾 Champ nom
-                  TextField(
-                    controller: nomController,
-                    decoration: InputDecoration(
-                      labelText: 'Nom du repas',
-                      prefixIcon: const Icon(Icons.restaurant,
-                          color: AppColors.primaryColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      errorText: nomError,
-                      errorStyle: const TextStyle(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-
-                  // 🥗 Champ type
-                  TextField(
-                    controller: typeController,
-                    decoration: InputDecoration(
-                      labelText: 'Type de repas',
-                      prefixIcon: const Icon(Icons.category,
-                          color: AppColors.primaryColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      errorText: typeError,
-                      errorStyle: const TextStyle(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-
-                  // 🔥 Champ calories
-                  TextField(
-                    controller: caloriesController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Calories',
-                      prefixIcon: const Icon(Icons.local_fire_department,
-                          color: AppColors.primaryColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      errorText: caloriesError,
-                      errorStyle: const TextStyle(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // ✅ Bouton enregistrer avec vérification avant envoi
-                  _buildCustomButton('Enregistrer les modifications', () async {
-                    _validateInputs();
-                    if (nomError != null ||
-                        typeError != null ||
-                        caloriesError != null) {
-                      return;
-                    }
-
-                    final updatedRepas = repas.copyWith(
-                      nom: nomController.text.trim(),
-                      type: typeController.text.trim(),
-                      caloriesTotales:
-                          double.tryParse(caloriesController.text) ??
-                              repas.caloriesTotales,
-                    );
-
-                    await _repasService.updateRepas(updatedRepas);
-                    _loadRepas();
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Repas modifié avec succès ! 🎉'),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 20),
-                ],
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.9,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Modifier le repas',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
 
+                    // 🧾 Champ nom
+                    TextField(
+                      controller: nomController,
+                      decoration: InputDecoration(
+                        labelText: 'Nom du repas',
+                        prefixIcon: const Icon(
+                          Icons.restaurant,
+                          color: AppColors.primaryColor,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        errorText: nomError,
+                        errorStyle: const TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // 🥗 Champ type
+                    TextField(
+                      controller: typeController,
+                      decoration: InputDecoration(
+                        labelText: 'Type de repas',
+                        prefixIcon: const Icon(
+                          Icons.category,
+                          color: AppColors.primaryColor,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        errorText: typeError,
+                        errorStyle: const TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // 🔥 Champ calories
+                    TextField(
+                      controller: caloriesController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Calories',
+                        prefixIcon: const Icon(
+                          Icons.local_fire_department,
+                          color: AppColors.primaryColor,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        errorText: caloriesError,
+                        errorStyle: const TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // ✅ Bouton enregistrer avec vérification avant envoi
+                    _buildCustomButton(
+                      'Enregistrer les modifications',
+                      () async {
+                        _validateInputs();
+                        if (nomError != null ||
+                            typeError != null ||
+                            caloriesError != null) {
+                          return;
+                        }
+
+                        final updatedRepas = repas.copyWith(
+                          nom: nomController.text.trim(),
+                          type: typeController.text.trim(),
+                          caloriesTotales:
+                              double.tryParse(caloriesController.text) ??
+                              repas.caloriesTotales,
+                        );
+
+                        await _repasService.updateRepas(updatedRepas);
+                        _loadRepas();
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Repas modifié avec succès ! 🎉'),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _confirmDeleteRepas(int repasId) {
     showDialog(

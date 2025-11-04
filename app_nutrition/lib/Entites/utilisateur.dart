@@ -1,13 +1,16 @@
-
 class Utilisateur {
-  static const String tableName = 'utilisateurs';
-
-  final int? id;
-  final String nom;
-  final String prenom;
-  final String email;
-  final String motDePasse;
-  final String role;
+  int? id;
+  String nom;
+  String prenom;
+  String email;
+  String motDePasse;
+  String role;
+  String? avatarPath;
+  String? avatarColor;
+  String? avatarInitials;
+  bool isVerified;
+  String? verificationCode;
+  DateTime? verificationExpiry;
 
   Utilisateur({
     this.id,
@@ -16,41 +19,88 @@ class Utilisateur {
     required this.email,
     required this.motDePasse,
     required this.role,
+    this.avatarPath,
+    this.avatarColor,
+    this.avatarInitials,
+    this.isVerified = false,
+    this.verificationCode,
+    this.verificationExpiry,
   });
 
-  Utilisateur copyWith({
-    int? id,
-    String? nom,
-    String? prenom,
-    String? email,
-    String? motDePasse,
-    String? role,
-  }) => Utilisateur(
-    id: id ?? this.id,
-    nom: nom ?? this.nom,
-    prenom: prenom ?? this.prenom,
-    email: email ?? this.email,
-    motDePasse: motDePasse ?? this.motDePasse,
-    role: role ?? this.role,
-  );
+  // Conversion vers Map pour la base de données
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'nom': nom,
+      'prenom': prenom,
+      'email': email,
+      'motDePasse': motDePasse,
+      'role': role,
+      'avatarPath': avatarPath,
+      'avatarColor': avatarColor,
+      'avatarInitials': avatarInitials,
+      'isVerified': isVerified ? 1 : 0,
+      'verificationCode': verificationCode,
+      'verificationExpiry': verificationExpiry?.toIso8601String(),
+    };
+  }
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'nom': nom,
-    'prenom': prenom,
-    'email': email,
-    'mot_de_passe': motDePasse,
-    'role': role,
-  };
+  // Création d'un utilisateur depuis une Map
+  factory Utilisateur.fromMap(Map<String, dynamic> map) {
+    return Utilisateur(
+      id: map['id'],
+      nom: map['nom'],
+      prenom: map['prenom'],
+      email: map['email'],
+      motDePasse: map['motDePasse'],
+      role: map['role'],
+      avatarPath: map['avatarPath'],
+      avatarColor: map['avatarColor'],
+      avatarInitials: map['avatarInitials'],
+      isVerified: map['isVerified'] == null
+          ? false
+          : (map['isVerified'] == 1 || map['isVerified'] == true),
+      verificationCode: map['verificationCode'],
+      verificationExpiry: map['verificationExpiry'] != null
+          ? DateTime.tryParse(map['verificationExpiry'])
+          : null,
+    );
+  }
 
-  factory Utilisateur.fromMap(Map<String, dynamic> map) => Utilisateur(
-    id: map['id'] as int?,
-    nom: map['nom'] as String,
-    prenom: map['prenom'] as String,
-    email: map['email'] as String,
-    motDePasse: map['mot_de_passe'] as String,
-    role: map['role'] as String,
-  );
+  // Méthodes du diagramme UML
 
-  
+  /// Crée un profil utilisateur
+  void creerProfil() {
+    // Logique de création de profil
+    print('Profil créé pour ${prenom} ${nom}');
+  }
+
+  /// Modifie le profil utilisateur
+  void modifierProfil({
+    String? nouveauNom,
+    String? nouveauPrenom,
+    String? nouvelEmail,
+    String? nouveauRole,
+  }) {
+    if (nouveauNom != null) nom = nouveauNom;
+    if (nouveauPrenom != null) prenom = nouveauPrenom;
+    if (nouvelEmail != null) email = nouvelEmail;
+    if (nouveauRole != null) role = nouveauRole;
+    print('Profil modifié pour ${prenom} ${nom}');
+  }
+
+  /// Supprime le profil utilisateur
+  void supprimerProfil() {
+    print('Profil supprimé pour ${prenom} ${nom}');
+  }
+
+  /// Authentifie l'utilisateur
+  bool seConnecter(String emailSaisi, String motDePasseSaisi) {
+    return email == emailSaisi && motDePasse == motDePasseSaisi;
+  }
+
+  @override
+  String toString() {
+    return 'Utilisateur{id: $id, nom: $nom, prenom: $prenom, email: $email, role: $role}';
+  }
 }

@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'Screens/main_navigation_screen.dart';
+
 import 'Widgets/floating_chat_bubble.dart';
 import 'Services/navigation_service.dart';
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-import 'package:flutter/services.dart' show rootBundle;
-// import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'Screens/login_screen.dart';
 import 'Screens/register_screen.dart';
@@ -21,7 +15,6 @@ import 'Services/theme_service.dart';
 import 'Routs/app_routes.dart';
 import 'Services/session_service.dart';
 import 'Screens/home_user_screen.dart';
-// Langue: FR uniquement — plus de service de langue
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +83,13 @@ Future<void> main() async {
 
   // Initialize in-memory test data so the app has a default user for quick testing
   try {
+    // Optional dev reset: if RESET_DB=true in .env, drop and recreate the local DB
+    final resetDb = (localEnv['RESET_DB'] ?? 'false').toLowerCase() == 'true';
+    if (resetDb) {
+      // ignore: avoid_print
+      print('RESET_DB=true detected — recreating local database...');
+      await DatabaseHelper().recreateDatabase();
+    }
     // Initialize database and test data
     await DatabaseHelper().initTestData();
   } catch (e) {
@@ -102,100 +102,17 @@ Future<void> main() async {
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
-
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'App Nutrition',
-      navigatorKey: NavigationService.navKey,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        // (Option) personnalisation thème du DatePicker
-        datePickerTheme: const DatePickerThemeData(
-          headerBackgroundColor: Color(0xFF43A047),
-          headerForegroundColor: Colors.white,
-        ),
-      ),
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('fr', 'FR'),
-      supportedLocales: const [Locale('fr', 'FR'), Locale('en', 'US')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      builder: (context, child) {
-        // Overlay the floating chat bubble on every route
-        return Stack(
-          children: [if (child != null) child, const _ChatBubbleOverlay()],
-        );
-      },
-      home: const MainNavigationScreen(),
-    );
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
-  // Langue: FR uniquement
 
   @override
   void initState() {
     super.initState();
     _loadThemeMode();
-    // Plus de chargement de langue — FR uniquement
-  }
-
-// Lightweight wrapper so we don't rebuild the bubble with every route frame unnecessarily
-class _ChatBubbleOverlay extends StatelessWidget {
-  const _ChatBubbleOverlay();
-  @override
-  Widget build(BuildContext context) => const Align(
-    alignment: Alignment.bottomRight,
-    child: Padding(
-      padding: EdgeInsets.only(bottom: 90), // above bottom nav roughly
-      child: FloatingChatBubble(),
-    ),
-  );
-}
-// and then invoke "hot reload" (save your changes or press the "hot
-// reload" button in a Flutter-supported IDE, or press "r" if you used
-// the command line to start the app).
-//
-// Notice that the counter didn't reset back to zero; the application
-// state is not lost during the reload. To reset the state, use hot
-// restart instead.
-//
-// This works for code too, not just values: Most code changes can be
-// tested with just a hot reload.
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-  Future<void> _loadThemeMode() async {
-    final themeMode = await ThemeService.getThemeMode();
-    setState(() {
-      _themeMode = themeMode;
-    });
   }
 
   void changeThemeMode(ThemeMode mode) {
@@ -205,23 +122,33 @@ class _MyHomePageState extends State<MyHomePage> {
     ThemeService.setThemeMode(mode);
   }
 
-  // Plus de gestion de locale dynamique
+  Future<void> _loadThemeMode() async {
+    final themeMode = await ThemeService.getThemeMode();
+    setState(() {
+      _themeMode = themeMode;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     // Enregistrer l'état pour permettre le changement de thème depuis d'autres écrans
     AppThemeNotifier.register(this);
-    // FR uniquement: pas de changement de langue dynamique
 
     return MaterialApp(
       title: 'App Nutrition',
       debugShowCheckedModeBanner: false,
+      navigatorKey: NavigationService.navKey,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('fr')],
+      supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('fr'),
       theme: ThemeService.getLightTheme(),
       darkTheme: ThemeService.getDarkTheme(),
       themeMode: _themeMode,
+      builder: (context, child) {
+        return Stack(
+          children: [if (child != null) child, const _ChatBubbleOverlay()],
+        );
+      },
       home: const SessionGate(),
       routes: AppRoutes.getRoutes(),
     );
@@ -243,6 +170,19 @@ class AppThemeNotifier {
 
 // FR uniquement: AppLanguageNotifier supprimé
 
+// Overlay wrapper to keep the chat bubble on top of all routes
+class _ChatBubbleOverlay extends StatelessWidget {
+  const _ChatBubbleOverlay();
+  @override
+  Widget build(BuildContext context) => const Align(
+    alignment: Alignment.bottomRight,
+    child: Padding(
+      padding: EdgeInsets.only(bottom: 90),
+      child: FloatingChatBubble(),
+    ),
+  );
+}
+
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
 
@@ -258,7 +198,7 @@ class WelcomeScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Theme.of(context).primaryColor,
-              Theme.of(context).primaryColor.withOpacity(0.8),
+              Theme.of(context).primaryColor.withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -277,7 +217,7 @@ class WelcomeScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white.withOpacity(0.1)
+                            ? Colors.white.withValues(alpha: 0.1)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(50),
                       ),
@@ -313,7 +253,7 @@ class WelcomeScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white.withOpacity(0.9)
+                            ? Colors.white.withValues(alpha: 0.9)
                             : Colors.white70,
                       ),
                     ),
@@ -335,7 +275,7 @@ class WelcomeScreen extends StatelessWidget {
                           backgroundColor: isDark
                               ? AppColors.primaryColor
                               : (Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white.withOpacity(0.2)
+                                    ? Colors.white.withValues(alpha: 0.2)
                                     : Colors.white),
                           foregroundColor: isDark
                               ? Colors.white
@@ -378,7 +318,7 @@ class WelcomeScreen extends StatelessWidget {
                                 ? AppColors.primaryColor
                                 : (Theme.of(context).brightness ==
                                           Brightness.dark
-                                      ? Colors.white.withOpacity(0.9)
+                                      ? Colors.white.withValues(alpha: 0.9)
                                       : Colors.white),
                             width: 2,
                           ),
@@ -405,7 +345,7 @@ class WelcomeScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white.withOpacity(0.7)
+                            ? Colors.white.withValues(alpha: 0.7)
                             : Colors.white60,
                       ),
                     ),
@@ -553,20 +493,18 @@ class HomeScreen extends StatelessWidget {
                               ),
                             );
                             if (confirmed == true) {
-                              // We don't have typed user object here; try to find by email
                               try {
-                                // If UserService was updated to return Utilisateur by email, use it; else, iterate
                                 final us = UserService();
-                                await us.authentifier(user.toString(), '');
-                                // If authentifier requires password, try to lookup by database directly
-                                // Fallback: attempt to find by email through DatabaseHelper
-                                final db = DatabaseHelper();
-                                final u = await db.getUtilisateurByEmail(
+                                final u = await us.obtenirUtilisateurParEmail(
                                   user.toString(),
                                 );
-                                if (u != null) {
-                                  final res = await db.deleteUtilisateur(u.id!);
-                                  if (res > 0) {
+                                if (u != null && u.id != null) {
+                                  final ok = await us.supprimerUtilisateur(
+                                    u.id!,
+                                  );
+                                  if (ok) {
+                                    // Navigate back to welcome
+                                    // ignore: use_build_context_synchronously
                                     Navigator.pushAndRemoveUntil(
                                       context,
                                       MaterialPageRoute(

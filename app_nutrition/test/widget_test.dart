@@ -11,20 +11,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app_nutrition/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('App boots to Welcome screen', (WidgetTester tester) async {
+    // Build the app
     await tester.pumpWidget(const MyApp());
+    // Allow async builders (like SessionGate) to progress without hanging on pumpAndSettle
+    // Pump in small increments up to a reasonable timeout
+    const maxTicks = 40; // ~4s @ 100ms
+    for (int i = 0; i < maxTicks; i++) {
+      // Break early if the welcome text is visible
+      if (find.text('App Nutrition').evaluate().isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Expect the welcome title to be visible
+    expect(find.text('App Nutrition'), findsOneWidget);
+    // And the restaurant icon present
+    expect(find.byIcon(Icons.restaurant_menu), findsWidgets);
   });
 }

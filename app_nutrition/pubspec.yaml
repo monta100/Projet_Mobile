@@ -47,7 +47,11 @@ dependencies:
   shared_preferences: ^2.5.3
   model_viewer_plus: ^1.9.3     # rendu 3D .glb/.gltf (mascotte Snacky)
   flutter_tts: ^4.2.3
-flutter_tts: ^4.0.2           # voix de synthèse (Text-to-Speech)
+  path_provider: ^2.1.4
+  mailer: ^6.1.0
+  google_sign_in: ^6.2.1
+  sign_in_button: ^3.2.0
+  crypto: ^3.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -64,6 +68,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
   uses-material-design: true
 
   assets:

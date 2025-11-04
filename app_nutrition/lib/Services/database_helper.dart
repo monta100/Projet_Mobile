@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../Entites/utilisateur.dart';
@@ -20,8 +19,8 @@ class DatabaseHelper {
   static Database? _database;
 
   // --- Configuration ---
-  static const String _dbName = 'app_nutrition10.db';
-  static const int _dbVersion = 9;
+  static const String _dbName = 'app_nutrition11.db';
+  static const int _dbVersion = 11;
   // v7: finalise table recettes avec colonne utilisateur_id (rebuild propre)
 
   // Table names
@@ -46,36 +45,93 @@ class DatabaseHelper {
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
+      onOpen: (db) async {
+        // Ensure schema consistency even when version didn't change (legacy installs)
+        await _ensureSchema(db);
+      },
     );
-    );
-    
-    // Vérifier et créer la table user_objectives si elle n'existe pas
-    await _ensureUserObjectivesTable(db);
-    
-    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Table utilisateurs
+    // Table utilisateurs (schéma aligné avec l'entité Utilisateur)
     await db.execute('''
-      CREATE TABLE utilisateurs(
+      CREATE TABLE $tableUtilisateurs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT NOT NULL,
         prenom TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
-        mot_de_passe TEXT NOT NULL,
-        role TEXT NOT NULL
+        motDePasse TEXT NOT NULL,
+        role TEXT NOT NULL,
+        isVerified INTEGER NOT NULL DEFAULT 0,
+        verificationCode TEXT,
+        verificationExpiry TEXT,
+        avatarPath TEXT,
+        avatarColor TEXT,
+        avatarInitials TEXT
       )
     ''');
 
-    // ✅ Création d'un utilisateur par défaut
-    await db.insert('utilisateurs', {
+    // Utilisateur de démonstration
+    await db.insert(tableUtilisateurs, {
       'nom': 'User',
       'prenom': 'Demo',
       'email': 'demo@app.com',
-      'mot_de_passe': '1234',
+      'motDePasse': '1234',
       'role': 'utilisateur',
+      'isVerified': 1,
+      'avatarInitials': 'UD',
     });
+
+    // Table objectifs
+    await db.execute('''
+      CREATE TABLE $tableObjectifs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateur_id INTEGER,
+        type TEXT,
+        valeurCible REAL,
+        dateFixee TEXT,
+        progression REAL,
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Table messages (chat)
+    await db.execute('''
+      CREATE TABLE $tableMessages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER,
+        receiver_id INTEGER,
+        content TEXT,
+        type TEXT,
+        created_at TEXT,
+        read INTEGER DEFAULT 0,
+        FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Table user_objectives (objectifs détaillés)
+    await db.execute('''
+      CREATE TABLE $tableUserObjectives (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        utilisateurId INTEGER NOT NULL,
+        typeObjectif TEXT NOT NULL,
+        description TEXT NOT NULL,
+        poidsActuel REAL NOT NULL,
+        poidsCible REAL NOT NULL,
+        taille REAL NOT NULL,
+        age INTEGER NOT NULL,
+        niveauActivite TEXT NOT NULL,
+        dureeObjectif INTEGER NOT NULL,
+        dateCreation TEXT NOT NULL,
+        dateDebut TEXT NOT NULL,
+        dateFin TEXT NOT NULL,
+        progression REAL NOT NULL DEFAULT 0.0,
+        estAtteint INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        FOREIGN KEY (utilisateurId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
 
     // Table repas
     await db.execute('''
@@ -86,7 +142,7 @@ class DatabaseHelper {
         nom TEXT,
         calories_totales REAL NOT NULL DEFAULT 0,
         utilisateur_id INTEGER NOT NULL,
-        FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
       )
     ''');
 
@@ -99,10 +155,10 @@ class DatabaseHelper {
         calories REAL NOT NULL DEFAULT 0,
         repas_id INTEGER NULL,
         publie INTEGER NOT NULL DEFAULT 0,
-        imageUrl TEXT,          
+        imageUrl TEXT,
         utilisateur_id INTEGER NULL,
         FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
-        FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
+        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE SET NULL
       )
     ''');
 
@@ -133,139 +189,33 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 4) {
-      // Safely attempt to add column if not exists.
-      try {
-        await db.execute(
-          'ALTER TABLE recettes ADD COLUMN publie INTEGER NOT NULL DEFAULT 0',
-        );
-      } catch (_) {}
-    }
-    // Anciennes migrations (<5 et <6) remplacées par un rebuild unique en v7
-    if (oldVersion < 7) {
-      // Construire la table finale
-      await db.execute('''
-        CREATE TABLE recettes_new(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          nom TEXT NOT NULL,
-          description TEXT,
-          calories REAL NOT NULL DEFAULT 0,
-          repas_id INTEGER NULL,
-          publie INTEGER NOT NULL DEFAULT 0,
-          utilisateur_id INTEGER NULL,
-          FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
-          FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
-        )
-      ''');
-      // Copier les données existantes (colonnes si présentes)
-      // On tente de sélectionner utilisateur_id si déjà existante, sinon NULL
-      try {
-        await db.execute('''
-          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
-          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), utilisateur_id FROM recettes
-        ''');
-      } catch (_) {
-        await db.execute('''
-          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
-          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), NULL FROM recettes
-        ''');
+    // Backwards-compat: if older DB used 'mot_de_passe' column, copy it to new 'motDePasse'
+    try {
+      final userCols = await db.rawQuery(
+        "PRAGMA table_info($tableUtilisateurs)",
+      );
+      final hasNew = userCols.any(
+        (c) => (c['name'] as String?) == 'motDePasse',
+      );
+      final hasOld = userCols.any(
+        (c) => (c['name'] as String?) == 'mot_de_passe',
+      );
+      if (!hasNew && hasOld) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN motDePasse TEXT',
+          );
+        } catch (_) {}
+        try {
+          await db.execute(
+            'UPDATE $tableUtilisateurs SET motDePasse = mot_de_passe',
+          );
+        } catch (_) {}
       }
-      await db.execute('DROP TABLE recettes');
-      await db.execute('ALTER TABLE recettes_new RENAME TO recettes');
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_recettes_repas ON recettes(repas_id)',
-      );
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_recettes_user ON recettes(utilisateur_id)',
-      );
-    }
-  }
-
-  // --- Méthodes génériques ---
-
-  /// Insère une nouvelle ligne dans la table spécifiée.
-    await db.execute('''
-      CREATE TABLE $tableUtilisateurs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nom TEXT,
-        prenom TEXT,
-        email TEXT UNIQUE,
-        motDePasse TEXT,
-        role TEXT,
-        isVerified INTEGER,
-        verificationCode TEXT,
-        verificationExpiry TEXT
-      )
-    ''');
-    // If DB version >=3 we expect avatar columns to exist; add them
-    try {
-      await db.execute(
-        'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarPath TEXT',
-      );
-    } catch (_) {}
-    try {
-      await db.execute(
-        'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarColor TEXT',
-      );
-    } catch (_) {}
-    try {
-      await db.execute(
-        'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarInitials TEXT',
-      );
     } catch (_) {}
 
-    await db.execute('''
-      CREATE TABLE $tableObjectifs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        utilisateur_id INTEGER,
-        type TEXT,
-        valeurCible REAL,
-        dateFixee TEXT,
-        progression REAL,
-        FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE $tableMessages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sender_id INTEGER,
-        receiver_id INTEGER,
-        content TEXT,
-        type TEXT,
-        created_at TEXT,
-        read INTEGER DEFAULT 0,
-        FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
-        FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE $tableUserObjectives (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        utilisateurId INTEGER NOT NULL,
-        typeObjectif TEXT NOT NULL,
-        description TEXT NOT NULL,
-        poidsActuel REAL NOT NULL,
-        poidsCible REAL NOT NULL,
-        taille REAL NOT NULL,
-        age INTEGER NOT NULL,
-        niveauActivite TEXT NOT NULL,
-        dureeObjectif INTEGER NOT NULL,
-        dateCreation TEXT NOT NULL,
-        dateDebut TEXT NOT NULL,
-        dateFin TEXT NOT NULL,
-        progression REAL NOT NULL DEFAULT 0.0,
-        estAtteint INTEGER NOT NULL DEFAULT 0,
-        notes TEXT,
-        FOREIGN KEY (utilisateurId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
-      )
-    ''');
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // v2: Ajout des colonnes avatarPath et avatarColor
     if (oldVersion < 2) {
-      // Add avatarPath and avatarColor
       try {
         await db.execute(
           'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarPath TEXT',
@@ -276,8 +226,9 @@ class DatabaseHelper {
           'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarColor TEXT',
         );
       } catch (_) {}
-      oldVersion = 2;
     }
+
+    // v3: Ajout de la colonne avatarInitials
     if (oldVersion < 3) {
       try {
         await db.execute(
@@ -285,10 +236,21 @@ class DatabaseHelper {
         );
       } catch (_) {}
     }
+
+    // v4: Ajout de la colonne publie dans recettes
+    if (oldVersion < 4) {
+      try {
+        await db.execute(
+          'ALTER TABLE recettes ADD COLUMN publie INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (_) {}
+    }
+
+    // v5: Création de la table messages si manquante
     if (oldVersion < 5) {
       try {
         await db.execute('''
-          CREATE TABLE $tableMessages (
+          CREATE TABLE IF NOT EXISTS $tableMessages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sender_id INTEGER,
             receiver_id INTEGER,
@@ -302,11 +264,64 @@ class DatabaseHelper {
         ''');
       } catch (_) {}
     }
-    if (oldVersion < 7) {
-      // Add user_objectives table
+
+    // v6: S'assurer que la table objectifs existe
+    if (oldVersion < 6) {
       try {
         await db.execute('''
-          CREATE TABLE $tableUserObjectives (
+          CREATE TABLE IF NOT EXISTS $tableObjectifs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            utilisateur_id INTEGER,
+            type TEXT,
+            valeurCible REAL,
+            dateFixee TEXT,
+            progression REAL,
+            FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (_) {}
+    }
+
+    // v7: Rebuild de la table recettes vers le schéma final + création user_objectives
+    if (oldVersion < 7) {
+      // Rebuild recettes
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS recettes_new(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nom TEXT NOT NULL,
+          description TEXT,
+          calories REAL NOT NULL DEFAULT 0,
+          repas_id INTEGER NULL,
+          publie INTEGER NOT NULL DEFAULT 0,
+          utilisateur_id INTEGER NULL,
+          FOREIGN KEY (repas_id) REFERENCES repas(id) ON DELETE CASCADE,
+          FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE SET NULL
+        )
+      ''');
+      try {
+        await db.execute('''
+          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
+          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), utilisateur_id FROM recettes
+        ''');
+      } catch (_) {
+        await db.execute('''
+          INSERT INTO recettes_new(id, nom, description, calories, repas_id, publie, utilisateur_id)
+          SELECT id, nom, description, calories, repas_id, COALESCE(publie,0), NULL FROM recettes
+        ''');
+      }
+      await db.execute('DROP TABLE IF EXISTS recettes');
+      await db.execute('ALTER TABLE recettes_new RENAME TO recettes');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_recettes_repas ON recettes(repas_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_recettes_user ON recettes(utilisateur_id)',
+      );
+
+      // Créer user_objectives si manquante
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS $tableUserObjectives (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             utilisateurId INTEGER NOT NULL,
             typeObjectif TEXT NOT NULL,
@@ -327,69 +342,57 @@ class DatabaseHelper {
           )
         ''');
       } catch (_) {}
-      oldVersion = 7;
     }
+
+    // v8: Suppression éventuelle de la colonne coachId de user_objectives
     if (oldVersion < 8) {
-      // Remove coachId column from user_objectives table
-      // SQLite doesn't support DROP COLUMN, so we need to recreate the table
       try {
-        // Vérifier si la table existe
         final tableInfo = await db.rawQuery(
           "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
           [tableUserObjectives],
         );
-        
         if (tableInfo.isNotEmpty) {
-          // Vérifier si coachId existe dans la table
-          final columns = await db.rawQuery("PRAGMA table_info($tableUserObjectives)");
+          final columns = await db.rawQuery(
+            "PRAGMA table_info($tableUserObjectives)",
+          );
           final hasCoachId = columns.any((col) => col['name'] == 'coachId');
-          
           if (hasCoachId) {
-            // Sauvegarder les données existantes
             final oldData = await db.query(tableUserObjectives);
-            
-            // Renommer l'ancienne table
-            await db.execute('ALTER TABLE $tableUserObjectives RENAME TO ${tableUserObjectives}_old');
-            
-            // Créer la nouvelle table sans coachId
-        await db.execute('''
-          CREATE TABLE $tableUserObjectives (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            utilisateurId INTEGER NOT NULL,
-            typeObjectif TEXT NOT NULL,
-            description TEXT NOT NULL,
-            poidsActuel REAL NOT NULL,
-            poidsCible REAL NOT NULL,
-            taille REAL NOT NULL,
-            age INTEGER NOT NULL,
-            niveauActivite TEXT NOT NULL,
-            dureeObjectif INTEGER NOT NULL,
-            dateCreation TEXT NOT NULL,
-            dateDebut TEXT NOT NULL,
-            dateFin TEXT NOT NULL,
-            progression REAL NOT NULL DEFAULT 0.0,
-            estAtteint INTEGER NOT NULL DEFAULT 0,
-            notes TEXT,
+            await db.execute(
+              'ALTER TABLE $tableUserObjectives RENAME TO ${tableUserObjectives}_old',
+            );
+            await db.execute('''
+              CREATE TABLE $tableUserObjectives (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                utilisateurId INTEGER NOT NULL,
+                typeObjectif TEXT NOT NULL,
+                description TEXT NOT NULL,
+                poidsActuel REAL NOT NULL,
+                poidsCible REAL NOT NULL,
+                taille REAL NOT NULL,
+                age INTEGER NOT NULL,
+                niveauActivite TEXT NOT NULL,
+                dureeObjectif INTEGER NOT NULL,
+                dateCreation TEXT NOT NULL,
+                dateDebut TEXT NOT NULL,
+                dateFin TEXT NOT NULL,
+                progression REAL NOT NULL DEFAULT 0.0,
+                estAtteint INTEGER NOT NULL DEFAULT 0,
+                notes TEXT,
                 FOREIGN KEY (utilisateurId) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
-          )
-        ''');
-            
-            // Copier les données de l'ancienne table vers la nouvelle (sans coachId)
+              )
+            ''');
             for (final row in oldData) {
               final newRow = Map<String, dynamic>.from(row);
-              newRow.remove('coachId'); // Supprimer coachId si présent
-              newRow.remove('id'); // Supprimer id pour permettre l'auto-increment
-              
+              newRow.remove('coachId');
+              newRow.remove('id');
               await db.insert(tableUserObjectives, newRow);
             }
-            
-            // Supprimer l'ancienne table
             await db.execute('DROP TABLE IF EXISTS ${tableUserObjectives}_old');
           }
         }
       } catch (e) {
-        // Si la table n'existe pas encore ou si une erreur survient, ce n'est pas grave
-        // La table sera créée correctement par _onCreate ou _ensureUserObjectivesTable
+        // La migration est best-effort
         print('Migration user_objectives (version 8): $e');
       }
     }
@@ -417,15 +420,6 @@ class DatabaseHelper {
   }
 
   /// Supprime une ligne d'une table en fonction de son ID.
-  Future<int> delete(String table, int id) async {
-    final db = await database;
-    return await db.delete(table, where: 'id = ?', whereArgs: [id]);
-  }
-  Future<int> update(String table, Map<String, dynamic> data, int id) async {
-    final db = await database;
-    return await db.update(table, data, where: 'id = ?', whereArgs: [id]);
-  }
-
   Future<int> delete(String table, int id) async {
     final db = await database;
     return await db.delete(table, where: 'id = ?', whereArgs: [id]);
@@ -466,7 +460,6 @@ class DatabaseHelper {
     if (rows.isEmpty) return null;
     return Utilisateur.fromMap(rows.first);
   }
-
 
   Future<int> updateUtilisateur(Utilisateur utilisateur) async {
     final data = utilisateur.toMap();
@@ -616,13 +609,139 @@ class DatabaseHelper {
     }
   }
 
+  /// S'assure que le schéma est cohérent même si la version ne change pas
+  Future<void> _ensureSchema(Database db) async {
+    try {
+      // utilisateurs: assurer colonne motDePasse et copier depuis mot_de_passe si présent
+      final userCols = await db.rawQuery(
+        "PRAGMA table_info($tableUtilisateurs)",
+      );
+      final hasNew = userCols.any(
+        (c) => (c['name'] as String?) == 'motDePasse',
+      );
+      final hasOld = userCols.any(
+        (c) => (c['name'] as String?) == 'mot_de_passe',
+      );
+      if (!hasNew) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN motDePasse TEXT',
+          );
+        } catch (_) {}
+      }
+      if (hasOld) {
+        try {
+          await db.execute(
+            'UPDATE $tableUtilisateurs SET motDePasse = COALESCE(motDePasse, mot_de_passe)',
+          );
+        } catch (_) {}
+      }
+
+      // Ensure avatar columns exist for UI (nullable)
+      final hasAvatarPath = userCols.any(
+        (c) => (c['name'] as String?) == 'avatarPath',
+      );
+      if (!hasAvatarPath) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarPath TEXT',
+          );
+        } catch (_) {}
+      }
+      final hasAvatarColor = userCols.any(
+        (c) => (c['name'] as String?) == 'avatarColor',
+      );
+      if (!hasAvatarColor) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarColor TEXT',
+          );
+        } catch (_) {}
+      }
+      final hasAvatarInitials = userCols.any(
+        (c) => (c['name'] as String?) == 'avatarInitials',
+      );
+      if (!hasAvatarInitials) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN avatarInitials TEXT',
+          );
+        } catch (_) {}
+      }
+
+      // Ensure verification columns exist (added in newer schema)
+      final hasIsVerified = userCols.any(
+        (c) => (c['name'] as String?) == 'isVerified',
+      );
+      if (!hasIsVerified) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN isVerified INTEGER NOT NULL DEFAULT 0',
+          );
+        } catch (_) {}
+      }
+      final hasVerificationCode = userCols.any(
+        (c) => (c['name'] as String?) == 'verificationCode',
+      );
+      if (!hasVerificationCode) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN verificationCode TEXT',
+          );
+        } catch (_) {}
+      }
+      final hasVerificationExpiry = userCols.any(
+        (c) => (c['name'] as String?) == 'verificationExpiry',
+      );
+      if (!hasVerificationExpiry) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableUtilisateurs ADD COLUMN verificationExpiry TEXT',
+          );
+        } catch (_) {}
+      }
+
+      // S'assurer des tables optionnelles
+      await _ensureUserObjectivesTable(db);
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableMessages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sender_id INTEGER,
+          receiver_id INTEGER,
+          content TEXT,
+          type TEXT,
+          created_at TEXT,
+          read INTEGER DEFAULT 0,
+          FOREIGN KEY (sender_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE,
+          FOREIGN KEY (receiver_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableObjectifs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          utilisateur_id INTEGER,
+          type TEXT,
+          valeurCible REAL,
+          dateFixee TEXT,
+          progression REAL,
+          FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+        )
+      ''');
+    } catch (e) {
+      // ignore: avoid_print
+      print('Schema guard failed: $e');
+    }
+  }
+
   /// Initialise quelques données de test (toujours disponibles)
   Future<void> initTestData() async {
     // Vérifier si les utilisateurs de test existent déjà
-    final existingTestUser = await getUtilisateurByEmail('jean.dupont@test.com');
-    
+    final existingTestUser = await getUtilisateurByEmail(
+      'jean.dupont@test.com',
+    );
+
     int userId;
-    
+
     if (existingTestUser == null) {
       // Créer un utilisateur de test
       final testUser = Utilisateur(
@@ -664,15 +783,14 @@ class DatabaseHelper {
     final db = await database;
     await db.close();
     _database = null;
-    
+
     // Supprimer le fichier de base de données
-    final documentsDirectory = await getApplicationDocumentsDirectory();
-    final dbPath = join(documentsDirectory.path, _dbName);
+    final dbPath = join(await getDatabasesPath(), _dbName);
     final dbFile = File(dbPath);
     if (await dbFile.exists()) {
       await dbFile.delete();
     }
-    
+
     // Recréer la base de données
     await database;
   }
@@ -723,6 +841,4 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
-
-
 }

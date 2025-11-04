@@ -8,6 +8,7 @@ import '../Services/image_ai_service.dart';
 import '../Services/recette_service.dart';
 import '../Services/ingredient_service.dart';
 import '../Services/nutrition_ai_service.dart';
+import '../Services/session_service.dart';
 import '../Entites/recette.dart';
 import '../Entites/ingredient.dart';
 import 'recette_details_screen.dart';
@@ -23,7 +24,7 @@ class MyRecettesScreen extends StatefulWidget {
 class _MyRecettesScreenState extends State<MyRecettesScreen> {
   final RecetteService _service = RecetteService();
   final TextEditingController _searchController = TextEditingController();
-  static const int _currentUserId = 1;
+  int? _currentUserId;
   late Future<List<Recette>> _future;
   bool _showOnlyDrafts = false;
   bool _isRefreshing = false; // Indicateur pour l'animation de rafraîchissement
@@ -34,12 +35,21 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadUserAndRecettes();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
       });
     });
+  }
+
+  Future<void> _loadUserAndRecettes() async {
+    final session = SessionService();
+    final user = await session.getLoggedInUser();
+    setState(() {
+      _currentUserId = user?.id;
+    });
+    _load();
   }
 
   @override
@@ -49,8 +59,9 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   }
 
   Future<void> _load() async {
+    if (_currentUserId == null) return;
     setState(() {
-      _future = _service.getUserRecettes(_currentUserId);
+      _future = _service.getUserRecettes(_currentUserId!);
     });
   }
 
@@ -61,12 +72,13 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
   }
 
   void _showCreateRecette() {
+    if (_currentUserId == null) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) =>
-          _AddRecetteModal(utilisateurId: _currentUserId, onSaved: _load),
+          _AddRecetteModal(utilisateurId: _currentUserId!, onSaved: _load),
     );
   }
 

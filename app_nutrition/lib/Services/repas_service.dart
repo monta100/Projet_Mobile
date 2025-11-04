@@ -1,54 +1,24 @@
 import 'package:sqflite/sqflite.dart';
 import '../Services/database_helper.dart';
 import '../Entites/repas.dart';
+import 'session_service.dart';
 
 class RepasService {
   final dbHelper = DatabaseHelper();
-
-  // ID utilisateur par défaut
-  static const int _defaultUserId = 1;
-
-  // Résout un userId valide
-  Future<int> _resolveUserId(Database db, int? providedId) async {
-    if (providedId != null) {
-      final exists = await db.query(
-        'utilisateurs',
-        where: 'id = ?',
-        whereArgs: [providedId],
-        limit: 1,
-      );
-      if (exists.isNotEmpty) return providedId;
-    }
-
-    final staticUser = await db.query(
-      'utilisateurs',
-      where: 'id = ?',
-      whereArgs: [_defaultUserId],
-      limit: 1,
-    );
-    if (staticUser.isNotEmpty) return _defaultUserId;
-
-    final anyUser = await db.query('utilisateurs', limit: 1);
-    if (anyUser.isNotEmpty) return anyUser.first['id'] as int;
-
-    final newId = await db.insert('utilisateurs', {
-      'nom': 'User',
-      'prenom': 'Demo',
-      'email': 'demo_${DateTime.now().millisecondsSinceEpoch}@app.com',
-      'mot_de_passe': '1234',
-      'role': 'utilisateur',
-    });
-    return newId;
-  }
+  final _sessionService = SessionService();
 
   // 🟢 Ajouter un repas
   Future<int> insertRepas(Repas repas) async {
     final db = await dbHelper.database;
-    final data = repas.toMap();
+    final user = await _sessionService.getLoggedInUser();
 
-    int? providedId = data['utilisateur_id'] as int?;
-    final resolvedId = await _resolveUserId(db, providedId);
-    data['utilisateur_id'] = resolvedId;
+    if (user == null || user.id == null) {
+      throw Exception(
+        "Aucun utilisateur connecté. Impossible d'ajouter le repas.",
+      );
+    }
+
+    final data = repas.copyWith(utilisateurId: user.id).toMap();
 
     return await db.insert(
       Repas.tableName,
@@ -57,10 +27,20 @@ class RepasService {
     );
   }
 
-  // 🟡 Récupérer tous les repas
-  Future<List<Repas>> getAllRepas() async {
+  // 🟡 Récupérer tous les repas pour l'utilisateur connecté
+  Future<List<Repas>> getAllRepasForCurrentUser() async {
     final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(Repas.tableName);
+    final user = await _sessionService.getLoggedInUser();
+
+    if (user == null || user.id == null) {
+      return []; // Retourne une liste vide si aucun utilisateur n'est connecté
+    }
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      Repas.tableName,
+      where: 'utilisateur_id = ?',
+      whereArgs: [user.id],
+    );
 
     return List.generate(maps.length, (i) => Repas.fromMap(maps[i]));
   }
@@ -78,18 +58,20 @@ class RepasService {
   }
 
   // 🟢 Récupérer les repas d’un utilisateur pour une date donnée
-  Future<List<Repas>> getRepasByDate(
-    DateTime date, {
-    int? utilisateurId,
-  }) async {
+  Future<List<Repas>> getRepasByDate(DateTime date) async {
     final db = await dbHelper.database;
-    final userId = utilisateurId ?? _defaultUserId;
+    final user = await _sessionService.getLoggedInUser();
+
+    if (user == null || user.id == null) {
+      return [];
+    }
+
     final start = DateTime(date.year, date.month, date.day);
     final end = start.add(const Duration(days: 1));
     final List<Map<String, dynamic>> maps = await db.query(
       Repas.tableName,
       where: 'utilisateur_id = ? AND date >= ? AND date < ?',
-      whereArgs: [userId, start.toIso8601String(), end.toIso8601String()],
+      whereArgs: [user.id, start.toIso8601String(), end.toIso8601String()],
     );
     return List.generate(maps.length, (i) => Repas.fromMap(maps[i]));
   }

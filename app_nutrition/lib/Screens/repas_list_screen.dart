@@ -66,7 +66,7 @@ class _RepasListScreenState extends State<RepasListScreen>
 
   void _loadRepas() {
     setState(() {
-      _repasList = _repasService.getAllRepas();
+      _repasList = _repasService.getAllRepasForCurrentUser();
       _listAnimationController.forward(from: 0.0);
     });
   }
@@ -730,7 +730,7 @@ class _RepasListScreenState extends State<RepasListScreen>
                       type: selectedType,
                       date: DateTime.now(),
                       caloriesTotales: calories,
-                      utilisateurId: 1,
+                      utilisateurId: 0, // L'ID réel sera défini par le service
                     );
                     await _repasService.insertRepas(newRepas);
                     _loadRepas();

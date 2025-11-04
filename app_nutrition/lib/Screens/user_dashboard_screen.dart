@@ -8,6 +8,11 @@ import '../main.dart';
 import 'profil_screen.dart';
 import 'create_user_objective_screen.dart';
 import '../l10n/app_localizations.dart';
+import 'repas_list_screen.dart'; // Ajout de l'import
+import 'repas_module_main_screen.dart'; // <-- Ajout de l'import
+import '../Services/repas_service.dart';
+import '../Services/session_service.dart';
+import '../Entites/repas.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -47,6 +52,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     'water': 2.5,
   };
 
+  double _caloriesToday = 0;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +75,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         );
 
     _loadDashboardData();
+    _fetchCaloriesToday();
   }
 
   @override
@@ -102,6 +110,21 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     }
   }
 
+  Future<void> _fetchCaloriesToday() async {
+    final session = SessionService();
+    final user = await session.getLoggedInUser();
+    if (user != null && user.id != null) {
+      // Correction : filtrer par utilisateur
+      final repasList = await RepasService().getRepasByDate(DateTime.now());
+      setState(() {
+        _caloriesToday = repasList.fold(
+          0,
+          (sum, r) => sum + (r.caloriesTotales ?? 0),
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -131,13 +154,18 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildHeader(),
+                          _buildHeader(context),
                           const SizedBox(height: 24),
-                          _buildNutritionOverview(),
+                          _buildDailyNutritionCard(context),
                           const SizedBox(height: 24),
-                          _buildQuickActions(),
+                          _buildMyMealsCard(
+                            context,
+                          ), // Ajout de la nouvelle carte ici
                           const SizedBox(height: 24),
-                          _buildObjectivesSection(),
+                          _buildMyObjectivesSection(context),
+                          const SizedBox(height: 16),
+                          if (_isLoading)
+                            const Center(child: CircularProgressIndicator()),
                         ],
                       ),
                     ),
@@ -148,7 +176,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
         GestureDetector(
@@ -235,148 +263,76 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildNutritionOverview() {
-    final caloriesProgress =
-        _dailyNutrition['calories']! / _dailyGoals['calories']!;
-    final proteinsProgress =
-        _dailyNutrition['proteins']! / _dailyGoals['proteins']!;
-    final waterProgress = _dailyNutrition['water']! / _dailyGoals['water']!;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.grey[800]
-            : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.black.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.restaurant_menu,
-                  color: Colors.green,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                AppLocalizations.of(context)?.dailyNutritionTitle ??
-                    'Nutrition du jour',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : null,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildNutritionProgressItem(
-            AppLocalizations.of(context)?.caloriesLabel ?? 'Calories',
-            '${_dailyNutrition['calories']!.toInt()}',
-            '${_dailyGoals['calories']!.toInt()} kcal',
-            caloriesProgress,
-            Colors.orange,
-            Icons.local_fire_department,
-          ),
-          const SizedBox(height: 16),
-          _buildNutritionProgressItem(
-            AppLocalizations.of(context)?.proteinsLabel ?? 'Protéines',
-            '${_dailyNutrition['proteins']!.toInt()}',
-            '${_dailyGoals['proteins']!.toInt()}g',
-            proteinsProgress,
-            Colors.red,
-            Icons.fitness_center,
-          ),
-          const SizedBox(height: 16),
-          _buildNutritionProgressItem(
-            AppLocalizations.of(context)?.waterLabel ?? 'Eau',
-            '${(_dailyNutrition['water']! * 10).toInt() / 10}',
-            '${_dailyGoals['water']!.toInt()}L',
-            waterProgress,
-            Colors.blue,
-            Icons.water_drop,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNutritionProgressItem(
-    String label,
-    String current,
-    String goal,
-    double progress,
-    Color color,
-    IconData icon,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildDailyNutritionCard(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Nutrition du jour',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
-                Icon(icon, color: color, size: 18),
-                const SizedBox(width: 8),
+                Icon(
+                  Icons.local_fire_department,
+                  color: Colors.orange,
+                  size: 28,
+                ),
+                const SizedBox(width: 10),
                 Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : null,
+                  '${_caloriesToday.toStringAsFixed(0)} / 2000 kcal',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
                   ),
                 ),
               ],
             ),
-            Text(
-              '$current / $goal',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.fitness_center, color: Colors.red, size: 28),
+                const SizedBox(width: 10),
+                Text(
+                  '${_dailyNutrition['proteins']!.toInt()} / ${_dailyGoals['proteins']!.toInt()} g',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.water_drop, color: Colors.blue, size: 28),
+                const SizedBox(width: 10),
+                Text(
+                  '${(_dailyNutrition['water']! * 10).toInt() / 10} / ${_dailyGoals['water']!.toInt()} L',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            minHeight: 8,
-            backgroundColor: color.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildObjectivesSection() {
+  Widget _buildMyObjectivesSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -575,116 +531,52 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppLocalizations.of(context)?.newObjectiveTitle ?? 'Nouvel objectif',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+  Widget _buildMyMealsCard(BuildContext context) {
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RepasModuleMainScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(15.0),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Icon(
+                Icons.restaurant_menu,
+                color: Theme.of(context).primaryColor,
+                size: 30,
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gérer Mes repas',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Suivez et gérez vos repas et recettes',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+            ],
           ),
-        ),
-        const SizedBox(height: 16),
-        _buildActionCard(
-          AppLocalizations.of(context)?.createObjectiveTitle ??
-              'Créer un objectif',
-          AppLocalizations.of(context)?.createObjectiveSubtitle ??
-              'Définissez vos objectifs personnalisés',
-          Icons.add_circle_outline,
-          Colors.green,
-          () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    CreateUserObjectiveScreen(utilisateur: widget.utilisateur),
-              ),
-            );
-            if (result == true) {
-              _loadDashboardData();
-            }
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionCard(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey[800]
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[300]
-                          : Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey[400]
-                  : Colors.grey.shade600,
-              size: 20,
-            ),
-          ],
         ),
       ),
     );

@@ -77,12 +77,26 @@ class UserObjective {
     );
   }
 
-  double get imcActuel => poidsActuel / (taille * taille);
-  double get imcCible => poidsCible / (taille * taille);
-  
+  double get imcActuel {
+    // Avoid division by zero or negative height values
+    final denom = (taille * taille);
+    if (denom <= 0) return 0.0;
+    final v = poidsActuel / denom;
+    if (v.isNaN || v.isInfinite) return 0.0;
+    return v;
+  }
+
+  double get imcCible {
+    final denom = (taille * taille);
+    if (denom <= 0) return 0.0;
+    final v = poidsCible / denom;
+    if (v.isNaN || v.isInfinite) return 0.0;
+    return v;
+  }
+
   String get imcActuelFormatted => imcActuel.toStringAsFixed(1);
   String get imcCibleFormatted => imcCible.toStringAsFixed(1);
-  
+
   String get dureeFormatted {
     if (dureeObjectif < 4) {
       return '$dureeObjectif semaine${dureeObjectif > 1 ? 's' : ''}';
@@ -96,11 +110,27 @@ class UserObjective {
       }
     }
   }
-  
-  double get progressionPourcentage => (progression / (poidsCible - poidsActuel).abs()) * 100;
-  
+
+  double get progressionPourcentage {
+    // Total change required (always positive)
+    final total = (poidsCible - poidsActuel).abs();
+    if (total == 0) {
+      // If no change required, consider completed when estAtteint, else 0
+      return estAtteint ? 100.0 : 0.0;
+    }
+
+    // Raw percentage
+    final percent = (progression / total) * 100.0;
+
+    // Sanitize NaN/Infinity and clamp between 0 and 100
+    if (percent.isNaN || percent.isInfinite) return 0.0;
+    if (percent < 0) return 0.0;
+    if (percent > 100) return 100.0;
+    return percent;
+  }
+
   bool get estEnRetard => DateTime.now().isAfter(dateFin) && !estAtteint;
-  
+
   int get joursRestants {
     final now = DateTime.now();
     if (now.isAfter(dateFin)) return 0;

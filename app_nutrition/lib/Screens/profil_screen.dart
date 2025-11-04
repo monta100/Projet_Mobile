@@ -3,12 +3,16 @@ import '../Entites/utilisateur.dart';
 import '../Services/user_service.dart';
 import '../Services/theme_service.dart';
 import '../main.dart';
+import '../Services/social_auth_service.dart';
+import '../Services/session_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
 import '../Routs/app_routes.dart';
+import '../l10n/app_localizations.dart';
+// Bitmoji (SnapKit) intentionally not imported: user requested no login flow
 
 class ProfilScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -57,7 +61,13 @@ class _ProfilScreenState extends State<ProfilScreen> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Profil mis à jour' : 'Échec de la mise à jour'),
+          content: Text(
+            ok
+                ? (AppLocalizations.of(context)?.updateSuccess ??
+                      'Profil mis à jour')
+                : (AppLocalizations.of(context)?.updateFailed ??
+                      'Échec de la mise à jour'),
+          ),
         ),
       );
       if (ok) {
@@ -109,6 +119,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return '#${(r & 0xFF).toRadixString(16).padLeft(2, '0')}${(g & 0xFF).toRadixString(16).padLeft(2, '0')}${(b & 0xFF).toRadixString(16).padLeft(2, '0')}';
   }
 
+  // ignore: unused_element
   Color _hexToColor(String colorHex) {
     try {
       return Color(int.parse('0xff' + colorHex.replaceFirst('#', '')));
@@ -165,17 +176,45 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  Future<String> _downloadDiceBearAvatar(String seed, {Map<String, String>? options}) async {
-    final style = options != null && options.isNotEmpty ? 'avataaars' : 'adventurer';
-    // Construire l'URL avec les options de personnalisation - utiliser v6 pour avataaars
-    final version = (options != null && options.isNotEmpty && style == 'avataaars') ? '6.x' : '7.x';
-    String urlString = 'https://api.dicebear.com/$version/$style/png?seed=${Uri.encodeComponent(seed)}&size=256';
-    if (options != null && options.isNotEmpty) {
-          final validParams = options.entries
-          .where((e) => 
-              e.value != 'blank' &&
-              e.value != 'noHair' &&
-              e.value.isNotEmpty)
+  Future<String> _downloadDiceBearAvatar(
+    String seed, {
+    Map<String, String>? options,
+  }) async {
+    // Détecter si l'on passe des options spécifiques à Avataaars (v6)
+    final avataaarsKeys = <String>{
+      'topType',
+      'hairColor',
+      'accessoriesType',
+      'facialHairType',
+      'facialHairColor',
+      'clotheType',
+      'clotheColor',
+      'eyeType',
+      'eyebrowType',
+      'mouthType',
+      'skinColor',
+    };
+    final hasAvataaarsOptions =
+        options != null &&
+        options.isNotEmpty &&
+        options.keys.any((k) => avataaarsKeys.contains(k));
+
+    // Forcer avataaars en v6 si des options avataaars sont présentes,
+    // sinon utiliser adventurer en v7 (aucune option custom v6 passée)
+    final style = hasAvataaarsOptions ? 'avataaars' : 'adventurer';
+    final version = hasAvataaarsOptions ? '6.x' : '7.x';
+    String urlString =
+        'https://api.dicebear.com/$version/$style/png?seed=${Uri.encodeComponent(seed)}&size=256';
+    if (hasAvataaarsOptions) {
+      // N'ajouter des paramètres que pour avataaars (v6)
+      final validParams = options.entries
+          .where(
+            (e) =>
+                avataaarsKeys.contains(e.key) &&
+                e.value != 'Blank' &&
+                e.value != 'NoHair' &&
+                e.value.isNotEmpty,
+          )
           .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
           .toList();
       if (validParams.isNotEmpty) {
@@ -187,27 +226,53 @@ class _ProfilScreenState extends State<ProfilScreen> {
     if (resp.statusCode != 200)
       throw Exception('Bad response ${resp.statusCode}');
     final appDir = await getApplicationDocumentsDirectory();
-    final fileName = 'dicebear_${seed.hashCode}_${DateTime.now().millisecondsSinceEpoch}.png';
+    final fileName =
+        'dicebear_${seed.hashCode}_${DateTime.now().millisecondsSinceEpoch}.png';
     final filePath = path.join(appDir.path, fileName);
     final file = File(filePath);
     await file.writeAsBytes(resp.bodyBytes);
     return file.path;
   }
 
+  // Generic downloader removed since Bitmoji flow (no-login) is not supported
+
   Future<void> _showAvatarPicker() async {
-    final prenom = _prenomController.text.trim().isNotEmpty
-        ? _prenomController.text.trim()
-        : widget.utilisateur.prenom.trim();
-    final nom = _nomController.text.trim().isNotEmpty
-        ? _nomController.text.trim()
-        : widget.utilisateur.nom.trim();
+    // Using username/seed from existing data; first/last name not required here.
 
     // Liste de seeds prédéfinis pour des avatars variés et rapides
     final List<String> predefinedSeeds = [
-      'Ava', 'Bella', 'Charlie', 'Diana', 'Emma', 'Felix', 'Grace', 'Henry',
-      'Iris', 'Jack', 'Kate', 'Luna', 'Max', 'Nora', 'Oscar', 'Penny',
-      'Quinn', 'Ruby', 'Sam', 'Tina', 'Uma', 'Victor', 'Wendy', 'Xander',
-      'Yara', 'Zoe', 'Alex', 'Ben', 'Cora', 'Drew', 'Eve', 'Finn',
+      'Ava',
+      'Bella',
+      'Charlie',
+      'Diana',
+      'Emma',
+      'Felix',
+      'Grace',
+      'Henry',
+      'Iris',
+      'Jack',
+      'Kate',
+      'Luna',
+      'Max',
+      'Nora',
+      'Oscar',
+      'Penny',
+      'Quinn',
+      'Ruby',
+      'Sam',
+      'Tina',
+      'Uma',
+      'Victor',
+      'Wendy',
+      'Xander',
+      'Yara',
+      'Zoe',
+      'Alex',
+      'Ben',
+      'Cora',
+      'Drew',
+      'Eve',
+      'Finn',
     ];
 
     final chosenSeed = await showDialog<String>(
@@ -215,78 +280,85 @@ class _ProfilScreenState extends State<ProfilScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-        return AlertDialog(
+            return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-          title: const Text('Choisir un avatar'),
-          content: SizedBox(
-            width: double.maxFinite,
+              title: const Text('Choisir un avatar'),
+              content: SizedBox(
+                width: double.maxFinite,
                 height: MediaQuery.of(context).size.height * 0.6,
-            child: GridView.builder(
-              shrinkWrap: true,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1,
-              ),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
                   itemCount: predefinedSeeds.length,
-              itemBuilder: (c, index) {
+                  itemBuilder: (c, index) {
                     final seed = predefinedSeeds[index];
                     // Utiliser une taille plus petite (128 au lieu de 256) pour charger plus rapidement
-                final url =
+                    final url =
                         'https://api.dicebear.com/6.x/adventurer/png?seed=${Uri.encodeComponent(seed)}&size=128';
-                return GestureDetector(
-                  onTap: () => Navigator.of(ctx).pop(seed),
+                    return GestureDetector(
+                      onTap: () => Navigator.of(ctx).pop(seed),
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey[300]!, width: 1),
+                          border: Border.all(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
                         ),
-                  child: ClipOval(
-                    child: Image.network(
-                      url,
+                        child: ClipOval(
+                          child: Image.network(
+                            url,
                             width: 80,
                             height: 80,
-                      fit: BoxFit.cover,
+                            fit: BoxFit.cover,
                             cacheWidth: 128, // Cache avec résolution optimisée
                             cacheHeight: 128,
-                      loadingBuilder: (ctx, child, progress) {
-                        if (progress == null) return child;
+                            loadingBuilder: (ctx, child, progress) {
+                              if (progress == null) return child;
                               final value = progress.expectedTotalBytes != null
                                   ? progress.cumulativeBytesLoaded /
-                                      progress.expectedTotalBytes!
+                                        progress.expectedTotalBytes!
                                   : null;
-                        return Container(
+                              return Container(
                                 width: 80,
                                 height: 80,
-                          alignment: Alignment.center,
+                                alignment: Alignment.center,
                                 child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                                  strokeWidth: 2,
                                   value: value,
-                          ),
-                        );
-                      },
-                      errorBuilder: (ctx, err, st) => Container(
+                                ),
+                              );
+                            },
+                            errorBuilder: (ctx, err, st) => Container(
                               width: 80,
                               height: 80,
                               color: Colors.grey[200],
-                              child: const Icon(Icons.person, size: 32, color: Colors.grey),
+                              child: const Icon(
+                                Icons.person,
+                                size: 32,
+                                color: Colors.grey,
+                              ),
                             ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: const Text('Annuler'),
-            ),
-          ],
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: const Text('Annuler'),
+                ),
+              ],
             );
           },
         );
@@ -317,668 +389,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     }
   }
 
-  Future<void> _showAvatarCustomizer() async {
-    // Options de personnalisation disponibles pour avataaars v7
-    // IMPORTANT: Pour v7, utiliser camelCase minuscule (première lettre minuscule)
-    // Liste réduite pour éviter la limite de requêtes (429)
-    final topTypes = [
-      'noHair', 'shortHairShortFlat', 'shortHairShortRound', 'shortHairShortCurly',
-      'shortHairFrizzle', 'shortHairShaggyMullet', 'shortHairShortWaved', 'shortHairSides',
-      'shortHairTheCaesar', 'shortHairTheCaesarSidePart', 'longHairBob', 'longHairBun',
-      'longHairCurly', 'longHairCurvy', 'longHairDreads', 'longHairFrida',
-      'longHairFro', 'longHairFroBand', 'longHairNotTooLong', 'longHairMiaWallace',
-      'longHairStraight', 'longHairStraight2', 'longHairStraightStrand', 'eyepatch',
-      'hat', 'hijab', 'turban', 'winterHat1', 'winterHat2', 'winterHat3', 'winterHat4'
-    ];
-    
-    final hairColors = ['auburn', 'black', 'blonde', 'blondeGolden', 'brown', 'brownDark', 'platinum', 'red', 'silverGray'];
-    
-    final accessoriesTypes = ['blank', 'kurt', 'prescription01', 'prescription02', 'round', 'sunglasses', 'wayfarers'];
-    
-    final facialHairTypes = ['blank', 'beardMedium', 'beardLight', 'beardMagestic', 'moustacheFancy', 'moustacheMagnum'];
-    
-    final facialHairColors = ['auburn', 'black', 'blonde', 'blondeGolden', 'brown', 'brownDark', 'platinum', 'red'];
-    
-    final clotheTypes = ['blazerShirt', 'blazerSweater', 'collarSweater', 'graphicShirt', 'hoodie', 'overall', 'shirtCrewNeck', 'shirtScoopNeck', 'shirtVNeck'];
-    
-    final clotheColors = ['black', 'blue01', 'blue02', 'blue03', 'gray01', 'gray02', 'heather', 'pastelBlue', 'pastelGreen', 'pastelOrange', 'pastelRed', 'pastelYellow', 'pink', 'red', 'white'];
-    
-    final eyeTypes = ['close', 'cry', 'default', 'dizzy', 'eyeRoll', 'happy', 'hearts', 'side', 'squint', 'surprised', 'wink', 'winkWacky'];
-    
-    final eyebrowTypes = ['angry', 'angryNatural', 'default', 'defaultNatural', 'flatNatural', 'raisedExcited', 'raisedExcitedNatural', 'sadConcerned', 'sadConcernedNatural', 'unibrowNatural', 'upDown', 'upDownNatural'];
-    
-    final mouthTypes = ['concerned', 'default', 'disbelief', 'eating', 'grimace', 'sad', 'screamOpen', 'serious', 'smile', 'tongue', 'twinkle', 'vomit'];
-    
-    final skinColors = ['tanned', 'yellow', 'pale', 'light', 'brown', 'darkBrown', 'black'];
-
-    // Valeurs par défaut (camelCase minuscule pour v7)
-    String selectedTop = 'shortHairShortFlat';
-    String selectedHairColor = 'brown';
-    String selectedAccessories = 'blank';
-    String selectedFacialHair = 'blank';
-    String selectedFacialHairColor = 'brown';
-    String selectedClothe = 'shirtCrewNeck';
-    String selectedClotheColor = 'blue01';
-    String selectedEye = 'default';
-    String selectedEyebrow = 'default';
-    String selectedMouth = 'smile';
-    String selectedSkinColor = 'light';
-
-    final seed = '${widget.utilisateur.prenom}${widget.utilisateur.nom}${DateTime.now().millisecondsSinceEpoch}';
-
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            // Fonction pour obtenir toutes les options avec leurs valeurs actuelles
-            Map<String, String> getAllOptions() {
-              final options = <String, String>{};
-              // Toujours inclure toutes les options avec leurs valeurs actuelles
-              if (selectedTop != 'noHair') {
-                options['topType'] = selectedTop;
-                options['hairColor'] = selectedHairColor;
-              }
-              if (selectedAccessories != 'blank') {
-                options['accessoriesType'] = selectedAccessories;
-              }
-              if (selectedFacialHair != 'blank') {
-                options['facialHairType'] = selectedFacialHair;
-                options['facialHairColor'] = selectedFacialHairColor;
-              }
-              // Options toujours présentes
-              options['clotheType'] = selectedClothe;
-              options['clotheColor'] = selectedClotheColor;
-              options['eyeType'] = selectedEye;
-              options['eyebrowType'] = selectedEyebrow;
-              options['mouthType'] = selectedMouth;
-              options['skinColor'] = selectedSkinColor;
-              return options;
-            }
-            
-            Map<String, String> buildAvatarOptions() {
-              return getAllOptions();
-            }
-
-            String buildAvatarUrl() {
-              final opts = buildAvatarOptions();
-              // Utiliser l'API v7 avec PNG (Flutter ne supporte pas SVG nativement)
-              String url = 'https://api.dicebear.com/7.x/avataaars/png?seed=${Uri.encodeComponent(seed)}&size=200';
-              final validParams = opts.entries
-                  .where((e) => 
-                      e.value != 'blank' &&
-                      e.value != 'noHair' &&
-                      e.value.isNotEmpty)
-                  .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-                  .toList();
-              if (validParams.isNotEmpty) {
-                url += '&${validParams.join('&')}';
-              }
-              debugPrint('Avatar preview URL: $url');
-              return url;
-            }
-
-            return Dialog(
-              insetPadding: const EdgeInsets.all(16),
-              child: Container(
-                width: double.maxFinite,
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.9,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit, color: Colors.white),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'Personnaliser votre avatar',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.of(ctx).pop(null),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Preview
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      color: Colors.grey[100],
-                      child: Center(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey[300]!, width: 2),
-                          ),
-                          child: ClipOval(
-                            child: Image.network(
-                              buildAvatarUrl(),
-                              width: 150,
-                              height: 150,
-                              fit: BoxFit.cover,
-                              cacheWidth: 200,
-                              cacheHeight: 200,
-                              key: ValueKey(buildAvatarUrl()), // Force refresh quand l'URL change
-                              loadingBuilder: (ctx, child, progress) {
-                                if (progress == null) return child;
-                                return Container(
-                                  width: 150,
-                                  height: 150,
-                                  alignment: Alignment.center,
-                                  child: const CircularProgressIndicator(),
-                                );
-                              },
-                              errorBuilder: (ctx, err, st) => Container(
-                                width: 150,
-                                height: 150,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.error, size: 50),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Options scrollables
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildOptionSection(
-                              'Cheveux',
-                              selectedTop,
-                              topTypes,
-                              (value) => setDialogState(() => selectedTop = value),
-                              setDialogState,
-                              optionType: 'topType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            if (selectedTop != 'noHair' && 
-                                selectedTop != 'eyepatch' && 
-                                selectedTop != 'hat' && 
-                                selectedTop != 'hijab' && 
-                                selectedTop != 'turban' && 
-                                !selectedTop.startsWith('winterHat'))
-                              _buildOptionSection(
-                                'Couleur des cheveux',
-                                selectedHairColor,
-                                hairColors,
-                                (value) => setDialogState(() => selectedHairColor = value),
-                                setDialogState,
-                                optionType: 'hairColor',
-                                seed: seed,
-                                getAllOptions: getAllOptions,
-                              ),
-                            _buildOptionSection(
-                              'Lunettes / Accessoires',
-                              selectedAccessories,
-                              accessoriesTypes,
-                              (value) => setDialogState(() => selectedAccessories = value),
-                              setDialogState,
-                              optionType: 'accessoriesType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            _buildOptionSection(
-                              'Barbe / Moustache',
-                              selectedFacialHair,
-                              facialHairTypes,
-                              (value) => setDialogState(() => selectedFacialHair = value),
-                              setDialogState,
-                              optionType: 'facialHairType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            if (selectedFacialHair != 'blank')
-                              _buildOptionSection(
-                                'Couleur barbe/moustache',
-                                selectedFacialHairColor,
-                                facialHairColors,
-                                (value) => setDialogState(() => selectedFacialHairColor = value),
-                                setDialogState,
-                                optionType: 'facialHairColor',
-                                seed: seed,
-                                getAllOptions: getAllOptions,
-                              ),
-                            _buildOptionSection(
-                              'Vêtements',
-                              selectedClothe,
-                              clotheTypes,
-                              (value) => setDialogState(() => selectedClothe = value),
-                              setDialogState,
-                              optionType: 'clotheType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            _buildOptionSection(
-                              'Couleur vêtements',
-                              selectedClotheColor,
-                              clotheColors,
-                              (value) => setDialogState(() => selectedClotheColor = value),
-                              setDialogState,
-                              optionType: 'clotheColor',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            _buildOptionSection(
-                              'Yeux',
-                              selectedEye,
-                              eyeTypes,
-                              (value) => setDialogState(() => selectedEye = value),
-                              setDialogState,
-                              optionType: 'eyeType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            _buildOptionSection(
-                              'Sourcils',
-                              selectedEyebrow,
-                              eyebrowTypes,
-                              (value) => setDialogState(() => selectedEyebrow = value),
-                              setDialogState,
-                              optionType: 'eyebrowType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            _buildOptionSection(
-                              'Bouche',
-                              selectedMouth,
-                              mouthTypes,
-                              (value) => setDialogState(() => selectedMouth = value),
-                              setDialogState,
-                              optionType: 'mouthType',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                            _buildOptionSection(
-                              'Couleur de peau',
-                              selectedSkinColor,
-                              skinColors,
-                              (value) => setDialogState(() => selectedSkinColor = value),
-                              setDialogState,
-                              optionType: 'skinColor',
-                              seed: seed,
-                              getAllOptions: getAllOptions,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Actions
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border(top: BorderSide(color: Colors.grey[300]!)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(null),
-                            child: const Text('Annuler'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () => Navigator.of(ctx).pop(buildAvatarOptions()),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            ),
-                            child: const Text('Valider'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (result == null || result.isEmpty) return;
-
-    try {
-      setState(() => _isLoading = true);
-      final localPath = await _downloadDiceBearAvatar(seed, options: result);
-      setState(() {
-        widget.utilisateur.avatarPath = localPath;
-        widget.utilisateur.avatarInitials = null;
-        widget.utilisateur.avatarColor = null;
-      });
-      await _userService.modifierUtilisateur(widget.utilisateur);
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Avatar personnalisé mis à jour')),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur en téléchargeant l\'avatar: $e')),
-        );
-      }
-    }
-  }
-
-  Widget _buildOptionSection(
-    String title,
-    String selectedValue,
-    List<String> options,
-    Function(String) onChanged,
-    StateSetter setState, {
-    String? optionType,
-    Map<String, String>? currentOptions,
-    String? seed,
-    Map<String, String>? allSelectedOptions,
-    required Map<String, String> Function() getAllOptions,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 100,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: options.length,
-              cacheExtent: 200,
-              itemBuilder: (context, index) {
-                final option = options[index];
-                final isSelected = selectedValue == option;
-                
-                // Construire l'URL de prévisualisation pour cette option
-                // Utiliser une seed simplifiée pour le cache
-                final optionSeed = 'prev_$option';
-                
-                // Obtenir toutes les options actuelles
-                final previewOptions = Map<String, String>.from(getAllOptions());
-                
-                // Remplacer uniquement l'option en cours de prévisualisation
-                if (optionType != null) {
-                  if (optionType == 'topType') {
-                    if (option == 'noHair') {
-                      previewOptions.remove('topType');
-                      previewOptions.remove('hairColor');
-                    } else {
-                      previewOptions['topType'] = option;
-                      if (!previewOptions.containsKey('hairColor')) {
-                        previewOptions['hairColor'] = 'brown';
-                      }
-                    }
-                  } else if (optionType == 'hairColor') {
-                    previewOptions['hairColor'] = option;
-                    if (!previewOptions.containsKey('topType')) {
-                      previewOptions['topType'] = 'shortHairShortFlat';
-                    }
-                  } else if (optionType == 'accessoriesType') {
-                    if (option == 'blank') {
-                      previewOptions.remove('accessoriesType');
-                    } else {
-                      previewOptions['accessoriesType'] = option;
-                    }
-                  } else if (optionType == 'facialHairType') {
-                    if (option == 'blank') {
-                      previewOptions.remove('facialHairType');
-                      previewOptions.remove('facialHairColor');
-                    } else {
-                      previewOptions['facialHairType'] = option;
-                      if (!previewOptions.containsKey('facialHairColor')) {
-                        previewOptions['facialHairColor'] = 'brown';
-                      }
-                    }
-                  } else if (optionType == 'facialHairColor') {
-                    previewOptions['facialHairColor'] = option;
-                    if (!previewOptions.containsKey('facialHairType')) {
-                      previewOptions['facialHairType'] = 'beardMedium';
-                    }
-                  } else {
-                    previewOptions[optionType] = option;
-                  }
-                }
-                
-                // S'assurer d'avoir les options de base
-                if (!previewOptions.containsKey('clotheType')) previewOptions['clotheType'] = 'shirtCrewNeck';
-                if (!previewOptions.containsKey('clotheColor')) previewOptions['clotheColor'] = 'blue01';
-                if (!previewOptions.containsKey('eyeType')) previewOptions['eyeType'] = 'default';
-                if (!previewOptions.containsKey('eyebrowType')) previewOptions['eyebrowType'] = 'default';
-                if (!previewOptions.containsKey('mouthType')) previewOptions['mouthType'] = 'smile';
-                if (!previewOptions.containsKey('skinColor')) previewOptions['skinColor'] = 'light';
-                
-                // Construire l'URL - utiliser l'API v7 avec PNG (Flutter ne supporte pas SVG nativement)
-                String previewUrl = 'https://api.dicebear.com/7.x/avataaars/png?seed=${Uri.encodeComponent(optionSeed)}&size=100';
-                
-                // Construire les paramètres pour v7 (format camelCase minuscule)
-                final params = <String>[];
-                for (final entry in previewOptions.entries) {
-                  final value = entry.value;
-                  if (value != 'blank' && 
-                      value != 'noHair' &&
-                      value.isNotEmpty) {
-                    // Pour v7, utiliser le format correct
-                    params.add('${entry.key}=${Uri.encodeComponent(value)}');
-                  }
-                }
-                
-                if (params.isNotEmpty) {
-                  previewUrl += '&${params.join('&')}';
-                }
-                
-                // Debug: afficher l'URL pour les premiers éléments
-                if (index < 3) {
-                  debugPrint('Preview URL [$index]: $previewUrl');
-                }
-                
-                return GestureDetector(
-                  onTap: () {
-                    onChanged(option);
-                    setState(() {});
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected 
-                          ? Theme.of(context).primaryColor 
-                          : Colors.grey[300]!,
-                        width: isSelected ? 3 : 1,
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        ClipOval(
-                          child: Image.network(
-                            previewUrl,
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            cacheWidth: 100,
-                            cacheHeight: 100,
-                            key: ValueKey('$optionType$option${previewUrl.hashCode}'),
-                            loadingBuilder: (ctx, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
-                                width: 80,
-                                height: 80,
-                                color: Colors.grey[200],
-                                alignment: Alignment.center,
-                                child: const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              );
-                            },
-                            errorBuilder: (ctx, err, st) {
-                              // Debug: afficher l'erreur
-                              debugPrint('Erreur chargement preview [$optionType][$option]: $err');
-                              debugPrint('URL: $previewUrl');
-                              return Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.person, size: 40, color: Colors.grey),
-                              );
-                            },
-                          ),
-                        ),
-                        if (isSelected)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                              padding: const EdgeInsets.all(4),
-                              child: const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatOptionName(String option) {
-    // Convertir camelCase en texte lisible avec traductions
-    final translations = {
-      'noHair': 'Sans cheveux',
-      'blank': 'Aucun',
-      'default': 'Par défaut',
-      'defaultNatural': 'Naturel par défaut',
-      'smile': 'Sourire',
-      'happy': 'Heureux',
-      'sad': 'Triste',
-      'angry': 'En colère',
-      'concerned': 'Inquiet',
-      'disbelief': 'Incrédulité',
-      'eating': 'Mange',
-      'grimace': 'Grimace',
-      'screamOpen': 'Crie',
-      'serious': 'Sérieux',
-      'tongue': 'Langue',
-      'twinkle': 'Pétille',
-      'vomit': 'Vomit',
-      'close': 'Fermé',
-      'cry': 'Pleure',
-      'dizzy': 'Étourdi',
-      'eyeRoll': 'Yeux qui roulent',
-      'hearts': 'Cœurs',
-      'side': 'Sur le côté',
-      'squint': 'Plisse',
-      'surprised': 'Surpris',
-      'wink': 'Clin d\'œil',
-      'winkWacky': 'Clin d\'œil fou',
-      'prescription01': 'Lunettes 1',
-      'prescription02': 'Lunettes 2',
-      'round': 'Rondes',
-      'sunglasses': 'Lunettes de soleil',
-      'wayfarers': 'Wayfarer',
-      'kurt': 'Kurt',
-      'beardMedium': 'Barbe moyenne',
-      'beardLight': 'Barbe légère',
-      'beardMagestic': 'Barbe majestueuse',
-      'moustacheFancy': 'Moustache élégante',
-      'moustacheMagnum': 'Moustache magnum',
-      // Couleurs
-      'auburn': 'Auburn',
-      'black': 'Noir',
-      'blonde': 'Blond',
-      'blondeGolden': 'Blond doré',
-      'brown': 'Brun',
-      'brownDark': 'Brun foncé',
-      'platinum': 'Platine',
-      'red': 'Rouge',
-      'silverGray': 'Gris argenté',
-      // Couleurs de vêtements
-      'blue01': 'Bleu 1',
-      'blue02': 'Bleu 2',
-      'blue03': 'Bleu 3',
-      'gray01': 'Gris 1',
-      'gray02': 'Gris 2',
-      'heather': 'Heather',
-      'pastelBlue': 'Bleu pastel',
-      'pastelGreen': 'Vert pastel',
-      'pastelOrange': 'Orange pastel',
-      'pastelRed': 'Rouge pastel',
-      'pastelYellow': 'Jaune pastel',
-      'pink': 'Rose',
-      'white': 'Blanc',
-      // Couleurs de peau
-      'tanned': 'Bronzé',
-      'yellow': 'Jaune',
-      'pale': 'Pâle',
-      'light': 'Clair',
-      'darkBrown': 'Brun foncé',
-    };
-    
-    if (translations.containsKey(option)) {
-      return translations[option]!;
-    }
-    
-    // Convertir camelCase en texte lisible
-    String formatted = option
-        .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (match) => '${match.group(1)} ${match.group(2)}')
-        .toLowerCase();
-    
-    // Capitaliser la première lettre
-    if (formatted.isNotEmpty) {
-      formatted = formatted[0].toUpperCase() + formatted.substring(1);
-    }
-    
-    return formatted;
-  }
+  // Bitmoji flow removed: using Bitmoji assets without Snap login is not supported by Snap.
 
   Future<void> _deleteAvatar() async {
     final currentPath = widget.utilisateur.avatarPath;
@@ -1035,17 +446,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
             key: formKey,
             child: SingleChildScrollView(
               child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   TextFormField(
-              controller: oldCtrl,
+                    controller: oldCtrl,
                     obscureText: obscureOld,
                     decoration: InputDecoration(
-                labelText: 'Ancien mot de passe',
+                      labelText: 'Ancien mot de passe',
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
-                        icon: Icon(obscureOld ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setDialogState(() => obscureOld = !obscureOld),
+                        icon: Icon(
+                          obscureOld ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => obscureOld = !obscureOld),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -1055,18 +469,22 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           ? Colors.grey[800]
                           : Colors.grey[50],
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Requis' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-              controller: newCtrl,
+                    controller: newCtrl,
                     obscureText: obscureNew,
                     decoration: InputDecoration(
-                labelText: 'Nouveau mot de passe',
+                      labelText: 'Nouveau mot de passe',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(obscureNew ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                        icon: Icon(
+                          obscureNew ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => obscureNew = !obscureNew),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -1085,14 +503,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-              controller: confirmCtrl,
+                    controller: confirmCtrl,
                     obscureText: obscureConfirm,
                     decoration: InputDecoration(
-                labelText: 'Confirmer le mot de passe',
+                      labelText: 'Confirmer le mot de passe',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(obscureConfirm ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                        icon: Icon(
+                          obscureConfirm
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () => setDialogState(
+                          () => obscureConfirm = !obscureConfirm,
+                        ),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -1104,33 +528,34 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ),
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Requis';
-                      if (v != newCtrl.text) return 'Les mots de passe ne correspondent pas';
+                      if (v != newCtrl.text)
+                        return 'Les mots de passe ne correspondent pas';
                       return null;
                     },
                   ),
                 ],
               ),
             ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler'),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
             ElevatedButton(
-            onPressed: () {
+              onPressed: () {
                 if (formKey.currentState!.validate()) {
-              Navigator.of(ctx).pop(true);
+                  Navigator.of(ctx).pop(true);
                 }
-            },
+              },
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-            child: const Text('Valider'),
-          ),
-        ],
+              child: const Text('Valider'),
+            ),
+          ],
         ),
       ),
     );
@@ -1201,14 +626,58 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mon profil'),
+        title: Text(AppLocalizations.of(context)?.profileTitle ?? 'Mon profil'),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip:
+                AppLocalizations.of(context)?.logoutTooltip ?? 'Déconnexion',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Se déconnecter ?'),
+                  content: const Text(
+                    'Vous allez être déconnecté de votre session.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Annuler'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Déconnexion'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                // Sign out any social sessions (Google)
+                try {
+                  await SocialAuthService().signOutGoogle();
+                } catch (_) {}
+                // Clear persisted session
+                try {
+                  await SessionService().clear();
+                } catch (_) {}
+                if (!context.mounted) return;
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.login,
+                  (r) => false,
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Form(
-          key: _formKey,
-          child: SingleChildScrollView(
+              key: _formKey,
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1238,7 +707,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withOpacity(0.7)],
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withOpacity(0.7),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1292,10 +764,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 3),
           ),
-          child: CircleAvatar(
-            radius: 35,
-            backgroundImage: FileImage(file),
-          ),
+          child: CircleAvatar(radius: 35, backgroundImage: FileImage(file)),
         );
       }
     }
@@ -1356,7 +825,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.person_outline, color: Theme.of(context).primaryColor),
+                Icon(
+                  Icons.person_outline,
+                  color: Theme.of(context).primaryColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Informations personnelles',
@@ -1367,8 +839,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ],
             ),
             const Divider(height: 24),
-                TextFormField(
-                  controller: _nomController,
+            TextFormField(
+              controller: _nomController,
               decoration: InputDecoration(
                 labelText: 'Nom',
                 prefixIcon: const Icon(Icons.badge_outlined),
@@ -1380,12 +852,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ? Colors.grey[800]
                     : Colors.grey[50],
               ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requis' : null,
-                ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
             const SizedBox(height: 16),
-                TextFormField(
-                  controller: _prenomController,
+            TextFormField(
+              controller: _prenomController,
               decoration: InputDecoration(
                 labelText: 'Prénom',
                 prefixIcon: const Icon(Icons.account_circle_outlined),
@@ -1397,12 +869,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ? Colors.grey[800]
                     : Colors.grey[50],
               ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requis' : null,
-                ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
             const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
+            TextFormField(
+              controller: _emailController,
               decoration: InputDecoration(
                 labelText: 'Email',
                 prefixIcon: const Icon(Icons.email_outlined),
@@ -1414,8 +886,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ? Colors.grey[800]
                     : Colors.grey[50],
               ),
-                  readOnly: true,
-                ),
+              readOnly: true,
+            ),
           ],
         ),
       ),
@@ -1431,9 +903,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-                Row(
-                  children: [
-                Icon(Icons.photo_camera_outlined, color: Theme.of(context).primaryColor),
+            Row(
+              children: [
+                Icon(
+                  Icons.photo_camera_outlined,
+                  color: Theme.of(context).primaryColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Photo de profil',
@@ -1444,64 +919,82 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ],
             ),
             const Divider(height: 24),
-            Center(
-              child: _buildAvatar(),
-            ),
+            Center(child: _buildAvatar()),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _pickImage,
-                  icon: const Icon(Icons.photo_library, size: 18),
-                  label: const Text('Galerie'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 8.0;
+                final maxWidth = constraints.maxWidth;
+                // Try 3 per row first; if too tight, fall back to 2; else full width
+                double itemWidth = (maxWidth - spacing * 2) / 3;
+                if (itemWidth < 120) {
+                  itemWidth = (maxWidth - spacing) / 2; // 2 per row
+                  if (itemWidth < 140) {
+                    itemWidth = maxWidth; // 1 per row on very small screens
+                  }
+                }
+
+                ButtonStyle primaryBtnStyle = ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+
+                final buttons = <Widget>[
+                  SizedBox(
+                    width: itemWidth,
+                    child: ElevatedButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.photo_library, size: 18),
+                      label: const Text('Galerie'),
+                      style: primaryBtnStyle,
                     ),
                   ),
-                ),
-                        ElevatedButton.icon(
-                          onPressed: _showAvatarPicker,
-                  icon: const Icon(Icons.grid_view, size: 18),
-                  label: const Text('Avatars'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  SizedBox(
+                    width: itemWidth,
+                    child: ElevatedButton.icon(
+                      onPressed: _showAvatarPicker,
+                      icon: const Icon(Icons.grid_view, size: 18),
+                      label: const Text('Avatars'),
+                      style: primaryBtnStyle,
                     ),
                   ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _showAvatarCustomizer,
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: const Text('Personnaliser'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                OutlinedButton.icon(
-                          onPressed: _deleteAvatar,
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Supprimer'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    side: const BorderSide(color: Colors.red),
-                          ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: OutlinedButton.icon(
+                      onPressed: _deleteAvatar,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Supprimer'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
-                      ],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        side: const BorderSide(color: Colors.red),
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ];
+
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  alignment: WrapAlignment.center,
+                  children: buttons,
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1513,7 +1006,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
         final currentTheme = snapshot.data ?? ThemeMode.system;
         return Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -1522,11 +1017,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 Row(
                   children: [
                     Icon(
-                      currentTheme == ThemeMode.dark 
-                          ? Icons.dark_mode 
+                      currentTheme == ThemeMode.dark
+                          ? Icons.dark_mode
                           : currentTheme == ThemeMode.light
-                              ? Icons.light_mode
-                              : Icons.brightness_auto,
+                          ? Icons.light_mode
+                          : Icons.brightness_auto,
                       color: Theme.of(context).primaryColor,
                     ),
                     const SizedBox(width: 12),
@@ -1582,20 +1077,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark
-                  ? Colors.grey[700]!
-                  : Theme.of(context).primaryColor.withOpacity(0.2))
-              : (isDark
-                  ? Colors.grey[800]
-                  : Colors.transparent),
+                    ? Colors.grey[700]!
+                    : Theme.of(context).primaryColor.withOpacity(0.2))
+              : (isDark ? Colors.grey[800] : Colors.transparent),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? (isDark
-                    ? Colors.white
-                    : Theme.of(context).primaryColor)
-                : (isDark
-                    ? Colors.grey[600]!
-                    : Colors.grey[300]!),
+                ? (isDark ? Colors.white : Theme.of(context).primaryColor)
+                : (isDark ? Colors.grey[600]! : Colors.grey[300]!),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1604,12 +1093,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
             Icon(
               icon,
               color: isSelected
-                  ? (isDark
-                      ? Colors.white
-                      : Theme.of(context).primaryColor)
-                  : (isDark
-                      ? Colors.grey[300]!
-                      : Colors.grey[600]!),
+                  ? (isDark ? Colors.white : Theme.of(context).primaryColor)
+                  : (isDark ? Colors.grey[300]! : Colors.grey[600]!),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1620,9 +1105,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   color: isSelected
                       ? (isDark ? Colors.white : Theme.of(context).primaryColor)
-                      : (isDark
-                          ? Colors.white
-                          : null),
+                      : (isDark ? Colors.white : null),
                 ),
               ),
             ),
@@ -1646,7 +1129,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Thème changé en ${mode == ThemeMode.light ? 'clair' : mode == ThemeMode.dark ? 'sombre' : 'système'}',
+            'Thème changé en ${mode == ThemeMode.light
+                ? 'clair'
+                : mode == ThemeMode.dark
+                ? 'sombre'
+                : 'système'}',
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -1665,7 +1152,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.security_outlined, color: Theme.of(context).primaryColor),
+                Icon(
+                  Icons.security_outlined,
+                  color: Theme.of(context).primaryColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Sécurité',
@@ -1680,7 +1170,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.lock_outline),
               title: const Text('Changer le mot de passe'),
-              subtitle: const Text('Mettez à jour votre mot de passe pour sécuriser votre compte'),
+              subtitle: const Text(
+                'Mettez à jour votre mot de passe pour sécuriser votre compte',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: _isLoading ? null : _changePassword,
               shape: RoundedRectangleBorder(
@@ -1695,9 +1187,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   Widget _buildSaveButton() {
     return SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _saveProfile,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _saveProfile,
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -1705,15 +1197,22 @@ class _ProfilScreenState extends State<ProfilScreen> {
           ),
           elevation: 2,
         ),
-                    child: _isLoading
+        child: _isLoading
             ? const SizedBox(
                 height: 20,
                 width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
               )
-            : const Text(
-                'Enregistrer les modifications',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            : Text(
+                AppLocalizations.of(context)?.saveChanges ??
+                    'Enregistrer les modifications',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
       ),
     );
@@ -1727,8 +1226,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isDark ? Colors.red[700]! : Colors.red[200]!, 
-          width: 1
+          color: isDark ? Colors.red[700]! : Colors.red[200]!,
+          width: 1,
         ),
       ),
       child: Padding(
@@ -1739,8 +1238,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.warning_amber_rounded, 
-                  color: isDark ? Colors.red[400] : Colors.red[700]
+                  Icons.warning_amber_rounded,
+                  color: isDark ? Colors.red[400] : Colors.red[700],
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -1752,8 +1251,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   ),
                 ),
               ],
-                ),
-                const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
             Text(
               'La suppression de votre compte est irréversible. Toutes vos données seront définitivement supprimées.',
               style: TextStyle(
@@ -1762,29 +1261,30 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 height: 1.4,
               ),
             ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
               child: OutlinedButton(
-                    onPressed: _isLoading ? null : _deleteAccount,
+                onPressed: _isLoading ? null : _deleteAccount,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   side: BorderSide(
-                    color: isDark ? Colors.red[400]! : Colors.red[700]!
+                    color: isDark ? Colors.red[400]! : Colors.red[700]!,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                    child: Text(
+                child: Text(
+                  AppLocalizations.of(context)?.deleteMyAccount ??
                       'Supprimer mon compte',
-                      style: TextStyle(
-                        color: isDark ? Colors.red[400] : Colors.red,
-                      ),
-                    ),
+                  style: TextStyle(
+                    color: isDark ? Colors.red[400] : Colors.red,
                   ),
                 ),
-              ],
+              ),
+            ),
+          ],
         ),
       ),
     );

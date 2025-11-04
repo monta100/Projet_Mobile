@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../Screens/login_screen.dart';
 import '../Screens/register_screen.dart';
-import '../Screens/home_screen.dart';
 import '../Screens/home_user_screen.dart';
 import '../Screens/nouveau_objectif_screen.dart';
 import '../Screens/mes_objectifs_screen.dart';
 import '../Screens/profil_screen.dart';
 import '../Screens/test_database_screen.dart';
 import '../Entites/utilisateur.dart';
+import '../Screens/forgot_password_screen.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -17,6 +17,7 @@ class AppRoutes {
   static const String objectifs = '/objectifs';
   static const String objectifsNouveau = '/objectifs/nouveau';
   static const String testDatabase = '/test-database';
+  static const String forgotPassword = '/forgot-password';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -78,6 +79,7 @@ class AppRoutes {
         return const LoginScreen();
       },
       testDatabase: (context) => const TestDatabaseScreen(),
+      forgotPassword: (context) => const ForgotPasswordScreen(),
     };
   }
 
@@ -152,6 +154,11 @@ class AppRoutes {
       case testDatabase:
         return MaterialPageRoute(
           builder: (context) => const TestDatabaseScreen(),
+        );
+
+      case forgotPassword:
+        return MaterialPageRoute(
+          builder: (context) => const ForgotPasswordScreen(),
         );
 
       default:

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../Services/user_service.dart';
+import '../Theme/app_colors.dart';
 import 'verification_screen.dart';
 import '../Entites/utilisateur.dart';
+import '../l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -92,8 +94,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(title: const Text('Inscription'), centerTitle: true),
+      appBar: AppBar(
+        title: Text(
+          AppLocalizations.of(context)?.appBarRegister ?? 'Inscription',
+        ),
+        centerTitle: true,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -105,7 +113,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // Titre
                 Text(
-                  'Créer un compte',
+                  AppLocalizations.of(context)?.registerTitle ??
+                      'Créer un compte',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -246,12 +255,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark
+                          ? AppColors.primaryColor
+                          : Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
                     onPressed: _isLoading ? null : _register,
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'S\'inscrire',
-                            style: TextStyle(fontSize: 16),
+                        : Text(
+                            AppLocalizations.of(context)?.signUp ??
+                                'S\'inscrire',
+                            style: const TextStyle(fontSize: 16),
                           ),
                   ),
                 ),
@@ -262,7 +278,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  child: const Text('Déjà un compte ? Se connecter'),
+                  child: Text(
+                    AppLocalizations.of(context)?.alreadyHaveAccountLogin ??
+                        'Déjà un compte ? Se connecter',
+                  ),
                 ),
               ],
             ),

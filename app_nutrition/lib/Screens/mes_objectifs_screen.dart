@@ -4,6 +4,7 @@ import '../Entites/utilisateur.dart';
 import '../Services/objectif_service.dart';
 import '../Routs/app_routes.dart';
 import 'nouveau_objectif_screen.dart';
+import '../l10n/app_localizations.dart';
 
 class MesObjectifsScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -25,7 +26,12 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes objectifs'), centerTitle: true),
+      appBar: AppBar(
+        title: Text(
+          AppLocalizations.of(context)?.myObjectivesTitle ?? 'Mes objectifs',
+        ),
+        centerTitle: true,
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.pushNamed(
@@ -62,12 +68,14 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Aucun objectif',
+                      AppLocalizations.of(context)?.noObjectiveTitle ??
+                          'Aucun objectif',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Appuyez sur + pour en créer un.',
+                      AppLocalizations.of(context)?.tapPlusToCreate ??
+                          'Appuyez sur + pour en créer un.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -94,7 +102,9 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Cible: ${obj.valeurCible}'),
+                          Text(
+                            '${AppLocalizations.of(context)?.targetLabel ?? 'Cible'}: ${obj.valeurCible}',
+                          ),
                           const SizedBox(height: 6),
                           LinearProgressIndicator(
                             value: percent,
@@ -102,7 +112,7 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Date limite: ${obj.dateFixee.day}/${obj.dateFixee.month}/${obj.dateFixee.year}',
+                            '${AppLocalizations.of(context)?.deadlineColonLabel ?? 'Date limite:'} ${obj.dateFixee.day}/${obj.dateFixee.month}/${obj.dateFixee.year}',
                           ),
                         ],
                       ),
@@ -125,20 +135,34 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
                             final confirmed = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: const Text('Supprimer l\'objectif'),
-                                content: const Text(
-                                  'Voulez-vous supprimer cet objectif ?',
+                                title: Text(
+                                  AppLocalizations.of(
+                                        context,
+                                      )?.deleteObjectiveTitle ??
+                                      'Supprimer l\'objectif',
+                                ),
+                                content: Text(
+                                  AppLocalizations.of(
+                                        context,
+                                      )?.deleteObjectiveConfirm(obj.type) ??
+                                      'Voulez-vous supprimer cet objectif ?',
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(false),
-                                    child: const Text('Annuler'),
+                                    child: Text(
+                                      AppLocalizations.of(context)?.cancel ??
+                                          'Annuler',
+                                    ),
                                   ),
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(true),
-                                    child: const Text('Supprimer'),
+                                    child: Text(
+                                      AppLocalizations.of(context)?.delete ??
+                                          'Supprimer',
+                                    ),
                                   ),
                                 ],
                               ),
@@ -149,8 +173,13 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
                               );
                               if (ok && mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Objectif supprimé'),
+                                  SnackBar(
+                                    content: Text(
+                                      AppLocalizations.of(
+                                            context,
+                                          )?.deleteObjectiveSuccess ??
+                                          'Objectif supprimé',
+                                    ),
                                   ),
                                 );
                                 await _refresh();
@@ -159,14 +188,17 @@ class _MesObjectifsScreenState extends State<MesObjectifsScreen> {
                           }
                         },
                         itemBuilder: (ctx) => [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'edit',
-                            child: Text('Modifier'),
+                            child: Text(
+                              AppLocalizations.of(context)?.edit ?? 'Modifier',
+                            ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
                             child: Text(
-                              'Supprimer',
+                              AppLocalizations.of(context)?.delete ??
+                                  'Supprimer',
                               style: TextStyle(color: Colors.red),
                             ),
                           ),

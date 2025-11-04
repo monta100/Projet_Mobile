@@ -1,29 +1,28 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import '../Entites/utilisateur.dart';
+import '../l10n/app_localizations.dart';
 
 class UserNutritionTrackingScreen extends StatefulWidget {
   final Utilisateur utilisateur;
 
-  const UserNutritionTrackingScreen({
-    Key? key,
-    required this.utilisateur,
-  }) : super(key: key);
+  const UserNutritionTrackingScreen({Key? key, required this.utilisateur})
+    : super(key: key);
 
   @override
-  State<UserNutritionTrackingScreen> createState() => _UserNutritionTrackingScreenState();
+  State<UserNutritionTrackingScreen> createState() =>
+      _UserNutritionTrackingScreenState();
 }
 
-class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScreen>
+class _UserNutritionTrackingScreenState
+    extends State<UserNutritionTrackingScreen>
     with TickerProviderStateMixin {
-  bool _isLoading = false;
   int _selectedTab = 0;
-  
+
   late AnimationController _animationController;
   late AnimationController _pulseController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _pulseAnimation;
-  
+
   // Données nutritionnelles simulées
   Map<String, double> _dailyNutrition = {
     'calories': 1850,
@@ -33,7 +32,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
     'fiber': 25,
     'water': 1.8,
   };
-  
+
   Map<String, double> _dailyGoals = {
     'calories': 2000,
     'proteins': 150,
@@ -54,27 +53,19 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     _animationController.forward();
     _startPulseAnimation();
   }
-  
+
   void _startPulseAnimation() {
     _pulseController.repeat(reverse: true);
   }
@@ -86,24 +77,21 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey.shade50,
       body: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  _buildTabBar(),
-                  Expanded(
-                    child: _buildTabContent(),
-                  ),
-                ],
-              ),
-            ),
+        opacity: _fadeAnimation,
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildTabBar(),
+            Expanded(child: _buildTabContent()),
+          ],
+        ),
+      ),
     );
   }
 
@@ -135,7 +123,10 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Bonjour, ${widget.utilisateur.prenom} !',
+                      AppLocalizations.of(
+                            context,
+                          )?.greetingUser(widget.utilisateur.prenom) ??
+                          'Bonjour, ${widget.utilisateur.prenom} !',
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -144,7 +135,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Suivez votre nutrition quotidienne',
+                      AppLocalizations.of(context)?.nutritionTagline ??
+                          'Suivez votre nutrition quotidienne',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.white.withOpacity(0.9),
@@ -181,16 +173,16 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildQuickStats() {
-    final caloriesProgress = _dailyNutrition['calories']! / _dailyGoals['calories']!;
+    final caloriesProgress =
+        _dailyNutrition['calories']! / _dailyGoals['calories']!;
     final waterProgress = _dailyNutrition['water']! / _dailyGoals['water']!;
-    
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
-            'Calories',
+            AppLocalizations.of(context)?.caloriesLabel ?? 'Calories',
             '${_dailyNutrition['calories']!.toInt()}',
             '${_dailyGoals['calories']!.toInt()}',
             caloriesProgress,
@@ -201,7 +193,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(
-            'Eau',
+            AppLocalizations.of(context)?.waterLabel ?? 'Eau',
             '${(_dailyNutrition['water']! * 10).toInt() / 10}L',
             '${_dailyGoals['water']!.toInt()}L',
             waterProgress,
@@ -212,8 +204,15 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ],
     );
   }
-  
-  Widget _buildStatCard(String title, String current, String goal, double progress, Color color, IconData icon) {
+
+  Widget _buildStatCard(
+    String title,
+    String current,
+    String goal,
+    double progress,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -247,7 +246,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             ),
           ),
           Text(
-            'sur $goal',
+            AppLocalizations.of(context)?.outOfValue(goal) ?? 'sur $goal',
             style: TextStyle(
               fontSize: 10,
               color: Colors.white.withOpacity(0.8),
@@ -270,9 +269,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1E1E1E)
-            : Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -284,14 +281,26 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
       child: Row(
         children: [
-          _buildTabItem('Aujourd\'hui', 0, Icons.today),
-          _buildTabItem('Macros', 1, Icons.analytics),
-          _buildTabItem('Conseils', 2, Icons.lightbulb),
+          _buildTabItem(
+            AppLocalizations.of(context)?.tabToday ?? 'Aujourd\'hui',
+            0,
+            Icons.today,
+          ),
+          _buildTabItem(
+            AppLocalizations.of(context)?.tabMacros ?? 'Macros',
+            1,
+            Icons.analytics,
+          ),
+          _buildTabItem(
+            AppLocalizations.of(context)?.tabTips ?? 'Conseils',
+            2,
+            Icons.lightbulb,
+          ),
         ],
       ),
     );
   }
-  
+
   Widget _buildTabItem(String title, int index, IconData icon) {
     final isSelected = _selectedTab == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -314,8 +323,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             children: [
               Icon(
                 icon,
-                color: isSelected 
-                    ? Colors.white 
+                color: isSelected
+                    ? Colors.white
                     : (isDark ? Colors.grey[300] : Colors.grey.shade600),
                 size: 20,
               ),
@@ -325,8 +334,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected 
-                      ? Colors.white 
+                  color: isSelected
+                      ? Colors.white
                       : (isDark ? Colors.grey[300] : Colors.grey.shade600),
                 ),
               ),
@@ -336,7 +345,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildTabContent() {
     switch (_selectedTab) {
       case 0:
@@ -353,8 +362,11 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
   Widget _buildTodayTab() {
     final totalCalories = _dailyNutrition['calories']!;
     final caloriesGoal = _dailyGoals['calories']!;
-    final caloriesRemaining = (caloriesGoal - totalCalories).clamp(0.0, caloriesGoal);
-    
+    final caloriesRemaining = (caloriesGoal - totalCalories).clamp(
+      0.0,
+      caloriesGoal,
+    );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -362,28 +374,129 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         children: [
           const SizedBox(height: 10),
           // Carte récapitulative du jour
-          _buildDailySummaryCard(totalCalories, caloriesGoal, caloriesRemaining),
+          _buildDailySummaryCard(
+            totalCalories,
+            caloriesGoal,
+            caloriesRemaining,
+          ),
           const SizedBox(height: 20),
           // Sections de repas interactives
-          _buildMealSection('Petit-déjeuner', '07:00', '🌅', [
-            {'name': 'Avoine', 'calories': 150, 'icon': '🥣', 'proteins': 5, 'carbs': 27, 'fats': 3},
-            {'name': 'Banane', 'calories': 90, 'icon': '🍌', 'proteins': 1, 'carbs': 23, 'fats': 0},
-            {'name': 'Lait', 'calories': 120, 'icon': '🥛', 'proteins': 8, 'carbs': 12, 'fats': 5},
-          ]),
-          _buildMealSection('Déjeuner', '12:30', '☀️', [
-            {'name': 'Salade César', 'calories': 350, 'icon': '🥗', 'proteins': 15, 'carbs': 20, 'fats': 25},
-            {'name': 'Poulet grillé', 'calories': 200, 'icon': '🍗', 'proteins': 30, 'carbs': 0, 'fats': 9},
-            {'name': 'Pain complet', 'calories': 80, 'icon': '🍞', 'proteins': 4, 'carbs': 15, 'fats': 1},
-          ]),
-          _buildMealSection('Collation', '16:00', '🍎', [
-            {'name': 'Pomme', 'calories': 80, 'icon': '🍎', 'proteins': 0, 'carbs': 21, 'fats': 0},
-            {'name': 'Amandes', 'calories': 160, 'icon': '🥜', 'proteins': 6, 'carbs': 6, 'fats': 14},
-          ]),
-          _buildMealSection('Dîner', '19:30', '🌙', [
-            {'name': 'Saumon', 'calories': 250, 'icon': '🐟', 'proteins': 34, 'carbs': 0, 'fats': 12},
-            {'name': 'Riz complet', 'calories': 150, 'icon': '🍚', 'proteins': 3, 'carbs': 33, 'fats': 1},
-            {'name': 'Brocolis', 'calories': 50, 'icon': '🥦', 'proteins': 4, 'carbs': 10, 'fats': 0},
-          ]),
+          _buildMealSection(
+            AppLocalizations.of(context)?.breakfast ?? 'Petit-déjeuner',
+            '07:00',
+            '🌅',
+            [
+              {
+                'name': 'Avoine',
+                'calories': 150,
+                'icon': '🥣',
+                'proteins': 5,
+                'carbs': 27,
+                'fats': 3,
+              },
+              {
+                'name': 'Banane',
+                'calories': 90,
+                'icon': '🍌',
+                'proteins': 1,
+                'carbs': 23,
+                'fats': 0,
+              },
+              {
+                'name': 'Lait',
+                'calories': 120,
+                'icon': '🥛',
+                'proteins': 8,
+                'carbs': 12,
+                'fats': 5,
+              },
+            ],
+          ),
+          _buildMealSection(
+            AppLocalizations.of(context)?.lunch ?? 'Déjeuner',
+            '12:30',
+            '☀️',
+            [
+              {
+                'name': 'Salade César',
+                'calories': 350,
+                'icon': '🥗',
+                'proteins': 15,
+                'carbs': 20,
+                'fats': 25,
+              },
+              {
+                'name': 'Poulet grillé',
+                'calories': 200,
+                'icon': '🍗',
+                'proteins': 30,
+                'carbs': 0,
+                'fats': 9,
+              },
+              {
+                'name': 'Pain complet',
+                'calories': 80,
+                'icon': '🍞',
+                'proteins': 4,
+                'carbs': 15,
+                'fats': 1,
+              },
+            ],
+          ),
+          _buildMealSection(
+            AppLocalizations.of(context)?.snack ?? 'Collation',
+            '16:00',
+            '🍎',
+            [
+              {
+                'name': 'Pomme',
+                'calories': 80,
+                'icon': '🍎',
+                'proteins': 0,
+                'carbs': 21,
+                'fats': 0,
+              },
+              {
+                'name': 'Amandes',
+                'calories': 160,
+                'icon': '🥜',
+                'proteins': 6,
+                'carbs': 6,
+                'fats': 14,
+              },
+            ],
+          ),
+          _buildMealSection(
+            AppLocalizations.of(context)?.dinner ?? 'Dîner',
+            '19:30',
+            '🌙',
+            [
+              {
+                'name': 'Saumon',
+                'calories': 250,
+                'icon': '🐟',
+                'proteins': 34,
+                'carbs': 0,
+                'fats': 12,
+              },
+              {
+                'name': 'Riz complet',
+                'calories': 150,
+                'icon': '🍚',
+                'proteins': 3,
+                'carbs': 33,
+                'fats': 1,
+              },
+              {
+                'name': 'Brocolis',
+                'calories': 50,
+                'icon': '🥦',
+                'proteins': 4,
+                'carbs': 10,
+                'fats': 0,
+              },
+            ],
+          ),
           const SizedBox(height: 20),
           _buildAddMealButton(),
           const SizedBox(height: 20),
@@ -391,21 +504,18 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildDailySummaryCard(double total, double goal, double remaining) {
     final progress = (total / goal).clamp(0.0, 1.0);
     final percentage = (progress * 100).toInt();
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.green.shade400,
-            Colors.teal.shade400,
-          ],
+          colors: [Colors.green.shade400, Colors.teal.shade400],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -425,8 +535,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Total du jour',
+                  Text(
+                    AppLocalizations.of(context)?.dailyTotal ?? 'Total du jour',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.white70,
@@ -455,7 +565,10 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
@@ -471,7 +584,10 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    remaining > 0 ? '${remaining.toInt()} restantes' : 'Objectif atteint ! 🎉',
+                    remaining > 0
+                        ? '${remaining.toInt()} ${AppLocalizations.of(context)?.remaining ?? 'restantes'}'
+                        : (AppLocalizations.of(context)?.goalReached ??
+                              'Objectif atteint ! 🎉'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withOpacity(0.9),
@@ -495,13 +611,30 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
-  Widget _buildMealSection(String mealName, String time, String emoji, List<Map<String, dynamic>> foods) {
-    final totalCalories = foods.fold<int>(0, (sum, food) => sum + (food['calories'] as int));
-    final totalProteins = foods.fold<double>(0, (sum, food) => sum + (food['proteins'] as num).toDouble());
-    final totalCarbs = foods.fold<double>(0, (sum, food) => sum + (food['carbs'] as num).toDouble());
-    final totalFats = foods.fold<double>(0, (sum, food) => sum + (food['fats'] as num).toDouble());
-    
+
+  Widget _buildMealSection(
+    String mealName,
+    String time,
+    String emoji,
+    List<Map<String, dynamic>> foods,
+  ) {
+    final totalCalories = foods.fold<int>(
+      0,
+      (sum, food) => sum + (food['calories'] as int),
+    );
+    final totalProteins = foods.fold<double>(
+      0,
+      (sum, food) => sum + (food['proteins'] as num).toDouble(),
+    );
+    final totalCarbs = foods.fold<double>(
+      0,
+      (sum, food) => sum + (food['carbs'] as num).toDouble(),
+    );
+    final totalFats = foods.fold<double>(
+      0,
+      (sum, food) => sum + (food['fats'] as num).toDouble(),
+    );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -512,7 +645,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(
-              Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.15
+              Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.15,
             ),
             blurRadius: 15,
             offset: const Offset(0, 4),
@@ -528,14 +661,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: Theme.of(context).brightness == Brightness.dark
-                    ? [
-                        const Color(0xFF2D2D2D),
-                        const Color(0xFF252525),
-                      ]
-                    : [
-                        Colors.green.shade50,
-                        Colors.teal.shade50,
-                      ],
+                    ? [const Color(0xFF2D2D2D), const Color(0xFF252525)]
+                    : [Colors.green.shade50, Colors.teal.shade50],
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
@@ -550,16 +677,13 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     color: Colors.green.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 24)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+                    children: [
                       Text(
                         mealName,
                         style: TextStyle(
@@ -579,11 +703,14 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                               : Colors.grey.shade600,
                         ),
                       ),
-            ],
-          ),
+                    ],
+                  ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                  icon: const Icon(
+                    Icons.add_circle_outline,
+                    color: Colors.green,
+                  ),
                   onPressed: () => _showAddFoodDialog(mealName),
                 ),
               ],
@@ -593,21 +720,40 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-          ...foods.map((food) => _buildFoodItem(food)).toList(),
+                ...foods.map((food) => _buildFoodItem(food)).toList(),
                 const Divider(height: 24),
                 // Résumé macro du repas
-          Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-                    _buildMacroSummaryItem('Cal', totalCalories.toString(), Colors.orange),
-                    _buildMacroSummaryItem('P', '${totalProteins.toInt()}g', Colors.red),
-                    _buildMacroSummaryItem('C', '${totalCarbs.toInt()}g', Colors.blue),
-                    _buildMacroSummaryItem('F', '${totalFats.toInt()}g', Colors.orange.shade700),
+                  children: [
+                    _buildMacroSummaryItem(
+                      'Cal',
+                      totalCalories.toString(),
+                      Colors.orange,
+                    ),
+                    _buildMacroSummaryItem(
+                      'P',
+                      '${totalProteins.toInt()}g',
+                      Colors.red,
+                    ),
+                    _buildMacroSummaryItem(
+                      'C',
+                      '${totalCarbs.toInt()}g',
+                      Colors.blue,
+                    ),
+                    _buildMacroSummaryItem(
+                      'F',
+                      '${totalFats.toInt()}g',
+                      Colors.orange.shade700,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Colors.orange.withOpacity(0.2)
@@ -617,17 +763,21 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.local_fire_department, size: 18, color: Colors.orange),
+                      const Icon(
+                        Icons.local_fire_department,
+                        size: 18,
+                        color: Colors.orange,
+                      ),
                       const SizedBox(width: 8),
-              Text(
+                      Text(
                         'Total: $totalCalories kcal',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange,
-                ),
-              ),
-            ],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -637,7 +787,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildMacroSummaryItem(String label, String value, Color color) {
     return Column(
       children: [
@@ -663,7 +813,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ],
     );
   }
-  
+
   Widget _buildFoodItem(Map<String, dynamic> food) {
     return InkWell(
       onTap: () => _showFoodDetails(food),
@@ -677,8 +827,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
               : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
         ),
-      child: Row(
-        children: [
+        child: Row(
+          children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -687,13 +837,10 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     : Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-            food['icon'],
-                style: const TextStyle(fontSize: 24),
-              ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+              child: Text(food['icon'], style: const TextStyle(fontSize: 24)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -710,11 +857,23 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      _buildSmallMacroChip('P', '${food['proteins']}g', Colors.red.shade300),
+                      _buildSmallMacroChip(
+                        'P',
+                        '${food['proteins']}g',
+                        Colors.red.shade300,
+                      ),
                       const SizedBox(width: 6),
-                      _buildSmallMacroChip('C', '${food['carbs']}g', Colors.blue.shade300),
+                      _buildSmallMacroChip(
+                        'C',
+                        '${food['carbs']}g',
+                        Colors.blue.shade300,
+                      ),
                       const SizedBox(width: 6),
-                      _buildSmallMacroChip('F', '${food['fats']}g', Colors.orange.shade300),
+                      _buildSmallMacroChip(
+                        'F',
+                        '${food['fats']}g',
+                        Colors.orange.shade300,
+                      ),
                     ],
                   ),
                 ],
@@ -723,7 +882,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-          Text(
+                Text(
                   '${food['calories']}',
                   style: const TextStyle(
                     fontSize: 16,
@@ -744,10 +903,10 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             ),
             const SizedBox(width: 8),
             Icon(
-              Icons.chevron_right, 
+              Icons.chevron_right,
               color: Theme.of(context).brightness == Brightness.dark
                   ? Colors.grey[400]
-                  : Colors.grey.shade400, 
+                  : Colors.grey.shade400,
               size: 20,
             ),
           ],
@@ -755,7 +914,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildSmallMacroChip(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -773,32 +932,29 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildAddMealButton() {
     return GestureDetector(
       onTap: () => _showMealSelectionDialog(),
       child: Container(
-      width: double.infinity,
+        width: double.infinity,
         padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Colors.green.shade400,
-              Colors.teal.shade400,
-            ],
+            colors: [Colors.green.shade400, Colors.teal.shade400],
           ),
           borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
+          boxShadow: [
+            BoxShadow(
               color: Colors.green.withOpacity(0.4),
               blurRadius: 15,
               offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -808,20 +964,20 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
               child: const Icon(Icons.add, color: Colors.white, size: 24),
             ),
             const SizedBox(width: 12),
-          const Text(
-            'Ajouter un repas',
-            style: TextStyle(
+            Text(
+              AppLocalizations.of(context)?.addMeal ?? 'Ajouter un repas',
+              style: TextStyle(
                 fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
-  
+
   void _showFoodDetails(Map<String, dynamic> food) {
     showModalBottomSheet(
       context: context,
@@ -829,49 +985,46 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       isScrollControlled: true,
       builder: (context) => Container(
         decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1E1E1E)
-            : Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1E1E1E)
+              : Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
         padding: const EdgeInsets.all(24),
-      child: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-                Text(
-                  food['icon'],
-                  style: const TextStyle(fontSize: 48),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(food['icon'], style: const TextStyle(fontSize: 48)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         food['name'],
-                      style: TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white
-                            : null,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : null,
+                        ),
                       ),
-                    ),
-                    Text(
-                        '${food['calories']} calories',
-                      style: TextStyle(
+                      Text(
+                        '${food['calories']} ${AppLocalizations.of(context)?.caloriesLabel ?? 'calories'}',
+                        style: TextStyle(
                           fontSize: 16,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[300]
-                            : Colors.grey.shade600,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[300]
+                              : Colors.grey.shade600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -880,22 +1033,34 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             ),
             const SizedBox(height: 20),
             Text(
-              'Macronutriments',
-                style: TextStyle(
+              AppLocalizations.of(context)?.macronutrients ?? 'Macronutriments',
+              style: TextStyle(
                 fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : null,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : null,
               ),
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildDetailMacroCard('Protéines', '${food['proteins']}g', Colors.red),
-                _buildDetailMacroCard('Glucides', '${food['carbs']}g', Colors.blue),
-                _buildDetailMacroCard('Lipides', '${food['fats']}g', Colors.orange),
+                _buildDetailMacroCard(
+                  AppLocalizations.of(context)?.proteinsLabel ?? 'Protéines',
+                  '${food['proteins']}g',
+                  Colors.red,
+                ),
+                _buildDetailMacroCard(
+                  AppLocalizations.of(context)?.carbsLabel ?? 'Glucides',
+                  '${food['carbs']}g',
+                  Colors.blue,
+                ),
+                _buildDetailMacroCard(
+                  AppLocalizations.of(context)?.fatsLabel ?? 'Lipides',
+                  '${food['fats']}g',
+                  Colors.orange,
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -907,7 +1072,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                   // Logique pour modifier/supprimer
                 },
                 icon: const Icon(Icons.edit),
-                label: const Text('Modifier'),
+                label: Text(AppLocalizations.of(context)?.edit ?? 'Modifier'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
@@ -923,7 +1088,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   Widget _buildDetailMacroCard(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -955,7 +1120,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       ),
     );
   }
-  
+
   void _showMealSelectionDialog() {
     showModalBottomSheet(
       context: context,
@@ -968,25 +1133,38 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-        children: [
-            const Text(
-              'Ajouter un repas',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+          children: [
+            Text(
+              AppLocalizations.of(context)?.addMeal ?? 'Ajouter un repas',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            _buildMealOptionButton('Petit-déjeuner', '🌅', Colors.orange),
-            _buildMealOptionButton('Déjeuner', '☀️', Colors.blue),
-            _buildMealOptionButton('Collation', '🍎', Colors.purple),
-            _buildMealOptionButton('Dîner', '🌙', Colors.indigo),
+            _buildMealOptionButton(
+              AppLocalizations.of(context)?.breakfast ?? 'Petit-déjeuner',
+              '🌅',
+              Colors.orange,
+            ),
+            _buildMealOptionButton(
+              AppLocalizations.of(context)?.lunch ?? 'Déjeuner',
+              '☀️',
+              Colors.blue,
+            ),
+            _buildMealOptionButton(
+              AppLocalizations.of(context)?.snack ?? 'Collation',
+              '🍎',
+              Colors.purple,
+            ),
+            _buildMealOptionButton(
+              AppLocalizations.of(context)?.dinner ?? 'Dîner',
+              '🌙',
+              Colors.indigo,
+            ),
           ],
         ),
       ),
     );
   }
-  
+
   Widget _buildMealOptionButton(String meal, String emoji, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1007,14 +1185,11 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
           children: [
             Text(emoji, style: const TextStyle(fontSize: 24)),
             const SizedBox(width: 16),
-          Text(
+            Text(
               meal,
-              style: const TextStyle(
-                fontSize: 16,
-              fontWeight: FontWeight.bold,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -1024,11 +1199,11 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
     // Cette fonction pourrait ouvrir un dialogue pour rechercher/ajouter un aliment
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Ajouter un aliment à $mealName'),
-        action: SnackBarAction(
-          label: 'OK',
-          onPressed: () {},
+        content: Text(
+          AppLocalizations.of(context)?.addFoodToMeal(mealName) ??
+              'Ajouter un aliment à $mealName',
         ),
+        action: SnackBarAction(label: 'OK', onPressed: () {}),
       ),
     );
   }
@@ -1038,7 +1213,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
     final proteinsCal = _dailyNutrition['proteins']! * 4;
     final carbsCal = _dailyNutrition['carbs']! * 4;
     final fatsCal = _dailyNutrition['fats']! * 9;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -1046,24 +1221,62 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         children: [
           const SizedBox(height: 10),
           // Graphique circulaire des macros
-          _buildCircularMacroChart(proteinsCal, carbsCal, fatsCal, totalCalories),
+          _buildCircularMacroChart(
+            proteinsCal,
+            carbsCal,
+            fatsCal,
+            totalCalories,
+          ),
           const SizedBox(height: 20),
           // Cartes détaillées de chaque macro
-          _buildMacroCard('Protéines', _dailyNutrition['proteins']!, _dailyGoals['proteins']!, Colors.red, Icons.fitness_center, proteinsCal),
-          _buildMacroCard('Glucides', _dailyNutrition['carbs']!, _dailyGoals['carbs']!, Colors.blue, Icons.grain, carbsCal),
-          _buildMacroCard('Lipides', _dailyNutrition['fats']!, _dailyGoals['fats']!, Colors.orange, Icons.opacity, fatsCal),
-          _buildMacroCard('Fibres', _dailyNutrition['fiber']!, _dailyGoals['fiber']!, Colors.green, Icons.eco, 0),
+          _buildMacroCard(
+            AppLocalizations.of(context)?.proteinsLabel ?? 'Protéines',
+            _dailyNutrition['proteins']!,
+            _dailyGoals['proteins']!,
+            Colors.red,
+            Icons.fitness_center,
+            proteinsCal,
+          ),
+          _buildMacroCard(
+            AppLocalizations.of(context)?.carbsLabel ?? 'Glucides',
+            _dailyNutrition['carbs']!,
+            _dailyGoals['carbs']!,
+            Colors.blue,
+            Icons.grain,
+            carbsCal,
+          ),
+          _buildMacroCard(
+            AppLocalizations.of(context)?.fatsLabel ?? 'Lipides',
+            _dailyNutrition['fats']!,
+            _dailyGoals['fats']!,
+            Colors.orange,
+            Icons.opacity,
+            fatsCal,
+          ),
+          _buildMacroCard(
+            AppLocalizations.of(context)?.fiberLabel ?? 'Fibres',
+            _dailyNutrition['fiber']!,
+            _dailyGoals['fiber']!,
+            Colors.green,
+            Icons.eco,
+            0,
+          ),
           const SizedBox(height: 20),
         ],
       ),
     );
   }
-  
-  Widget _buildCircularMacroChart(double proteinsCal, double carbsCal, double fatsCal, double totalCal) {
+
+  Widget _buildCircularMacroChart(
+    double proteinsCal,
+    double carbsCal,
+    double fatsCal,
+    double totalCal,
+  ) {
     final proteinsPercent = (proteinsCal / totalCal * 100).clamp(0.0, 100.0);
     final carbsPercent = (carbsCal / totalCal * 100).clamp(0.0, 100.0);
     final fatsPercent = (fatsCal / totalCal * 100).clamp(0.0, 100.0);
-    
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -1074,7 +1287,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(
-              Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.15
+              Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.15,
             ),
             blurRadius: 20,
             offset: const Offset(0, 5),
@@ -1082,23 +1295,24 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         ],
       ),
       child: Column(
-      children: [
-        Text(
-            'Répartition Calorique',
-          style: TextStyle(
-            fontSize: 20,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : null,
-            fontWeight: FontWeight.bold,
+        children: [
+          Text(
+            AppLocalizations.of(context)?.calorieDistribution ??
+                'Répartition Calorique',
+            style: TextStyle(
+              fontSize: 20,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : null,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
           const SizedBox(height: 24),
           SizedBox(
             height: 200,
             child: Row(
-          children: [
-            Expanded(
+              children: [
+                Expanded(
                   child: CustomPaint(
                     size: const Size(200, 200),
                     painter: _MacroPieChartPainter(
@@ -1109,22 +1323,35 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                   ),
                 ),
                 Expanded(
-        child: Column(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                      _buildLegendItem('Protéines', Colors.red, proteinsPercent),
-            const SizedBox(height: 12),
-                      _buildLegendItem('Glucides', Colors.blue, carbsPercent),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLegendItem(
+                        AppLocalizations.of(context)?.proteinsLabel ??
+                            'Protéines',
+                        Colors.red,
+                        proteinsPercent,
+                      ),
                       const SizedBox(height: 12),
-                      _buildLegendItem('Lipides', Colors.orange, fatsPercent),
+                      _buildLegendItem(
+                        AppLocalizations.of(context)?.carbsLabel ?? 'Glucides',
+                        Colors.blue,
+                        carbsPercent,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLegendItem(
+                        AppLocalizations.of(context)?.fatsLabel ?? 'Lipides',
+                        Colors.orange,
+                        fatsPercent,
+                      ),
                     ],
                   ),
                 ),
               ],
-              ),
             ),
-          ],
+          ),
+        ],
       ),
     );
   }
@@ -1135,7 +1362,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
         Container(
           width: 16,
           height: 16,
-      decoration: BoxDecoration(
+          decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(4),
           ),
@@ -1153,22 +1380,29 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             ),
           ),
         ),
-          Text(
+        Text(
           '${percentage.toStringAsFixed(1)}%',
-            style: TextStyle(
-              fontSize: 14,
+          style: TextStyle(
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: color,
-            ),
           ),
-        ],
+        ),
+      ],
     );
   }
-  
-  Widget _buildMacroCard(String name, double current, double goal, Color color, IconData icon, double calories) {
+
+  Widget _buildMacroCard(
+    String name,
+    double current,
+    double goal,
+    Color color,
+    IconData icon,
+    double calories,
+  ) {
     final progress = (current / goal).clamp(0.0, 1.0);
     final remaining = (goal - current).clamp(0.0, goal);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -1229,50 +1463,54 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                         Text(
                           '${current.toInt()}g',
                           style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                             color: color,
-                      ),
-                    ),
-                    Text(
+                          ),
+                        ),
+                        Text(
                           ' / ${goal.toInt()}g',
-                      style: TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[300]
-                            : Colors.grey.shade600,
-                      ),
-                    ),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[300]
+                                : Colors.grey.shade600,
+                          ),
+                        ),
                       ],
                     ),
                     if (calories > 0)
-                    Text(
+                      Text(
                         '${calories.toInt()} kcal',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[400]
-                            : Colors.grey.shade500,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[400]
+                              : Colors.grey.shade500,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
-                Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
-                  ),
+                ),
                 child: Text(
                   '${(progress * 100).toInt()}%',
-                    style: TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                     color: color,
-                    ),
                   ),
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -1283,7 +1521,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                 child: LinearProgressIndicator(
                   value: 1.0,
                   minHeight: 14,
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
                       ? Colors.grey[700]
                       : Colors.grey.shade200,
                   valueColor: AlwaysStoppedAnimation<Color>(
@@ -1309,7 +1548,10 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                remaining > 0 ? '${remaining.toInt()}g restants' : 'Objectif atteint ! 🎉',
+                remaining > 0
+                    ? '${remaining.toInt()}g ${AppLocalizations.of(context)?.remaining ?? 'restants'}'
+                    : (AppLocalizations.of(context)?.goalReached ??
+                          'Objectif atteint ! 🎉'),
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).brightness == Brightness.dark
@@ -1334,122 +1576,64 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
     );
   }
 
-  Widget _buildMacroBar(String name, double percentage, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 15,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : null,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              height: 24,
-              decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF1E1E1E)
-                      : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: percentage.clamp(0.0, 1.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          color,
-                          color.withOpacity(0.8),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${(percentage * 100).toStringAsFixed(1)}%',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-
   Widget _buildTipsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildNutritionTips(),
-        ],
+        children: [_buildNutritionTips()],
       ),
     );
   }
-  
+
   Widget _buildNutritionTips() {
+    final l10n = AppLocalizations.of(context);
     final tips = [
       {
-        'title': 'Hydratation Optimale',
-        'tip': 'Buvez 2-3 litres d\'eau par jour, surtout avant et après l\'exercice. L\'eau aide à réguler la température corporelle et transporte les nutriments.',
+        'title': l10n?.tipHydrationTitle ?? 'Hydratation Optimale',
+        'tip':
+            l10n?.tipHydrationBody ??
+            'Buvez 2–3 litres d\'eau par jour, surtout avant et après l\'exercice. L\'eau aide à réguler la température corporelle et transporte les nutriments.',
         'icon': '💧',
         'color': Colors.blue,
       },
       {
-        'title': 'Équilibre Alimentaire',
-        'tip': 'Suivez la règle des 5 portions : 3 portions de légumes et 2 portions de fruits par jour pour un apport optimal en vitamines.',
+        'title': l10n?.tipBalanceTitle ?? 'Équilibre Alimentaire',
+        'tip':
+            l10n?.tipBalanceBody ??
+            'Suivez la règle des 5 portions : 3 portions de légumes et 2 portions de fruits par jour pour un apport optimal en vitamines.',
         'icon': '🥗',
         'color': Colors.green,
       },
       {
-        'title': 'Protéines Essentielles',
-        'tip': 'Consommez 1.2-1.6g de protéines par kg de poids corporel. Sources : viande, poisson, œufs, légumineuses, produits laitiers.',
+        'title': l10n?.tipProteinsTitle ?? 'Protéines Essentielles',
+        'tip':
+            l10n?.tipProteinsBody ??
+            'Consommez 1,2–1,6 g de protéines par kg de poids corporel. Sources : viande, poisson, œufs, légumineuses, produits laitiers.',
         'icon': '🥩',
         'color': Colors.orange,
       },
       {
-        'title': 'Rythme Alimentaire',
-        'tip': 'Mangez toutes les 3-4 heures pour maintenir un métabolisme stable et éviter les fringales.',
+        'title': l10n?.tipMealTimingTitle ?? 'Rythme Alimentaire',
+        'tip':
+            l10n?.tipMealTimingBody ??
+            'Mangez toutes les 3–4 heures pour maintenir un métabolisme stable et éviter les fringales.',
         'icon': '⏰',
         'color': Colors.purple,
       },
       {
-        'title': 'Glucides Intelligents',
-        'tip': 'Privilégiez les glucides complexes (céréales complètes, légumineuses) plutôt que les sucres simples.',
+        'title': l10n?.tipSmartCarbsTitle ?? 'Glucides Intelligents',
+        'tip':
+            l10n?.tipSmartCarbsBody ??
+            'Privilégiez les glucides complexes (céréales complètes, légumineuses) plutôt que les sucres simples.',
         'icon': '🍞',
         'color': Colors.brown,
       },
       {
-        'title': 'Graisses Saines',
-        'tip': 'Incluez des graisses insaturées : avocat, noix, huile d\'olive, poissons gras pour la santé cardiovasculaire.',
+        'title': l10n?.tipHealthyFatsTitle ?? 'Graisses Saines',
+        'tip':
+            l10n?.tipHealthyFatsBody ??
+            'Incluez des graisses insaturées : avocat, noix, huile d\'olive, poissons gras pour la santé cardiovasculaire.',
         'icon': '🥑',
         'color': Colors.teal,
       },
@@ -1459,7 +1643,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Conseils Nutrition',
+          l10n?.tipsSectionTitle ?? 'Conseils Nutrition',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -1479,8 +1663,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
       onTap: () => _showTipDetails(tip),
       borderRadius: BorderRadius.circular(20),
       child: Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1490,30 +1674,33 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             ],
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: (tip['color'] as Color).withOpacity(0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(
+          border: Border.all(
+            color: (tip['color'] as Color).withOpacity(0.3),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
               color: (tip['color'] as Color).withOpacity(0.1),
               blurRadius: 15,
               offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       (tip['color'] as Color),
                       (tip['color'] as Color).withOpacity(0.7),
                     ],
                   ),
-              borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
                       color: (tip['color'] as Color).withOpacity(0.3),
@@ -1521,28 +1708,25 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                       offset: const Offset(0, 3),
                     ),
                   ],
-            ),
-            child: Text(
-              tip['icon'],
-                  style: const TextStyle(fontSize: 32),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tip['title'],
-                  style: TextStyle(
-                        fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: (tip['color'] as Color),
-                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  tip['tip'],
+                child: Text(tip['icon'], style: const TextStyle(fontSize: 32)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tip['title'],
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: (tip['color'] as Color),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tip['tip'],
                       style: TextStyle(
                         fontSize: 15,
                         height: 1.6,
@@ -1555,7 +1739,7 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     ),
                     const SizedBox(height: 8),
                     Row(
-          children: [
+                      children: [
                         Icon(
                           Icons.arrow_forward_ios,
                           size: 14,
@@ -1563,7 +1747,8 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'En savoir plus',
+                          AppLocalizations.of(context)?.learnMore ??
+                              'En savoir plus',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -1574,9 +1759,9 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     ),
                   ],
                 ),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1593,27 +1778,21 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: Theme.of(context).brightness == Brightness.dark
-                ? [
-                    const Color(0xFF1E1E1E),
-                    const Color(0xFF252525),
-                  ]
-                : [
-                    Colors.white,
-                    (tip['color'] as Color).withOpacity(0.05),
-                  ],
+                ? [const Color(0xFF1E1E1E), const Color(0xFF252525)]
+                : [Colors.white, (tip['color'] as Color).withOpacity(0.05)],
           ),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         padding: const EdgeInsets.all(24),
-          child: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-            children: [
-              Container(
+              children: [
+                Container(
                   padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
                         (tip['color'] as Color),
@@ -1622,13 +1801,13 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                child: Text(
+                  child: Text(
                     tip['icon'],
                     style: const TextStyle(fontSize: 40),
                   ),
                 ),
                 const SizedBox(width: 16),
-              Expanded(
+                Expanded(
                   child: Text(
                     tip['title'],
                     style: TextStyle(
@@ -1643,11 +1822,11 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
                 ),
+              ],
+            ),
             const SizedBox(height: 20),
-                Text(
+            Text(
               tip['tip'],
               style: TextStyle(
                 fontSize: 16,
@@ -1663,7 +1842,9 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
               child: ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.check_circle),
-                label: const Text('J\'ai compris'),
+                label: Text(
+                  AppLocalizations.of(context)?.gotIt ?? 'J\'ai compris',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: tip['color'] as Color,
                   foregroundColor: Colors.white,
@@ -1672,14 +1853,13 @@ class _UserNutritionTrackingScreenState extends State<UserNutritionTrackingScree
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
   }
-  
 }
 
 // Custom Painter pour le graphique circulaire des macros
@@ -1698,9 +1878,9 @@ class _MacroPieChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 10;
-    
+
     double startAngle = -90 * (3.14159 / 180); // Commence en haut
-    
+
     // Protéines (rouge)
     if (proteinsPercent > 0) {
       final sweepAngle = proteinsPercent * 360 * (3.14159 / 180);
@@ -1716,7 +1896,7 @@ class _MacroPieChartPainter extends CustomPainter {
       );
       startAngle += sweepAngle;
     }
-    
+
     // Glucides (bleu)
     if (carbsPercent > 0) {
       final sweepAngle = carbsPercent * 360 * (3.14159 / 180);
@@ -1732,7 +1912,7 @@ class _MacroPieChartPainter extends CustomPainter {
       );
       startAngle += sweepAngle;
     }
-    
+
     // Lipides (orange)
     if (fatsPercent > 0) {
       final sweepAngle = fatsPercent * 360 * (3.14159 / 180);

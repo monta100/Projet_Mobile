@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../Services/user_service.dart';
+import '../l10n/app_localizations.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;
@@ -33,8 +34,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (success) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Compte vérifié.'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.accountVerified ??
+                  'Compte vérifié.',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -43,8 +47,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Code invalide ou expiré.'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.invalidOrExpiredCode ??
+                  'Code invalide ou expiré.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -55,22 +62,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Vérification')),
+      appBar: AppBar(
+        title: Text(
+          AppLocalizations.of(context)?.verificationTitle ?? 'Vérification',
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             const SizedBox(height: 24),
             Text(
-              'Un code de vérification a été envoyé à ${widget.email}. Saisissez-le ci-dessous.',
+              AppLocalizations.of(context)?.verificationSentTo(widget.email) ??
+                  'Un code de vérification a été envoyé à ${widget.email}. Saisissez-le ci-dessous.',
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _codeController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Code',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)?.codeLabel ?? 'Code',
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -80,7 +92,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 onPressed: _isLoading ? null : _verify,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Vérifier'),
+                    : Text(
+                        AppLocalizations.of(context)?.verifyButton ??
+                            'Vérifier',
+                      ),
               ),
             ),
             const SizedBox(height: 8),
@@ -96,14 +111,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       SnackBar(
                         content: Text(
                           code == null
-                              ? 'Utilisateur introuvable'
-                              : 'Code renvoyé (vérifier la console ou votre mail)',
+                              ? (AppLocalizations.of(context)?.userNotFound ??
+                                    'Utilisateur introuvable')
+                              : (AppLocalizations.of(context)?.codeResent ??
+                                    'Code renvoyé (vérifier la console ou votre mail)'),
                         ),
                       ),
                     );
                   }
                 },
-                child: const Text('Renvoyer le code'),
+                child: Text(
+                  AppLocalizations.of(context)?.resendCode ??
+                      'Renvoyer le code',
+                ),
               ),
             ),
           ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../Entites/objectif.dart';
 import '../Entites/utilisateur.dart';
 import '../Services/objectif_service.dart';
+import '../l10n/app_localizations.dart';
 
 class NouveauObjectifScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -68,7 +69,7 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
       initialDate: _dateFixee,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      locale: const Locale('fr', 'FR'),
+      // Use app locale from context by default
     );
     if (picked != null && picked != _dateFixee) {
       setState(() {
@@ -200,7 +201,9 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nouvel Objectif'),
+        title: Text(
+          AppLocalizations.of(context)?.newObjectiveTitle ?? 'Nouvel Objectif',
+        ),
         centerTitle: true,
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
@@ -230,7 +233,8 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Définir un nouvel objectif',
+                        AppLocalizations.of(context)?.createObjectiveTitle ??
+                            'Définir un nouvel objectif',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.bold,
@@ -239,7 +243,8 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Choisissez votre objectif et fixez-vous un défi !',
+                        AppLocalizations.of(context)?.createObjectiveSubtitle ??
+                            'Choisissez votre objectif et fixez-vous un défi !',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
@@ -252,7 +257,8 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
 
                 // Type d'objectif
                 Text(
-                  'Type d\'objectif',
+                  AppLocalizations.of(context)?.objectiveTypeLabel ??
+                      'Type d\'objectif',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -322,7 +328,10 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
 
                 // Valeur cible
                 Text(
-                  'Valeur cible (${_getUniteParType(_typeSelectionne)})',
+                  AppLocalizations.of(
+                        context,
+                      )?.targetValueLabel(_getUniteParType(_typeSelectionne)) ??
+                      'Valeur cible (${_getUniteParType(_typeSelectionne)})',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -341,14 +350,19 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Veuillez saisir une valeur cible';
+                      return AppLocalizations.of(context)?.enterTargetValue ??
+                          'Veuillez saisir une valeur cible';
                     }
                     final number = double.tryParse(value);
                     if (number == null) {
-                      return 'Veuillez saisir un nombre valide';
+                      return AppLocalizations.of(context)?.enterValidNumber ??
+                          'Veuillez saisir un nombre valide';
                     }
                     if (number <= 0) {
-                      return 'La valeur doit être positive';
+                      return AppLocalizations.of(
+                            context,
+                          )?.valueMustBePositive ??
+                          'La valeur doit être positive';
                     }
                     return null;
                   },
@@ -357,7 +371,7 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
 
                 // Date limite
                 Text(
-                  'Date limite',
+                  AppLocalizations.of(context)?.deadlineLabel ?? 'Date limite',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -388,7 +402,10 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Temps restant: ${_dateFixee.difference(DateTime.now()).inDays} jours',
+                  AppLocalizations.of(context)?.timeRemainingDays(
+                        _dateFixee.difference(DateTime.now()).inDays,
+                      ) ??
+                      'Temps restant: ${_dateFixee.difference(DateTime.now()).inDays} jours',
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
                 const SizedBox(height: 32),
@@ -416,9 +433,10 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
-                            'Créer l\'objectif',
-                            style: TextStyle(
+                        : Text(
+                            AppLocalizations.of(context)?.createGoalButton ??
+                                'Créer l\'objectif',
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -444,9 +462,9 @@ class _NouveauObjectifScreenState extends State<NouveauObjectifScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Annuler',
-                      style: TextStyle(
+                    child: Text(
+                      AppLocalizations.of(context)?.cancelButton ?? 'Annuler',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),

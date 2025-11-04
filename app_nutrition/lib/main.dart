@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_localizations/flutter_localizations.dart';
+// import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 import 'Screens/login_screen.dart';
 import 'Screens/register_screen.dart';
 import 'Theme/app_colors.dart';
@@ -10,6 +11,9 @@ import 'Services/user_service.dart';
 import 'Services/database_helper.dart';
 import 'Services/theme_service.dart';
 import 'Routs/app_routes.dart';
+import 'Services/session_service.dart';
+import 'Screens/home_user_screen.dart';
+// Langue: FR uniquement — plus de service de langue
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +71,7 @@ Future<void> main() async {
       username: smtpUser,
       password: smtpPass,
       useSsl: smtpSsl,
+      logoUrl: localEnv['APP_LOGO_URL'] ?? localEnv['EMAIL_LOGO_URL'],
     );
     // Diagnostic (do not print password)
     // ignore: avoid_print
@@ -96,11 +101,13 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  // Langue: FR uniquement
 
   @override
   void initState() {
     super.initState();
     _loadThemeMode();
+    // Plus de chargement de langue — FR uniquement
   }
 
   Future<void> _loadThemeMode() async {
@@ -117,28 +124,24 @@ class _MyAppState extends State<MyApp> {
     ThemeService.setThemeMode(mode);
   }
 
+  // Plus de gestion de locale dynamique
+
   @override
   Widget build(BuildContext context) {
     // Enregistrer l'état pour permettre le changement de thème depuis d'autres écrans
     AppThemeNotifier.register(this);
+    // FR uniquement: pas de changement de langue dynamique
 
     return MaterialApp(
       title: 'App Nutrition',
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('fr', 'FR'), // Français
-        Locale('en', 'US'), // Anglais
-      ],
-      locale: const Locale('fr', 'FR'), // Forcer le français
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('fr')],
+      locale: const Locale('fr'),
       theme: ThemeService.getLightTheme(),
       darkTheme: ThemeService.getDarkTheme(),
       themeMode: _themeMode,
-      home: const WelcomeScreen(),
+      home: const SessionGate(),
       routes: AppRoutes.getRoutes(),
     );
   }
@@ -156,6 +159,8 @@ class AppThemeNotifier {
     _appState?.changeThemeMode(mode);
   }
 }
+
+// FR uniquement: AppLanguageNotifier supprimé
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -221,7 +226,8 @@ class WelcomeScreen extends StatelessWidget {
 
                     // Sous-titre
                     Text(
-                      'Gérez vos objectifs nutritionnels\net suivez votre progression',
+                      AppLocalizations.of(context)?.welcomeSubtitle ??
+                          'Gérez vos objectifs nutritionnels\net suivez votre progression',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 18,
@@ -258,9 +264,10 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'Se Connecter',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context)?.loginButton ??
+                              'Se connecter',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -298,9 +305,9 @@ class WelcomeScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          'S\'inscrire',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context)?.signUp ?? 'S\'inscrire',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -311,7 +318,8 @@ class WelcomeScreen extends StatelessWidget {
 
                     // Texte supplémentaire
                     Text(
-                      'Commencez votre parcours\nvers une meilleure nutrition',
+                      AppLocalizations.of(context)?.welcomeTagline ??
+                          'Commencez votre parcours\nvers une meilleure nutrition',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -327,6 +335,29 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class SessionGate extends StatelessWidget {
+  const SessionGate({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: SessionService().getLoggedInUser(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final user = snapshot.data;
+        if (user != null) {
+          return HomeUserScreen(utilisateur: user);
+        }
+        return const WelcomeScreen();
+      },
     );
   }
 }

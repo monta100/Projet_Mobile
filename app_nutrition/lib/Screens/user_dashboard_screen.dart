@@ -7,14 +7,13 @@ import '../Services/theme_service.dart';
 import '../main.dart';
 import 'profil_screen.dart';
 import 'create_user_objective_screen.dart';
+import '../l10n/app_localizations.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
 
-  const UserDashboardScreen({
-    Key? key,
-    required this.utilisateur,
-  }) : super(key: key);
+  const UserDashboardScreen({Key? key, required this.utilisateur})
+    : super(key: key);
 
   @override
   State<UserDashboardScreen> createState() => _UserDashboardScreenState();
@@ -23,14 +22,14 @@ class UserDashboardScreen extends StatefulWidget {
 class _UserDashboardScreenState extends State<UserDashboardScreen>
     with TickerProviderStateMixin {
   final DatabaseHelper _db = DatabaseHelper();
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  
+
   bool _isLoading = true;
   List<UserObjective> _userObjectives = [];
-  
+
   // Données nutritionnelles simulées pour la page d'accueil
   Map<String, double> _dailyNutrition = {
     'calories': 1850,
@@ -39,7 +38,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     'fats': 65,
     'water': 1.8,
   };
-  
+
   Map<String, double> _dailyGoals = {
     'calories': 2000,
     'proteins': 150,
@@ -55,23 +54,19 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
-    
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
     _loadDashboardData();
   }
 
@@ -86,18 +81,22 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     try {
       // Charger les objectifs de l'utilisateur
       final objectives = await _db.getUserObjectives(widget.utilisateur.id!);
-      
+
       setState(() {
         _userObjectives = objectives;
         _isLoading = false;
       });
-      
+
       _animationController.forward();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context)?.errorLoading ?? 'Erreur lors du chargement'}: $e',
+            ),
+          ),
         );
       }
     }
@@ -120,7 +119,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         ),
         child: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                )
               : FadeTransition(
                   opacity: _fadeAnimation,
                   child: SlideTransition(
@@ -155,7 +156,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             final result = await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ProfilScreen(utilisateur: widget.utilisateur),
+                builder: (context) =>
+                    ProfilScreen(utilisateur: widget.utilisateur),
               ),
             );
             // Rafraîchir l'écran si des modifications ont été apportées
@@ -173,7 +175,10 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bonjour, ${widget.utilisateur.prenom} ! 👋',
+                (AppLocalizations.of(
+                      context,
+                    )?.greetingUser(widget.utilisateur.prenom)) ??
+                    'Bonjour, ${widget.utilisateur.prenom} ! 👋',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -182,7 +187,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                'Suivez vos objectifs au quotidien',
+                AppLocalizations.of(context)?.dashboardTagline ??
+                    'Suivez vos objectifs au quotidien',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.white.withOpacity(0.9),
@@ -207,7 +213,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       builder: (context, snapshot) {
         final currentTheme = snapshot.data ?? ThemeMode.light;
         final isDark = currentTheme == ThemeMode.dark;
-        
+
         return IconButton(
           onPressed: () async {
             final newTheme = isDark ? ThemeMode.light : ThemeMode.dark;
@@ -219,18 +225,23 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             isDark ? Icons.light_mode : Icons.dark_mode,
             color: Colors.white,
           ),
-          tooltip: isDark ? 'Activer le thème clair' : 'Activer le thème sombre',
+          tooltip: isDark
+              ? (AppLocalizations.of(context)?.themeLightTooltip ??
+                    'Activer le thème clair')
+              : (AppLocalizations.of(context)?.themeDarkTooltip ??
+                    'Activer le thème sombre'),
         );
       },
     );
   }
 
-
   Widget _buildNutritionOverview() {
-    final caloriesProgress = _dailyNutrition['calories']! / _dailyGoals['calories']!;
-    final proteinsProgress = _dailyNutrition['proteins']! / _dailyGoals['proteins']!;
+    final caloriesProgress =
+        _dailyNutrition['calories']! / _dailyGoals['calories']!;
+    final proteinsProgress =
+        _dailyNutrition['proteins']! / _dailyGoals['proteins']!;
     final waterProgress = _dailyNutrition['water']! / _dailyGoals['water']!;
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -259,11 +270,16 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.restaurant_menu, color: Colors.green, size: 24),
+                child: const Icon(
+                  Icons.restaurant_menu,
+                  color: Colors.green,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Text(
-                'Nutrition du jour',
+                AppLocalizations.of(context)?.dailyNutritionTitle ??
+                    'Nutrition du jour',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -276,7 +292,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
           const SizedBox(height: 20),
           _buildNutritionProgressItem(
-            'Calories',
+            AppLocalizations.of(context)?.caloriesLabel ?? 'Calories',
             '${_dailyNutrition['calories']!.toInt()}',
             '${_dailyGoals['calories']!.toInt()} kcal',
             caloriesProgress,
@@ -285,7 +301,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
           const SizedBox(height: 16),
           _buildNutritionProgressItem(
-            'Protéines',
+            AppLocalizations.of(context)?.proteinsLabel ?? 'Protéines',
             '${_dailyNutrition['proteins']!.toInt()}',
             '${_dailyGoals['proteins']!.toInt()}g',
             proteinsProgress,
@@ -294,7 +310,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
           const SizedBox(height: 16),
           _buildNutritionProgressItem(
-            'Eau',
+            AppLocalizations.of(context)?.waterLabel ?? 'Eau',
             '${(_dailyNutrition['water']! * 10).toInt() / 10}',
             '${_dailyGoals['water']!.toInt()}L',
             waterProgress,
@@ -364,8 +380,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Mes Objectifs',
+        Text(
+          AppLocalizations.of(context)?.myObjectivesTitle ?? 'Mes Objectifs',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -376,9 +392,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         _userObjectives.isEmpty
             ? _buildEmptyObjectivesCard()
             : Column(
-                children: _userObjectives.map((objective) => 
-                  _buildObjectiveCard(objective)
-                ).toList(),
+                children: _userObjectives
+                    .map((objective) => _buildObjectiveCard(objective))
+                    .toList(),
               ),
       ],
     );
@@ -394,10 +410,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       ),
       child: Column(
         children: [
-          Icon(Icons.track_changes, size: 48, color: Colors.white.withOpacity(0.8)),
+          Icon(
+            Icons.track_changes,
+            size: 48,
+            color: Colors.white.withOpacity(0.8),
+          ),
           const SizedBox(height: 12),
-          const Text(
-            'Aucun objectif',
+          Text(
+            AppLocalizations.of(context)?.noObjectiveTitle ?? 'Aucun objectif',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -406,7 +426,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Créez votre premier objectif pour commencer',
+            AppLocalizations.of(context)?.noObjectiveSubtitle ??
+                'Créez votre premier objectif pour commencer',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -421,7 +442,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   Widget _buildObjectiveCard(UserObjective objective) {
     final progress = objective.progressionPourcentage / 100;
     final isCompleted = objective.estAtteint;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -448,7 +469,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isCompleted ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                  color: isCompleted
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -477,8 +500,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[300]
-                      : Colors.grey.shade600,
+                            ? Colors.grey[300]
+                            : Colors.grey.shade600,
                       ),
                     ),
                   ],
@@ -556,8 +579,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Nouvel objectif',
+        Text(
+          AppLocalizations.of(context)?.newObjectiveTitle ?? 'Nouvel objectif',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -566,17 +589,18 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         ),
         const SizedBox(height: 16),
         _buildActionCard(
-          'Créer un objectif',
-          'Définissez vos objectifs personnalisés',
+          AppLocalizations.of(context)?.createObjectiveTitle ??
+              'Créer un objectif',
+          AppLocalizations.of(context)?.createObjectiveSubtitle ??
+              'Définissez vos objectifs personnalisés',
           Icons.add_circle_outline,
           Colors.green,
           () async {
             final result = await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => CreateUserObjectiveScreen(
-                  utilisateur: widget.utilisateur,
-                ),
+                builder: (context) =>
+                    CreateUserObjectiveScreen(utilisateur: widget.utilisateur),
               ),
             );
             if (result == true) {
@@ -608,8 +632,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           boxShadow: [
             BoxShadow(
               color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.black.withOpacity(0.1),
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -666,10 +690,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
-
   Widget _buildAvatar() {
     // Si l'utilisateur a une photo de profil, l'afficher
-    if (widget.utilisateur.avatarPath != null && 
+    if (widget.utilisateur.avatarPath != null &&
         widget.utilisateur.avatarPath!.isNotEmpty) {
       final file = File(widget.utilisateur.avatarPath!);
       if (file.existsSync()) {
@@ -682,18 +705,21 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     }
 
     // Sinon, afficher les initiales avec couleur personnalisée
-    final initials = widget.utilisateur.prenom.isNotEmpty 
+    final initials = widget.utilisateur.prenom.isNotEmpty
         ? widget.utilisateur.prenom[0].toUpperCase()
         : 'U';
-    
+
     Color avatarColor = Colors.white.withOpacity(0.2);
-    
+
     // Si l'utilisateur a une couleur personnalisée, l'utiliser
-    if (widget.utilisateur.avatarColor != null && 
+    if (widget.utilisateur.avatarColor != null &&
         widget.utilisateur.avatarColor!.isNotEmpty) {
       try {
-        avatarColor = Color(int.parse('0xff' + 
-            widget.utilisateur.avatarColor!.replaceFirst('#', '')));
+        avatarColor = Color(
+          int.parse(
+            '0xff' + widget.utilisateur.avatarColor!.replaceFirst('#', ''),
+          ),
+        );
       } catch (e) {
         // En cas d'erreur, utiliser la couleur par défaut
         avatarColor = Colors.white.withOpacity(0.2);
@@ -721,17 +747,21 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       MaterialPageRoute(
         builder: (context) => CreateUserObjectiveScreen(
           utilisateur: widget.utilisateur,
-          existingObjective: objective, // Passer l'objectif existant pour modification
+          existingObjective:
+              objective, // Passer l'objectif existant pour modification
         ),
       ),
     );
-    
+
     if (result == true) {
       _loadDashboardData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Objectif modifié avec succès'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.editObjectiveSuccess ??
+                  'Objectif modifié avec succès',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -745,19 +775,23 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer l\'objectif'),
+        title: Text(
+          AppLocalizations.of(context)?.deleteObjectiveTitle ??
+              'Supprimer l\'objectif',
+        ),
         content: Text(
-          'Êtes-vous sûr de vouloir supprimer l\'objectif "${objective.typeObjectif}" ?\n\nCette action est irréversible.',
+          AppLocalizations.of(
+                context,
+              )?.deleteObjectiveConfirm(objective.typeObjectif) ??
+              'Êtes-vous sûr de vouloir supprimer l\'objectif "${objective.typeObjectif}" ?\n\nCette action est irréversible.',
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(color: Colors.grey),
+            child: Text(
+              AppLocalizations.of(context)?.cancel ?? 'Annuler',
+              style: const TextStyle(color: Colors.grey),
             ),
           ),
           ElevatedButton(
@@ -769,7 +803,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Supprimer'),
+            child: Text(AppLocalizations.of(context)?.delete ?? 'Supprimer'),
           ),
         ],
       ),
@@ -781,8 +815,11 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         _loadDashboardData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Objectif supprimé avec succès'),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.deleteObjectiveSuccess ??
+                    'Objectif supprimé avec succès',
+              ),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
@@ -792,7 +829,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erreur lors de la suppression: $e'),
+              content: Text(
+                '${AppLocalizations.of(context)?.errorDeleting ?? 'Erreur lors de la suppression'}: $e',
+              ),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),

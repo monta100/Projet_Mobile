@@ -4,14 +4,12 @@ import 'user_dashboard_screen.dart';
 import 'user_achievements_screen.dart';
 import 'user_nutrition_tracking_screen.dart';
 import 'profil_screen.dart';
+import '../l10n/app_localizations.dart';
 
 class UserMainScreen extends StatefulWidget {
   final Utilisateur utilisateur;
 
-  const UserMainScreen({
-    Key? key,
-    required this.utilisateur,
-  }) : super(key: key);
+  const UserMainScreen({Key? key, required this.utilisateur}) : super(key: key);
 
   @override
   State<UserMainScreen> createState() => _UserMainScreenState();
@@ -19,7 +17,7 @@ class UserMainScreen extends StatefulWidget {
 
 class _UserMainScreenState extends State<UserMainScreen> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _screens = [];
 
   @override
@@ -36,10 +34,7 @@ class _UserMainScreenState extends State<UserMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
@@ -61,25 +56,25 @@ class _UserMainScreenState extends State<UserMainScreen> {
               children: [
                 _buildNavItem(
                   Icons.dashboard,
-                  'Accueil',
+                  AppLocalizations.of(context)?.navHome ?? 'Accueil',
                   0,
                   Colors.blue,
                 ),
                 _buildNavItem(
                   Icons.emoji_events,
-                  'Récompenses',
+                  AppLocalizations.of(context)?.navRewards ?? 'Récompenses',
                   1,
                   Colors.amber,
                 ),
                 _buildNavItem(
                   Icons.restaurant_menu,
-                  'Nutrition',
+                  AppLocalizations.of(context)?.navNutrition ?? 'Nutrition',
                   2,
                   Colors.green,
                 ),
                 _buildNavItem(
                   Icons.person,
-                  'Profil',
+                  AppLocalizations.of(context)?.navProfile ?? 'Profil',
                   3,
                   Colors.teal,
                 ),
@@ -93,7 +88,7 @@ class _UserMainScreenState extends State<UserMainScreen> {
 
   Widget _buildNavItem(IconData icon, String label, int index, Color color) {
     final isSelected = _currentIndex == index;
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -112,11 +107,11 @@ class _UserMainScreenState extends State<UserMainScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected 
-                  ? color 
+              color: isSelected
+                  ? color
                   : (Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[400]
-                      : Colors.grey.shade600),
+                        ? Colors.grey[400]
+                        : Colors.grey.shade600),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -125,11 +120,11 @@ class _UserMainScreenState extends State<UserMainScreen> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected 
-                    ? color 
+                color: isSelected
+                    ? color
                     : (Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey[400]
-                        : Colors.grey.shade600),
+                          ? Colors.grey[400]
+                          : Colors.grey.shade600),
               ),
             ),
           ],

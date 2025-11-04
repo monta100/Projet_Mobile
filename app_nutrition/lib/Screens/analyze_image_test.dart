@@ -3,20 +3,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../Services/image_ai_analysis_service.dart';
 import 'package:flutter/foundation.dart';
-
-// Helper top-level function for compute isolate call
-Future<String> analyzeImageInIsolate(String imagePath) async {
-  // Simple heuristic: infer a dish name from the file name.
-  final fileName = imagePath.split(Platform.pathSeparator).last;
-  final inferredName = fileName
-      .replaceAll(RegExp(r'[_-]+'), ' ')
-      .replaceAll(RegExp(r'\.[^.]+$'), '')
-      .trim();
-  final fallback = 'Analyse simulée pour $fileName';
-  // For now, just return a friendly message.
-  return inferredName.isEmpty ? fallback : 'Plat détecté: $inferredName';
-}
 
 class AnalyzeImageTest extends StatefulWidget {
   const AnalyzeImageTest({super.key});
@@ -42,13 +31,33 @@ class _AnalyzeImageTestState extends State<AnalyzeImageTest> {
       _imageFile = File(picked.path);
     });
 
-    // Utilise compute pour l'analyse sur un isolate
-    final res = await compute(analyzeImageInIsolate, picked.path);
+    // Utilise compute + Gemini (clé dans .env)
+    final key = dotenv.env['GEMINI_API_KEY'] ?? '';
+    final res = await compute(
+      analyzeImageInIsolate,
+      ImageAnalysisParams(imagePath: picked.path, apiKey: key),
+    );
 
     setState(() {
       _isLoading = false;
-      _result = res;
+      _result = _normalizeResult(res);
     });
+  }
+
+  String _normalizeResult(String s) {
+    var out = s.trim();
+    // Collapse duplicate commas and spaces
+    out = out.replaceAll(RegExp(r',[,\s]+'), ', ');
+    out = out.replaceAll(RegExp(r'\s+'), ' ');
+    out = out.replaceAll(RegExp(r'\s+,\s*'), ', ');
+    // Remove trailing commas or punctuation duplicates
+    out = out.replaceAll(RegExp(r'[,:;\.-]{2,}'), '.');
+    out = out.replaceAll(RegExp(r'[,:;]$'), '');
+    // If the model returned a bare number, add context
+    if (RegExp(r'^\d+([\.,]\d+)?$').hasMatch(out)) {
+      out = 'Estimation: $out kcal (analyse IA)';
+    }
+    return out.trim();
   }
 
   @override

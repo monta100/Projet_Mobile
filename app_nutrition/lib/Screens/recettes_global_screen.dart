@@ -92,67 +92,65 @@ class _RecettesGlobalScreenState extends State<RecettesGlobalScreen>
             gradient: LinearGradient(
               colors: [
                 AppColors.primaryColor,
-                AppColors.primaryColor.withOpacity(0.8),
+                AppColors.primaryColor.withValues(alpha: 0.7),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 8,
-                offset: const Offset(0, 4),
+                offset: const Offset(2, 4),
               ),
             ],
           ),
         ),
         elevation: 0,
       ),
-      body: Expanded(
-        child: FutureBuilder<List<Recette>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final list = snapshot.data ?? [];
-            if (list.isEmpty) {
-              return const _Empty();
-            }
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth < 500
-                    ? 2
-                    : constraints.maxWidth < 800
-                    ? 3
-                    : 4;
-                final aspect = _aspectFor(crossAxisCount);
-                return GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: aspect,
-                  ),
-                  itemCount: list.length,
-                  itemBuilder: (context, i) => RepaintBoundary(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      transform: Matrix4.translationValues(
-                        0,
-                        i % 2 == 0 ? 10 : -10,
-                        0,
-                      ),
-                      child: _RecetteCard(recette: list[i]),
+      body: FutureBuilder<List<Recette>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final list = snapshot.data ?? [];
+          if (list.isEmpty) {
+            return const _Empty();
+          }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth < 500
+                  ? 2
+                  : constraints.maxWidth < 800
+                  ? 3
+                  : 4;
+              final aspect = _aspectFor(crossAxisCount);
+              return GridView.builder(
+                padding: const EdgeInsets.all(12),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: aspect,
+                ),
+                itemCount: list.length,
+                itemBuilder: (context, i) => RepaintBoundary(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    transform: Matrix4.translationValues(
+                      0,
+                      i % 2 == 0 ? 10 : -10,
+                      0,
                     ),
+                    child: _RecetteCard(recette: list[i]),
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ),
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _onRefreshPressed,
@@ -166,16 +164,16 @@ class _RecettesGlobalScreenState extends State<RecettesGlobalScreen>
             gradient: LinearGradient(
               colors: [
                 AppColors.primaryColor,
-                AppColors.primaryColor.withOpacity(0.7),
+                AppColors.primaryColor.withValues(alpha: 0.8),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 8,
-                offset: const Offset(2, 4),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -218,7 +216,7 @@ class _RecetteCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(2, 4),
             ),
@@ -226,7 +224,7 @@ class _RecetteCard extends StatelessWidget {
         ),
         child: Card(
           elevation: 8,
-          shadowColor: Colors.black.withOpacity(0.2),
+          shadowColor: Colors.black.withValues(alpha: 0.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
@@ -263,7 +261,7 @@ class _RecetteCard extends StatelessWidget {
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
                             colors: [
-                              Colors.black.withOpacity(0.8),
+                              Colors.black.withValues(alpha: 0.8),
                               Colors.transparent,
                             ],
                           ),

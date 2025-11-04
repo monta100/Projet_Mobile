@@ -12,7 +12,7 @@ import 'ingredient_service.dart';
 class OpenRouterService {
   // 🔑 Ta clé API OpenRouter
   final String apiKey =
-      "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";
+      "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";
 
   // 🧠 Choix du modèle IA
   final String model = "openai/gpt-3.5-turbo";

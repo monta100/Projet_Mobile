@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Screens/main_navigation_screen.dart';
+import 'Widgets/floating_chat_bubble.dart';
+import 'Services/navigation_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   runApp(const MyApp());
 }
 
@@ -13,6 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'App Nutrition',
+      navigatorKey: NavigationService.navKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         // (Option) personnalisation thème du DatePicker
@@ -29,9 +35,28 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      builder: (context, child) {
+        // Overlay the floating chat bubble on every route
+        return Stack(
+          children: [if (child != null) child, const _ChatBubbleOverlay()],
+        );
+      },
       home: const MainNavigationScreen(),
     );
   }
+}
+
+// Lightweight wrapper so we don't rebuild the bubble with every route frame unnecessarily
+class _ChatBubbleOverlay extends StatelessWidget {
+  const _ChatBubbleOverlay();
+  @override
+  Widget build(BuildContext context) => const Align(
+    alignment: Alignment.bottomRight,
+    child: Padding(
+      padding: EdgeInsets.only(bottom: 90), // above bottom nav roughly
+      child: FloatingChatBubble(),
+    ),
+  );
 }
 // and then invoke "hot reload" (save your changes or press the "hot
 // reload" button in a Flutter-supported IDE, or press "r" if you used

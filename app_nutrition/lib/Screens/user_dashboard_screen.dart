@@ -8,11 +8,10 @@ import '../main.dart';
 import 'profil_screen.dart';
 import 'create_user_objective_screen.dart';
 import '../l10n/app_localizations.dart';
-import 'repas_list_screen.dart'; // Ajout de l'import
-import 'repas_module_main_screen.dart'; // <-- Ajout de l'import
+import 'repas_module_main_screen.dart';
 import '../Services/repas_service.dart';
 import '../Services/session_service.dart';
-import '../Entites/repas.dart';
+import 'user_physical_activities_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -118,8 +117,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       final repasList = await RepasService().getRepasByDate(DateTime.now());
       setState(() {
         _caloriesToday = repasList.fold(
-          0,
-          (sum, r) => sum + (r.caloriesTotales ?? 0),
+          0.0,
+          (sum, r) => sum + r.caloriesTotales,
         );
       });
     }
@@ -158,9 +157,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                           const SizedBox(height: 24),
                           _buildDailyNutritionCard(context),
                           const SizedBox(height: 24),
-                          _buildMyMealsCard(
-                            context,
-                          ), // Ajout de la nouvelle carte ici
+                          _buildMyMealsCard(context),
+                          const SizedBox(height: 24),
+                          _buildPhysicalActivitiesCard(context),
                           const SizedBox(height: 24),
                           _buildMyObjectivesSection(context),
                           const SizedBox(height: 16),
@@ -660,6 +659,57 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         );
       }
     }
+  }
+
+  Widget _buildPhysicalActivitiesCard(BuildContext context) {
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const UserPhysicalActivitiesScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(15.0),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Icon(
+                Icons.fitness_center,
+                color: Theme.of(context).primaryColor,
+                size: 30,
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Mes activités physiques',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Exercices, programme et progression',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteObjective(UserObjective objective) async {

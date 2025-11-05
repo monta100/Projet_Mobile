@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../Entites/utilisateur.dart';
 import '../Entites/user_objective.dart';
 import '../Services/database_helper.dart';
-import '../Services/user_service.dart';
 
 class CreateUserObjectiveScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -22,7 +21,6 @@ class CreateUserObjectiveScreen extends StatefulWidget {
 class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
     with TickerProviderStateMixin {
   final DatabaseHelper _db = DatabaseHelper();
-  final UserService _userService = UserService();
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -123,15 +121,6 @@ class _CreateUserObjectiveScreenState extends State<CreateUserObjectiveScreen>
       'icon': '🔥',
       'color': Colors.red,
     },
-  ];
-
-  final List<Map<String, dynamic>> _durations = [
-    {'weeks': 4, 'label': '1 mois'},
-    {'weeks': 8, 'label': '2 mois'},
-    {'weeks': 12, 'label': '3 mois'},
-    {'weeks': 16, 'label': '4 mois'},
-    {'weeks': 24, 'label': '6 mois'},
-    {'weeks': 52, 'label': '1 an'},
   ];
 
   @override

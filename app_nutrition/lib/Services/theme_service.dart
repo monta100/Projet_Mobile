@@ -4,28 +4,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Service de gestion des thèmes (clair/sombre)
 class ThemeService {
   static const String _themeKey = 'theme_mode';
-  
+
   /// Récupère le mode de thème sauvegardé
   static Future<ThemeMode> getThemeMode() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final themeString = prefs.getString(_themeKey);
       if (themeString == null) return ThemeMode.system;
-      
+
       switch (themeString) {
         case 'light':
           return ThemeMode.light;
         case 'dark':
           return ThemeMode.dark;
         case 'system':
-        default:
+        case _:
           return ThemeMode.system;
       }
     } catch (e) {
       return ThemeMode.system;
     }
   }
-  
+
   /// Sauvegarde le mode de thème
   static Future<void> setThemeMode(ThemeMode mode) async {
     try {
@@ -39,7 +39,6 @@ class ThemeService {
           modeString = 'dark';
           break;
         case ThemeMode.system:
-        default:
           modeString = 'system';
           break;
       }
@@ -48,7 +47,7 @@ class ThemeService {
       // Ignore errors
     }
   }
-  
+
   /// Récupère le thème clair
   static ThemeData getLightTheme() {
     return ThemeData(
@@ -64,9 +63,7 @@ class ThemeService {
       ),
       cardTheme: CardThemeData(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -78,21 +75,19 @@ class ThemeService {
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
       ),
     );
   }
-  
+
   /// Récupère le thème sombre
   static ThemeData getDarkTheme() {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF4CAF50),
       brightness: Brightness.dark,
     );
-    
+
     return ThemeData(
       colorScheme: colorScheme.copyWith(
         // Améliorer les couleurs pour une meilleure lisibilité
@@ -124,9 +119,7 @@ class ThemeService {
       cardTheme: CardThemeData(
         elevation: 2,
         color: const Color(0xFF1E1E1E),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -187,7 +180,11 @@ class ThemeService {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFF1E1E1E),
-        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
         contentTextStyle: TextStyle(color: Colors.grey[300]!),
       ),
       chipTheme: ChipThemeData(
@@ -199,4 +196,3 @@ class ThemeService {
     );
   }
 }
-

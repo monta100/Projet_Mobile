@@ -19,8 +19,8 @@ class DatabaseHelper {
   static Database? _database;
 
   // --- Configuration ---
-  static const String _dbName = 'app_nutrition11.db';
-  static const int _dbVersion = 11;
+  static const String _dbName = 'app_nutrition13.db';
+  static const int _dbVersion = 13;
   // v7: finalise table recettes avec colonne utilisateur_id (rebuild propre)
 
   // Table names
@@ -95,6 +95,17 @@ class DatabaseHelper {
       ''');
 
     // Table sessions
+    // Create a default programme first
+    await db.insert('programmes', {
+      'id': 1,
+      'nom': 'Programme par défaut',
+      'objectif': 'Général',
+      'date_debut': DateTime.now().toIso8601String(),
+      'date_fin': DateTime.now()
+          .add(const Duration(days: 365))
+          .toIso8601String(),
+    });
+
     await db.execute('''
         CREATE TABLE sessions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,12 +114,10 @@ class DatabaseHelper {
           intensite TEXT NOT NULL,
           calories INTEGER NOT NULL,
           date TEXT NOT NULL,
-          programme_id INTEGER DEFAULT 0,
+          programme_id INTEGER DEFAULT 1,
           FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
         )
-      ''');
-
-    // Table exercices
+      '''); // Table exercices
     await db.execute('''
         CREATE TABLE exercices (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,8 +126,8 @@ class DatabaseHelper {
           repetitions INTEGER NOT NULL,
           image_path TEXT NOT NULL,
           video_path TEXT NOT NULL,
-          programme_id INTEGER NOT NULL,
-          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE CASCADE
+          programme_id INTEGER DEFAULT 1,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
         )
       ''');
 
@@ -242,6 +251,42 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // v13: Create default programme and update foreign keys
+    if (oldVersion < 13) {
+      try {
+        // Create default programme if it doesn't exist
+        final defaultProgramme = await db.query(
+          'programmes',
+          where: 'id = ?',
+          whereArgs: [1],
+        );
+
+        if (defaultProgramme.isEmpty) {
+          await db.insert('programmes', {
+            'id': 1,
+            'nom': 'Programme par défaut',
+            'objectif': 'Général',
+            'date_debut': DateTime.now().toIso8601String(),
+            'date_fin': DateTime.now()
+                .add(const Duration(days: 365))
+                .toIso8601String(),
+          });
+        }
+
+        // Update existing sessions with programme_id = 0 to use the default programme
+        await db.execute(
+          'UPDATE sessions SET programme_id = 1 WHERE programme_id = 0',
+        );
+
+        // Update existing exercices with programme_id = 0 to use the default programme
+        await db.execute(
+          'UPDATE exercices SET programme_id = 1 WHERE programme_id = 0',
+        );
+      } catch (e) {
+        print('Migration to v13 failed: $e');
+      }
+    }
+
     // Backwards-compat: if older DB used 'mot_de_passe' column, copy it to new 'motDePasse'
     try {
       final userCols = await db.rawQuery(
@@ -665,6 +710,73 @@ class DatabaseHelper {
   /// S'assure que le schéma est cohérent même si la version ne change pas
   Future<void> _ensureSchema(Database db) async {
     try {
+      // Créer les tables d'activités physiques si elles n'existent pas
+      // Create a default programme first if it doesn't exist
+      final defaultProgramme = await db.query(
+        'programmes',
+        where: 'id = ?',
+        whereArgs: [1],
+      );
+
+      if (defaultProgramme.isEmpty) {
+        await db.insert('programmes', {
+          'id': 1,
+          'nom': 'Programme par défaut',
+          'objectif': 'Général',
+          'date_debut': DateTime.now().toIso8601String(),
+          'date_fin': DateTime.now()
+              .add(const Duration(days: 365))
+              .toIso8601String(),
+        });
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type_activite TEXT NOT NULL,
+          duree INTEGER NOT NULL,
+          intensite TEXT NOT NULL,
+          calories INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          programme_id INTEGER DEFAULT 1,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+        )
+      ''');
+
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS programmes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nom TEXT NOT NULL,
+          objectif TEXT NOT NULL,
+          date_debut TEXT NOT NULL,
+          date_fin TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS exercices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nom TEXT NOT NULL,
+          description TEXT NOT NULL,
+          repetitions INTEGER NOT NULL,
+          image_path TEXT NOT NULL,
+          video_path TEXT NOT NULL,
+          programme_id INTEGER DEFAULT 1,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS progressions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date TEXT NOT NULL,
+          calories_brulees INTEGER NOT NULL,
+          duree_totale INTEGER NOT NULL,
+          commentaire TEXT NOT NULL,
+          session_id INTEGER,
+          FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
+        )
+      ''');
+
       // utilisateurs: assurer colonne motDePasse et copier depuis mot_de_passe si présent
       final userCols = await db.rawQuery(
         "PRAGMA table_info($tableUtilisateurs)",

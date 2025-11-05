@@ -7,6 +7,7 @@ import 'my_recettes_screen.dart';
 import 'recettes_global_screen.dart';
 import 'chatbot_repas_screen.dart';
 import 'analyze_image_test.dart';
+import 'programme_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({Key? key}) : super(key: key);
@@ -26,6 +27,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     const RecettesGlobalScreen(),
     const ChatbotRepasScreen(),
     AnalyzeImageTest(),
+    const ProgrammeScreen(),
   ];
 
   final List<NavigationItem> _navigationItems = [
@@ -58,6 +60,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       activeIcon: Icons.image_search,
       label: 'VisionAI', // Nom créatif pour l'analyse d'image
       color: Colors.purple,
+    ),
+    NavigationItem(
+      icon: Icons.fitness_center_outlined,
+      activeIcon: Icons.fitness_center,
+      label: 'Programmes',
+      color: Colors.green,
     ),
   ];
 

@@ -6,10 +6,14 @@ class ExerciceService {
 
   /// ➕ Ajoute un nouvel exercice dans la base
   Future<int> insertExercice(Exercice exercice) async {
-    return await dbHelper.insert(
-      Exercice.tableName,
-      exercice.toMap(),
-    );
+    final data = exercice.toMap();
+
+    // Ensure programme_id is valid
+    if (data['programme_id'] == 0) {
+      data['programme_id'] = 1; // Use default programme
+    }
+
+    return await dbHelper.insert(Exercice.tableName, data);
   }
 
   /// 🔍 Récupère tous les exercices

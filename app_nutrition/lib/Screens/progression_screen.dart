@@ -64,7 +64,11 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
 
     for (int i = 0; i < sessions.length; i++) {
       final s = sessions[i];
-      final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       built.add(
         Progression(
           date: DateFormat('yyyy-MM-dd').format(date),
@@ -76,7 +80,9 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       );
     }
 
-    built.sort((a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)));
+    built.sort(
+      (a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)),
+    );
 
     setState(() {
       _all = built;
@@ -99,10 +105,14 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
     List<Progression> out;
 
     if (_range == "Semaine") {
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1)); // lundi
+      final startOfWeek = now.subtract(
+        Duration(days: now.weekday - 1),
+      ); // lundi
       out = _all.where((p) {
         final d = DateTime.parse(p.date);
-        return !d.isBefore(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day));
+        return !d.isBefore(
+          DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
+        );
       }).toList();
     } else if (_range == "Année") {
       out = _all.where((p) => DateTime.parse(p.date).year == now.year).toList();
@@ -113,7 +123,9 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       }).toList();
     }
 
-    out.sort((a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)));
+    out.sort(
+      (a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)),
+    );
 
     setState(() {
       _view = out;
@@ -126,12 +138,16 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
 
   Widget _monthlyGoalCard() {
     final now = DateTime.now();
-    final monthCalories = _all.where((p) {
-      final d = DateTime.parse(p.date);
-      return d.year == now.year && d.month == now.month;
-    }).fold<int>(0, (sum, p) => sum + p.caloriesBrulees);
+    final monthCalories = _all
+        .where((p) {
+          final d = DateTime.parse(p.date);
+          return d.year == now.year && d.month == now.month;
+        })
+        .fold<int>(0, (sum, p) => sum + p.caloriesBrulees);
 
-    final ratio = (_monthlyGoalKcal == 0) ? 0.0 : (monthCalories / _monthlyGoalKcal).clamp(0.0, 1.0);
+    final ratio = (_monthlyGoalKcal == 0)
+        ? 0.0
+        : (monthCalories / _monthlyGoalKcal).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -144,14 +160,20 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
             color: Colors.black12.withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 3),
-          )
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Objectif du mois",
-              style: TextStyle(color: darkGreen, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text(
+            "Objectif du mois",
+            style: TextStyle(
+              color: darkGreen,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: ratio,
@@ -161,7 +183,10 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
           const SizedBox(height: 8),
-          Text("$monthCalories / $_monthlyGoalKcal kcal", style: const TextStyle(color: Colors.black54)),
+          Text(
+            "$monthCalories / $_monthlyGoalKcal kcal",
+            style: const TextStyle(color: Colors.black54),
+          ),
         ],
       ),
     );
@@ -178,7 +203,11 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black12.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))
+          BoxShadow(
+            color: Colors.black12.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: Row(
@@ -186,7 +215,10 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: mainGreen.withOpacity(0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: mainGreen.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.military_tech, color: mainGreen),
           ),
           const SizedBox(width: 10),
@@ -194,15 +226,24 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Dernière performance",
-                    style: TextStyle(fontWeight: FontWeight.bold, color: darkGreen)),
+                const Text(
+                  "Dernière performance",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: darkGreen,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text("$d • ${last.dureeTotale} min • ${last.caloriesBrulees} kcal",
-                    style: const TextStyle(color: Colors.black87, fontSize: 13)),
-                Text(last.commentaire,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                Text(
+                  "$d • ${last.dureeTotale} min • ${last.caloriesBrulees} kcal",
+                  style: const TextStyle(color: Colors.black87, fontSize: 13),
+                ),
+                Text(
+                  last.commentaire,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -224,15 +265,21 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
     final color = score > 80
         ? Colors.green
         : score > 50
-            ? Colors.orange
-            : Colors.redAccent;
+        ? Colors.orange
+        : Colors.redAccent;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black12.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -241,7 +288,11 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
           Expanded(
             child: Text(
               "Score de performance : $score / 100",
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
           ),
         ],
@@ -263,23 +314,40 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black12.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Vos badges 🏅",
-              style: TextStyle(color: darkGreen, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text(
+            "Vos badges 🏅",
+            style: TextStyle(
+              color: darkGreen,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: achievements
-                .map((b) => Chip(
-                      label: Text(b),
-                      backgroundColor: mainGreen.withOpacity(0.15),
-                      labelStyle: const TextStyle(color: darkGreen, fontWeight: FontWeight.bold),
-                    ))
+                .map(
+                  (b) => Chip(
+                    label: Text(b),
+                    backgroundColor: mainGreen.withOpacity(0.15),
+                    labelStyle: const TextStyle(
+                      color: darkGreen,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ],
@@ -289,8 +357,12 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
 
   Widget _forecastCard() {
     if (_view.isEmpty) return const SizedBox.shrink();
-    final avgPerDay = _view.fold(0, (s, p) => s + p.caloriesBrulees) / _view.length;
-    final daysInMonth = DateUtils.getDaysInMonth(DateTime.now().year, DateTime.now().month);
+    final avgPerDay =
+        _view.fold(0, (s, p) => s + p.caloriesBrulees) / _view.length;
+    final daysInMonth = DateUtils.getDaysInMonth(
+      DateTime.now().year,
+      DateTime.now().month,
+    );
     final forecast = (avgPerDay * daysInMonth).round();
 
     return Container(
@@ -299,11 +371,21 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black12.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Text(
         "📈 Si tu gardes ce rythme, tu atteindras environ $forecast kcal ce mois-ci !",
-        style: const TextStyle(color: darkGreen, fontWeight: FontWeight.bold, fontSize: 14),
+        style: const TextStyle(
+          color: darkGreen,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
       ),
     );
   }
@@ -311,9 +393,15 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
   Widget _intensityChart() {
     if (_all.isEmpty) return const SizedBox.shrink();
 
-    final low = _all.where((p) => p.commentaire.contains("Faible")).fold<int>(0, (s, p) => s + p.caloriesBrulees);
-    final mid = _all.where((p) => p.commentaire.contains("Moyenne")).fold<int>(0, (s, p) => s + p.caloriesBrulees);
-    final high = _all.where((p) => p.commentaire.contains("Forte")).fold<int>(0, (s, p) => s + p.caloriesBrulees);
+    final low = _all
+        .where((p) => p.commentaire.contains("Faible"))
+        .fold<int>(0, (s, p) => s + p.caloriesBrulees);
+    final mid = _all
+        .where((p) => p.commentaire.contains("Moyenne"))
+        .fold<int>(0, (s, p) => s + p.caloriesBrulees);
+    final high = _all
+        .where((p) => p.commentaire.contains("Forte"))
+        .fold<int>(0, (s, p) => s + p.caloriesBrulees);
 
     // On enveloppe le chart avec RepaintBoundary pour la capture PDF
     return RepaintBoundary(
@@ -326,7 +414,11 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
-            BoxShadow(color: Colors.black12.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 3)),
+            BoxShadow(
+              color: Colors.black12.withOpacity(0.08),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
           ],
         ),
         child: BarChart(
@@ -351,18 +443,41 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
                   },
                 ),
               ),
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              leftTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
             ),
             barGroups: [
-              BarChartGroupData(x: 0, barRods: [
-                BarChartRodData(toY: low.toDouble(), color: Colors.blueAccent, width: 18),
-              ]),
-              BarChartGroupData(x: 1, barRods: [
-                BarChartRodData(toY: mid.toDouble(), color: Colors.orangeAccent, width: 18),
-              ]),
-              BarChartGroupData(x: 2, barRods: [
-                BarChartRodData(toY: high.toDouble(), color: Colors.redAccent, width: 18),
-              ]),
+              BarChartGroupData(
+                x: 0,
+                barRods: [
+                  BarChartRodData(
+                    toY: low.toDouble(),
+                    color: Colors.blueAccent,
+                    width: 18,
+                  ),
+                ],
+              ),
+              BarChartGroupData(
+                x: 1,
+                barRods: [
+                  BarChartRodData(
+                    toY: mid.toDouble(),
+                    color: Colors.orangeAccent,
+                    width: 18,
+                  ),
+                ],
+              ),
+              BarChartGroupData(
+                x: 2,
+                barRods: [
+                  BarChartRodData(
+                    toY: high.toDouble(),
+                    color: Colors.redAccent,
+                    width: 18,
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -377,8 +492,18 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       children: [
         Icon(icon, color: mainGreen),
         const SizedBox(height: 6),
-        Text(big, style: const TextStyle(color: darkGreen, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+        Text(
+          big,
+          style: const TextStyle(
+            color: darkGreen,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.black54, fontSize: 12),
+        ),
       ],
     );
   }
@@ -416,7 +541,7 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       final renderObject = context.findRenderObject();
       if (renderObject is! RenderRepaintBoundary) return null;
 
-      final boundary = renderObject as RenderRepaintBoundary;
+      final boundary = renderObject;
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
@@ -438,7 +563,13 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Suivi de progression', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
+              pw.Text(
+                'Suivi de progression',
+                style: pw.TextStyle(
+                  fontSize: 22,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
               pw.Text(nowStr, style: const pw.TextStyle(fontSize: 10)),
             ],
           ),
@@ -458,21 +589,33 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
           ),
 
           pw.SizedBox(height: 16),
-          pw.Text('Objectif du mois: $_monthlyGoalKcal kcal',
-              style: pw.TextStyle(fontSize: 12, color: PdfColors.green900)),
+          pw.Text(
+            'Objectif du mois: $_monthlyGoalKcal kcal',
+            style: pw.TextStyle(fontSize: 12, color: PdfColors.green900),
+          ),
 
           pw.SizedBox(height: 16),
 
           // Graphique
           if (chartBytes != null) ...[
-            pw.Text('Répartition par intensité', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.Text(
+              'Répartition par intensité',
+              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+            ),
             pw.SizedBox(height: 8),
-            pw.Image(pw.MemoryImage(chartBytes), height: 220, fit: pw.BoxFit.contain),
+            pw.Image(
+              pw.MemoryImage(chartBytes),
+              height: 220,
+              fit: pw.BoxFit.contain,
+            ),
             pw.SizedBox(height: 16),
           ],
 
           // Liste
-          pw.Text('Détails', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'Détails',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
           pw.SizedBox(height: 8),
           ..._view.map((p) {
             final d = DateFormat('dd/MM/yyyy').format(DateTime.parse(p.date));
@@ -481,8 +624,16 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Expanded(child: pw.Text('$d  •  ${p.commentaire}', style: const pw.TextStyle(fontSize: 10))),
-                  pw.Text('${p.dureeTotale} min  •  ${p.caloriesBrulees} kcal', style: const pw.TextStyle(fontSize: 10)),
+                  pw.Expanded(
+                    child: pw.Text(
+                      '$d  •  ${p.commentaire}',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                  ),
+                  pw.Text(
+                    '${p.dureeTotale} min  •  ${p.caloriesBrulees} kcal',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
                 ],
               ),
             );
@@ -491,7 +642,10 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       ),
     );
 
-    await Printing.sharePdf(bytes: await doc.save(), filename: 'progression_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'progression_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
   }
 
   pw.Widget _pdfStat(String label, String value) {
@@ -504,9 +658,19 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+          ),
           pw.SizedBox(height: 2),
-          pw.Text(value, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.green800,
+            ),
+          ),
         ],
       ),
     );
@@ -532,24 +696,37 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
               // HEADER
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 26,
+                  horizontal: 20,
+                ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [mainGreen, darkGreen],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(30),
+                  ),
                 ),
                 child: Column(
                   children: const [
                     Icon(Icons.show_chart, color: Colors.white, size: 30),
                     SizedBox(height: 8),
-                    Text("Suivi de Progression",
-                        style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                    Text(
+                      "Suivi de Progression",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     SizedBox(height: 6),
-                    Text("Vos progrès sont calculés automatiquement",
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text(
+                      "Vos progrès sont calculés automatiquement",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
                   ],
                 ),
               ),
@@ -557,27 +734,45 @@ class _ProgressionScreenState extends State<ProgressionScreen> {
               // Stats
               if (_view.isNotEmpty)
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
-                      BoxShadow(color: Colors.black12.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 3)),
+                      BoxShadow(
+                        color: Colors.black12.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
                     ],
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _statPill(Icons.local_fire_department, "$_totalCalories", "Calories"),
+                      _statPill(
+                        Icons.local_fire_department,
+                        "$_totalCalories",
+                        "Calories",
+                      ),
                       _statPill(Icons.timer, "$_totalDuree", "Durée (min)"),
-                      _statPill(Icons.fitness_center, "${_view.length}", "Séances"),
+                      _statPill(
+                        Icons.fitness_center,
+                        "${_view.length}",
+                        "Séances",
+                      ),
                     ],
                   ),
                 ),
 
               // Filtres + cartes
-              Padding(padding: const EdgeInsets.only(bottom: 6), child: _rangeChips()),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _rangeChips(),
+              ),
               _monthlyGoalCard(),
               _performanceScoreCard(),
               _achievementBadges(),

@@ -1,8 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import '../Entites/utilisateur.dart';
-import '../Entities/session.dart';
 import 'database_helper.dart';
+import 'package:sqflite/sqflite.dart';
+import '../Entities/session.dart';
 
 class SessionService {
   static const _kUserId = 'session_user_id';
@@ -35,31 +35,39 @@ class SessionService {
   Future<bool> isLoggedIn() async => (await getLoggedInUser()) != null;
 
   // Méthodes de gestion des séances d'entraînement
+import 'package:sqflite/sqflite.dart';
+import '../Entities/session.dart';
+import 'database_helper.dart';
+
+/// 🌿 Service de gestion des séances d’entraînement.
+/// Permet d’ajouter, lire, modifier et supprimer des séances dans la base SQLite.
+class SessionService {
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  /// ➕ Ajoute une nouvelle séance dans la base de données.
+  /// Retourne l’ID auto-généré de la séance.
   Future<int> insertSession(Session session) async {
     final db = await _dbHelper.database;
-    var data = session.toMap();
-
-    // Ensure programme_id is valid
-    if (data['programme_id'] == 0) {
-      data['programme_id'] = 1; // Use default programme
-    }
-
     return await db.insert(
       Session.tableName,
-      data,
+      session.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
+  /// 🔍 Récupère toutes les séances enregistrées dans la base.
+  /// Retourne une liste d’objets [Session].
   Future<List<Session>> getAllSessions() async {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> data = await db.query(
       Session.tableName,
-      orderBy: 'id DESC',
+      orderBy: 'id DESC', // 🔽 Les plus récentes d’abord
     );
     return data.map((map) => Session.fromMap(map)).toList();
   }
 
+  /// 🔍 Récupère une séance spécifique par son [id].
+  /// Retourne un objet [Session] ou `null` si non trouvé.
   Future<Session?> getSessionById(int id) async {
     final db = await _dbHelper.database;
     final data = await db.query(
@@ -71,9 +79,11 @@ class SessionService {
     return data.isNotEmpty ? Session.fromMap(data.first) : null;
   }
 
+  /// ✏️ Met à jour une séance existante.
+  /// Lève une exception si l’ID est manquant.
   Future<int> updateSession(Session session) async {
     if (session.id == null) {
-      throw Exception('Impossible de mettre à jour une session sans ID.');
+      throw Exception('❌ Impossible de mettre à jour une session sans ID.');
     }
 
     final db = await _dbHelper.database;
@@ -86,11 +96,18 @@ class SessionService {
     );
   }
 
+  /// ❌ Supprime une séance de la base.
+  /// Retourne le nombre de lignes supprimées (1 si succès).
   Future<int> deleteSession(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete(Session.tableName, where: 'id = ?', whereArgs: [id]);
+    return await db.delete(
+      Session.tableName,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
+  /// 📊 Calcule la somme totale de calories brûlées sur toutes les séances.
   Future<int> getTotalCalories() async {
     final db = await _dbHelper.database;
     final result = await db.rawQuery(
@@ -103,6 +120,7 @@ class SessionService {
     return int.tryParse(value.toString()) ?? 0;
   }
 
+  /// ⏱️ Calcule la durée totale d’entraînement sur toutes les séances.
   Future<int> getTotalDuree() async {
     final db = await _dbHelper.database;
     final result = await db.rawQuery(
@@ -115,6 +133,7 @@ class SessionService {
     return int.tryParse(value.toString()) ?? 0;
   }
 
+  /// 📆 Récupère les séances d’un type spécifique (ex: “cardio”, “musculation”)
   Future<List<Session>> getSessionsByType(String type) async {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> data = await db.query(
@@ -125,6 +144,7 @@ class SessionService {
     return data.map((map) => Session.fromMap(map)).toList();
   }
 
+  /// 🧹 Supprime toutes les séances (utile pour reset les données).
   Future<void> clearAllSessions() async {
     final db = await _dbHelper.database;
     await db.delete(Session.tableName);

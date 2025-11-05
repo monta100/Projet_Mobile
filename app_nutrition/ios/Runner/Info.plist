@@ -24,6 +24,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Nous avons besoin de votre position pour vous fournir des recommandations météo adaptées à votre activité physique.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Nous avons besoin de votre position pour vous fournir des recommandations météo adaptées à votre activité physique.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

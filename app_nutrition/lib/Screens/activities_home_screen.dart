@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:translator/translator.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'physical_activities_main_screen.dart';
 
 const Color mainGreen = Color(0xFF2ECC71);
@@ -35,17 +37,84 @@ class _ActivitiesHomeScreenState extends State<ActivitiesHomeScreen> {
     setState(() => _loading = false);
   }
 
-  // --- 🌍 API Météo forcée sur Tunis ---
+  // --- 🌍 Demander la permission de géolocalisation ---
+  Future<bool> _handleLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Les services de localisation sont désactivés. Veuillez les activer.',
+          ),
+        ),
+      );
+      return false;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission de localisation refusée')),
+        );
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Les permissions de localisation sont définitivement refusées',
+          ),
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  // --- 🌍 API Météo avec géolocalisation ---
   Future<void> _getWeather() async {
     try {
-      // Localisation forcée : Tunis 🇹🇳
-      const double latitude = 36.8065;
-      const double longitude = 10.1815;
+      final hasPermission = await _handleLocationPermission();
+      if (!hasPermission) {
+        // Utiliser une position par défaut si pas de permission
+        setState(() {
+          _city = "Position inconnue";
+          _temp = 20;
+          _weatherDesc = "météo non disponible";
+        });
+        return;
+      }
 
-      print("📍 Localisation forcée : $latitude, $longitude (Tunis)");
+      final Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      print(
+        "📍 Position actuelle : ${position.latitude}, ${position.longitude}",
+      );
+
+      // Obtenir le nom exact de la ville avec le géocodage inverse
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        _city =
+            place.locality ?? place.subAdministrativeArea ?? "Ville inconnue";
+      }
 
       final url = Uri.parse(
-        "https://api.openweathermap.org/data/2.5/weather?lat=$latitude&lon=$longitude&appid=$_weatherKey&units=metric&lang=fr",
+        "https://api.openweathermap.org/data/2.5/weather?lat=${position.latitude}&lon=${position.longitude}&appid=$_weatherKey&units=metric&lang=fr",
       );
 
       final res = await http.get(url);
@@ -97,9 +166,12 @@ class _ActivitiesHomeScreenState extends State<ActivitiesHomeScreen> {
   // --- 🏋️ Message de motivation selon météo ---
   String _getMotivation() {
     if (_temp == null) return "Prépare-toi à t'entraîner ! 💪";
-    if (_temp! >= 25) return "☀️ ${_temp!.round()}°C - Idéal pour courir dehors !";
-    if (_temp! < 15) return "❄️ ${_temp!.round()}°C - Entraîne-toi en intérieur 🔥";
-    if (_weatherDesc.contains("pluie")) return "🌧️ Pluie - Opte pour une séance indoor.";
+    if (_temp! >= 25)
+      return "☀️ ${_temp!.round()}°C - Idéal pour courir dehors !";
+    if (_temp! < 15)
+      return "❄️ ${_temp!.round()}°C - Entraîne-toi en intérieur 🔥";
+    if (_weatherDesc.contains("pluie"))
+      return "🌧️ Pluie - Opte pour une séance indoor.";
     return "💪 ${_temp!.round()}°C - Conditions parfaites pour bouger !";
   }
 
@@ -109,9 +181,7 @@ class _ActivitiesHomeScreenState extends State<ActivitiesHomeScreen> {
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 600),
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: mainGreen),
-              )
+            ? const Center(child: CircularProgressIndicator(color: mainGreen))
             : Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -122,7 +192,10 @@ class _ActivitiesHomeScreenState extends State<ActivitiesHomeScreen> {
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 30,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -222,15 +295,24 @@ class _ActivitiesHomeScreenState extends State<ActivitiesHomeScreen> {
                             // Naviguer vers l'écran des activités physiques avec la barre de navigation
                             Navigator.pushReplacement(
                               context,
-                              MaterialPageRoute(builder: (_) => const PhysicalActivitiesMainScreen()),
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const PhysicalActivitiesMainScreen(),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.fitness_center, color: Colors.white),
+                          icon: const Icon(
+                            Icons.fitness_center,
+                            color: Colors.white,
+                          ),
                           label: const Text("Explorer mes activités"),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: mainGreen,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 40,
+                              vertical: 14,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
@@ -257,7 +339,8 @@ class _ActivitiesHomeScreenState extends State<ActivitiesHomeScreen> {
     if (desc.contains("pluie")) return Icons.umbrella;
     if (desc.contains("orage")) return Icons.bolt;
     if (desc.contains("neige")) return Icons.ac_unit;
-    if (desc.contains("soleil") || desc.contains("dégagé")) return Icons.wb_sunny;
+    if (desc.contains("soleil") || desc.contains("dégagé"))
+      return Icons.wb_sunny;
     return Icons.wb_cloudy;
   }
 }

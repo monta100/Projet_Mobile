@@ -19,7 +19,6 @@ class _RepasModuleMainScreenState extends State<RepasModuleMainScreen> {
     const RepasListScreen(),
     const MyRecettesScreen(),
     const RecettesGlobalScreen(),
-    const ChatbotRepasScreen(),
     const AnalyzeImageTest(),
   ];
 
@@ -43,10 +42,6 @@ class _RepasModuleMainScreenState extends State<RepasModuleMainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
             label: 'Recettes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.support_agent),
-            label: 'Assistance IA',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.camera_alt),

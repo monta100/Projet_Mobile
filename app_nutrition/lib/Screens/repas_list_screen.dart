@@ -119,6 +119,7 @@ class _RepasListScreenState extends State<RepasListScreen>
         child: CustomScrollView(
           slivers: [
             _buildHeaderSliver(),
+            _buildTodayCaloriesSliver(),
             _buildDateFilterSliver(),
             _buildTypeFilterSliver(),
             _buildRepasList(),
@@ -131,15 +132,26 @@ class _RepasListScreenState extends State<RepasListScreen>
 
   Widget _buildHeaderSliver() {
     return SliverAppBar(
-      expandedHeight: 240.0,
+      expandedHeight: 200.0,
       pinned: true,
       stretch: true,
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: AppColors.primaryColor,
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
+        titlePadding: const EdgeInsets.only(left: 20, bottom: 20),
+        expandedTitleScale: 1.2,
+        title: const Text(
+          '🍽️ Mes Repas',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
         background: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [AppColors.primaryColor, AppColors.secondaryColor],
               begin: Alignment.topLeft,
@@ -149,11 +161,39 @@ class _RepasListScreenState extends State<RepasListScreen>
           child: Stack(
             children: [
               Positioned(
+                right: -40,
+                top: -40,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: -60,
+                bottom: -60,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.08),
+                  ),
+                ),
+              ),
+              Positioned(
                 top: 8,
-                right: 8,
+                right: 16,
                 child: IconButton(
                   tooltip: 'Bibliothèque Recettes',
-                  icon: const Icon(Icons.menu_book, color: Colors.white),
+                  icon: const Icon(
+                    Icons.menu_book,
+                    color: Colors.white,
+                    size: 26,
+                  ),
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -164,43 +204,6 @@ class _RepasListScreenState extends State<RepasListScreen>
                   },
                 ),
               ),
-              Positioned(
-                bottom: -80,
-                right: -80,
-                child: Icon(
-                  Icons.restaurant,
-                  size: 200,
-                  color: Colors.white.withOpacity(0.05),
-                ),
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Mes Repas',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Suivez votre nutrition au quotidien',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 16,
-                        ),
-                      ),
-                      const Spacer(),
-                      _buildTodayCaloriesSliver(),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -209,27 +212,29 @@ class _RepasListScreenState extends State<RepasListScreen>
   }
 
   Widget _buildTodayCaloriesSliver() {
-    return FutureBuilder<List<Repas>>(
-      future: _repasList,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-        final today = DateTime.now();
-        final totalToday = (snapshot.data ?? [])
-            .where(
-              (r) =>
-                  r.date.year == today.year &&
-                  r.date.month == today.month &&
-                  r.date.day == today.day,
-            )
-            .fold<double>(0, (s, r) => s + r.caloriesTotales);
-        final progress = (totalToday / _dailyGoal).clamp(0.0, 1.0);
+    return SliverToBoxAdapter(
+      child: FutureBuilder<List<Repas>>(
+        future: _repasList,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox.shrink();
+          final today = DateTime.now();
+          final totalToday = (snapshot.data ?? [])
+              .where(
+                (r) =>
+                    r.date.year == today.year &&
+                    r.date.month == today.month &&
+                    r.date.day == today.day,
+              )
+              .fold<double>(0, (s, r) => s + r.caloriesTotales);
+          final progress = (totalToday / _dailyGoal).clamp(0.0, 1.0);
 
-        return _TodayCaloriesBanner(
-          total: totalToday,
-          goal: _dailyGoal,
-          progress: progress,
-        );
-      },
+          return _TodayCaloriesBanner(
+            total: totalToday,
+            goal: _dailyGoal,
+            progress: progress,
+          );
+        },
+      ),
     );
   }
 
@@ -534,9 +539,8 @@ class _RepasListScreenState extends State<RepasListScreen>
     return FloatingActionButton(
       onPressed: _showAddRepasDialog,
       backgroundColor: AppColors.primaryColor,
-      child: const Icon(Icons.add, color: Colors.white),
-      elevation: 4,
-      shape: const CircleBorder(),
+      child: const Icon(Icons.add, color: Colors.white, size: 28),
+      elevation: 8,
     );
   }
 

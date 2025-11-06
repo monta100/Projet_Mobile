@@ -117,61 +117,89 @@ class _ProChatBubble extends StatelessWidget {
     return Semantics(
       label: 'Ouvrir le chat Snacky',
       button: true,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Outer glow circle with gradient
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFA726), Color(0xFF43A047)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  offset: const Offset(0, 8),
-                  blurRadius: 18,
-                ),
-              ],
-            ),
-            child: Container(
-              margin: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Outer circle with green gradient and soft shadow
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF43A047), Color(0xFFB2FF59)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.13),
+                    offset: const Offset(0, 7),
+                    blurRadius: 22,
+                  ),
+                ],
               ),
               child: Container(
-                margin: const EdgeInsets.all(10),
+                margin: const EdgeInsets.all(5),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFFA726),
+                  color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: Icon(Icons.chat_bubble_rounded, color: Colors.white),
+                child: Container(
+                  margin: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFB2FF59), Color(0xFF43A047)],
+                      begin: Alignment.bottomLeft,
+                      end: Alignment.topRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.mark_chat_unread_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          // Unread badge (static demo)
-          Positioned(
-            right: -2,
-            top: -2,
-            child: Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: Colors.redAccent,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+            // Animated unread badge
+            Positioned(
+              right: -2,
+              top: -2,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 1.0, end: 1.15),
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeInOut,
+                builder: (context, scale, child) {
+                  return Transform.scale(scale: scale, child: child);
+                },
+                onEnd: () {},
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent.withOpacity(0.18),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -348,13 +348,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
         ),
         const SizedBox(height: 16),
-        _userObjectives.isEmpty
-            ? _buildEmptyObjectivesCard()
-            : Column(
-                children: _userObjectives
-                    .map((objective) => _buildObjectiveCard(objective))
-                    .toList(),
-              ),
+        _buildEmptyObjectivesCard(),
       ],
     );
   }
@@ -368,6 +362,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         border: Border.all(color: Colors.white.withOpacity(0.3)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.track_changes,
@@ -393,141 +388,50 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               color: Colors.white.withOpacity(0.8),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildObjectiveCard(UserObjective objective) {
-    final progress = objective.progressionPourcentage / 100;
-    final isCompleted = objective.estAtteint;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.grey[800]
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  isCompleted ? Icons.check_circle : Icons.track_changes,
-                  color: isCompleted ? Colors.green : Colors.blue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      objective.typeObjectif,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white
-                            : null,
-                      ),
-                    ),
-                    Text(
-                      '${objective.poidsActuel}kg → ${objective.poidsCible}kg',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[300]
-                            : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Icônes d'action (modifier et supprimer)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icône modifier
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 20),
-                    color: Colors.blue,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _editObjective(objective),
-                  ),
-                  const SizedBox(width: 8),
-                  // Icône supprimer
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 20),
-                    color: Colors.red,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _deleteObjective(objective),
+          const SizedBox(height: 20),
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey[700]
-                  : Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isCompleted ? Colors.green : Colors.blue,
+              child: IconButton(
+                icon: Icon(Icons.add, size: 32, color: Colors.green),
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CreateUserObjectiveScreen(
+                        utilisateur: widget.utilisateur,
+                      ),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadDashboardData();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Objectif ajouté avec succès'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+                tooltip: 'Ajouter un objectif',
+                splashRadius: 32,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Progression: ${objective.progressionPourcentage.toInt()}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[300]
-                      : Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                '${objective.joursRestants} jours restants',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[300]
-                      : Colors.grey.shade600,
-                ),
-              ),
-            ],
           ),
         ],
       ),

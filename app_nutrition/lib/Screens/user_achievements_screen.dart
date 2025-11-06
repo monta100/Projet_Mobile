@@ -380,7 +380,9 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
   Widget _buildAchievementCard(Achievement achievement) {
     final isUnlocked = achievement.isUnlocked;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
       decoration: BoxDecoration(
         color: isUnlocked
             ? (Theme.of(context).brightness == Brightness.dark
@@ -388,7 +390,7 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
                   : Colors.white)
             : (Theme.of(context).brightness == Brightness.dark
                   ? Colors.grey[900]
-                  : Colors.grey.shade100),
+                  : Colors.grey.shade100.withOpacity(0.6)),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isUnlocked
@@ -399,94 +401,135 @@ class _UserAchievementsScreenState extends State<UserAchievementsScreen>
         boxShadow: [
           BoxShadow(
             color: isUnlocked
-                ? _getColorFromHex(achievement.couleur).withOpacity(0.2)
-                : Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+                ? _getColorFromHex(achievement.couleur).withOpacity(0.35)
+                : Colors.grey.withOpacity(0.08),
+            blurRadius: isUnlocked ? 16 : 4,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isUnlocked
-                    ? _getColorFromHex(achievement.couleur).withOpacity(0.1)
-                    : (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[700]
-                          : Colors.grey.shade200),
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: Text(
-                achievement.icone,
-                style: TextStyle(
-                  fontSize: 32,
-                  color: isUnlocked
-                      ? null
-                      : (Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[600]
-                            : Colors.grey.shade400),
+        child: SingleChildScrollView(
+          child: Stack(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isUnlocked
+                            ? _getColorFromHex(
+                                achievement.couleur,
+                              ).withOpacity(0.13)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[700]
+                                  : Colors.grey.shade200.withOpacity(0.7)),
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      child: isUnlocked
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  achievement.icone,
+                                  style: const TextStyle(fontSize: 32),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(Icons.star, color: Colors.amber, size: 28),
+                              ],
+                            )
+                          : Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: 0.5,
+                                  child: Text(
+                                    achievement.icone,
+                                    style: TextStyle(
+                                      fontSize: 32,
+                                      color:
+                                          Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.grey[600]
+                                          : Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  child: Icon(
+                                    Icons.lock,
+                                    color: Colors.grey.shade500,
+                                    size: 22,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      achievement.nom,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isUnlocked
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[400]
+                                  : Colors.grey.shade600),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      achievement.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isUnlocked
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[300]
+                                  : Colors.grey.shade600)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[500]
+                                  : Colors.grey.shade500),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isUnlocked
+                            ? _getColorFromHex(achievement.couleur)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[600]
+                                  : Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${achievement.points} pts',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              achievement.nom,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isUnlocked
-                    ? (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black)
-                    : (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[400]
-                          : Colors.grey.shade600),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              achievement.description,
-              style: TextStyle(
-                fontSize: 12,
-                color: isUnlocked
-                    ? (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[300]
-                          : Colors.grey.shade600)
-                    : (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[500]
-                          : Colors.grey.shade500),
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: isUnlocked
-                    ? _getColorFromHex(achievement.couleur)
-                    : (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[600]
-                          : Colors.grey.shade400),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${achievement.points} pts',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

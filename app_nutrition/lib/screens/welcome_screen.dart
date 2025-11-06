@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../Theme/app_colors.dart';
 import 'user_info_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -13,10 +12,7 @@ class WelcomeScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade900,
-              Colors.blue.shade700,
-            ],
+            colors: [Colors.blue.shade900, Colors.blue.shade700],
           ),
         ),
         child: SafeArea(
@@ -43,10 +39,7 @@ class WelcomeScreen extends StatelessWidget {
                 const Text(
                   'Let\'s plan your fitness journey and calculate the costs together!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white70,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.white70),
                 ),
                 const SizedBox(height: 50),
                 ElevatedButton(
@@ -71,10 +64,7 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                   child: const Text(
                     'Get Started',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

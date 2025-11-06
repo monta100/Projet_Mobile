@@ -4,8 +4,8 @@ import 'session_screen.dart';
 import 'progression_screen.dart';
 import 'recommandation_screen.dart';
 import 'programme_screen.dart';
-import 'activities_home_screen.dart';
-import '../Theme/app_colors.dart' as theme_colors;
+
+const Color mainGreen = Color(0xFF2ECC71);
 
 class PhysicalActivitiesMainScreen extends StatefulWidget {
   const PhysicalActivitiesMainScreen({super.key});

@@ -12,6 +12,8 @@ import 'repas_module_main_screen.dart';
 import '../Services/repas_service.dart';
 import '../Services/session_service.dart';
 import 'user_physical_activities_screen.dart';
+import 'training_expenses_module_screen.dart';
+import 'expenses_tracker_module_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   final Utilisateur utilisateur;
@@ -160,6 +162,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                           _buildMyMealsCard(context),
                           const SizedBox(height: 24),
                           _buildPhysicalActivitiesCard(context),
+                          const SizedBox(height: 24),
+                          _buildExpensesManagementCard(context),
                           const SizedBox(height: 24),
                           _buildMyObjectivesSection(context),
                           const SizedBox(height: 16),
@@ -781,5 +785,116 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         }
       }
     }
+  }
+
+  Widget _buildExpensesManagementCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Gestion Financière',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TrainingExpensesModuleScreen(),
+                      ),
+                    );
+                  },
+                  child: _buildFinanceModuleButton(
+                    icon: Icons.calendar_month,
+                    title: 'Plans &\nBudgets',
+                    color: Colors.blue,
+                    context: context,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ExpensesTrackerModuleScreen(),
+                      ),
+                    );
+                  },
+                  child: _buildFinanceModuleButton(
+                    icon: Icons.wallet,
+                    title: 'Suivi\nDépenses',
+                    color: Colors.orange,
+                    context: context,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinanceModuleButton({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required BuildContext context,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

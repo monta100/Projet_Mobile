@@ -20,8 +20,8 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'app_nutrition13.db';
-  static const int _dbVersion = 13;
-  // v7: finalise table recettes avec colonne utilisateur_id (rebuild propre)
+  static const int _dbVersion = 14;
+  // v14: Ajout des tables training_plans et expenses pour gestion des dépenses
 
   // Table names
   static const String tableUtilisateurs = 'utilisateurs';
@@ -237,6 +237,35 @@ class DatabaseHelper {
       )
     ''');
 
+    // --- Gestion des Dépenses (Expenses Management) ---
+    // Table des plans d'entraînement
+    await db.execute('''
+      CREATE TABLE training_plans(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        duration_weeks INTEGER NOT NULL,
+        training_frequency INTEGER NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Table des coûts/dépenses
+    await db.execute('''
+      CREATE TABLE expenses(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER,
+        gym_subscription REAL NOT NULL,
+        food_costs REAL NOT NULL,
+        supplements_costs REAL,
+        equipment_costs REAL,
+        other_costs REAL,
+        total_cost REAL NOT NULL,
+        FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE
+      )
+    ''');
+
     // Index pour accélérer les recherches
     await db.execute(
       'CREATE INDEX idx_repas_utilisateur ON repas(utilisateur_id)',
@@ -248,9 +277,56 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_ingredients_recette ON ingredients(recette_id)',
     );
+    await db.execute(
+      'CREATE INDEX idx_training_plans_user ON training_plans(user_id)',
+    );
+    await db.execute('CREATE INDEX idx_expenses_plan ON expenses(plan_id)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // v14: Création des tables training_plans et expenses
+    if (oldVersion < 14) {
+      try {
+        // Créer la table training_plans si elle n'existe pas
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS training_plans(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            duration_weeks INTEGER NOT NULL,
+            training_frequency INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+          )
+        ''');
+
+        // Créer la table expenses si elle n'existe pas
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS expenses(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_id INTEGER,
+            gym_subscription REAL NOT NULL,
+            food_costs REAL NOT NULL,
+            supplements_costs REAL,
+            equipment_costs REAL,
+            other_costs REAL,
+            total_cost REAL NOT NULL,
+            FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE
+          )
+        ''');
+
+        // Créer les index
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_training_plans_user ON training_plans(user_id)',
+        );
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_expenses_plan ON expenses(plan_id)',
+        );
+      } catch (e) {
+        print('Migration to v14 (Expenses tables) failed: $e');
+      }
+    }
+
     // v13: Create default programme and update foreign keys
     if (oldVersion < 13) {
       try {
@@ -892,6 +968,41 @@ class DatabaseHelper {
           FOREIGN KEY (utilisateur_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
         )
       ''');
+
+      // Créer les tables de gestion des dépenses
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS training_plans(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          duration_weeks INTEGER NOT NULL,
+          training_frequency INTEGER NOT NULL,
+          start_date TEXT NOT NULL,
+          end_date TEXT NOT NULL,
+          FOREIGN KEY(user_id) REFERENCES $tableUtilisateurs(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS expenses(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          plan_id INTEGER,
+          gym_subscription REAL NOT NULL,
+          food_costs REAL NOT NULL,
+          supplements_costs REAL,
+          equipment_costs REAL,
+          other_costs REAL,
+          total_cost REAL NOT NULL,
+          FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE
+        )
+      ''');
+
+      // Créer les index pour les dépenses
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_training_plans_user ON training_plans(user_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_expenses_plan ON expenses(plan_id)',
+      );
     } catch (e) {
       // ignore: avoid_print
       print('Schema guard failed: $e');
@@ -1005,5 +1116,92 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  // --- Gestion des Dépenses (Expenses) ---
+
+  /// Récupère toutes les dépenses (tous plans confondus)
+  Future<List<Map<String, dynamic>>> getAllExpenses() async {
+    final db = await database;
+    return await db.query('expenses');
+  }
+
+  /// Récupère toutes les dépenses pour un utilisateur (via ses plans)
+  Future<List<Map<String, dynamic>>> getUserExpenses(int userId) async {
+    final db = await database;
+    // Jointure simple entre training_plans et expenses
+    return await db.rawQuery(
+      '''
+      SELECT expenses.* FROM expenses
+      INNER JOIN training_plans ON expenses.plan_id = training_plans.id
+      WHERE training_plans.user_id = ?
+      ORDER BY expenses.id DESC
+    ''',
+      [userId],
+    );
+  }
+
+  /// Récupère les dépenses pour un plan d'entraînement spécifique
+  Future<Map<String, dynamic>?> getPlanExpenses(int planId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'expenses',
+      where: 'plan_id = ?',
+      whereArgs: [planId],
+    );
+    if (maps.isEmpty) return null;
+    return maps.first;
+  }
+
+  /// Met à jour les dépenses d'un plan (par planId)
+  Future<int> updatePlanExpenses(int planId, Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.update(
+      'expenses',
+      data,
+      where: 'plan_id = ?',
+      whereArgs: [planId],
+    );
+  }
+
+  /// Supprime toutes les dépenses d'un plan
+  Future<int> deletePlanExpenses(int planId) async {
+    final db = await database;
+    return await db.delete(
+      'expenses',
+      where: 'plan_id = ?',
+      whereArgs: [planId],
+    );
+  }
+
+  /// Calcule et enregistre les coûts pour un plan d'entraînement
+  Future<int> calculateAndSaveExpenses(
+    int planId,
+    double gymCost,
+    double foodCostPerDay,
+  ) async {
+    final plan = (await database)
+        .query('training_plans', where: 'id = ?', whereArgs: [planId])
+        .then((value) => value.first);
+
+    // Calcul des coûts sur la durée du plan
+    final durationWeeks = (await plan)['training_frequency'] as int;
+    final totalDays = durationWeeks * 7;
+
+    final expenses = {
+      'plan_id': planId,
+      'gym_subscription': gymCost * (durationWeeks / 4),
+      'food_costs': foodCostPerDay * totalDays,
+      'supplements_costs': 0.0,
+      'equipment_costs': 0.0,
+      'other_costs': 0.0,
+    };
+
+    // Calcul du coût total
+    expenses['total_cost'] = expenses.values.whereType<num>().reduce(
+      (sum, value) => sum + value,
+    );
+
+    return await insert('expenses', expenses);
   }
 }

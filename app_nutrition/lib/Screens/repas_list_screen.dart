@@ -5,6 +5,9 @@ import 'dart:math' as math;
 import '../Services/repas_service.dart';
 import '../Entites/repas.dart';
 import '../Services/nutrition_ai_service.dart';
+import '../Entites/user_objective.dart';
+import '../Services/database_helper.dart';
+import '../Services/session_service.dart';
 import 'recettes_global_screen.dart';
 
 // --- Palette de couleurs et Thème ---
@@ -41,7 +44,8 @@ class _RepasListScreenState extends State<RepasListScreen>
   late AnimationController _fabController;
   late AnimationController _listAnimationController;
 
-  static const double _dailyGoal = 2000;
+  double _dailyGoal = 2000; // objectif dynamique
+  List<UserObjective> _objectifs = [];
 
   @override
   void initState() {
@@ -55,6 +59,7 @@ class _RepasListScreenState extends State<RepasListScreen>
       duration: const Duration(milliseconds: 500),
     );
     _loadRepas();
+    _loadCalorieGoal();
   }
 
   @override
@@ -69,6 +74,58 @@ class _RepasListScreenState extends State<RepasListScreen>
       _repasList = _repasService.getAllRepasForCurrentUser();
       _listAnimationController.forward(from: 0.0);
     });
+  }
+
+  Future<void> _loadCalorieGoal() async {
+    try {
+      final session = SessionService();
+      final user = await session.getLoggedInUser();
+      if (user == null || user.id == null) {
+        setState(() => _dailyGoal = 2000);
+        return;
+      }
+      final db = DatabaseHelper();
+      final objectifs = await db.getUserObjectives(user.id!);
+      _objectifs = objectifs;
+      if (objectifs.isEmpty) {
+        setState(() => _dailyGoal = 2000);
+        return;
+      }
+      UserObjective obj = objectifs.first;
+      final nonAtteints = objectifs.where((o) => !o.estAtteint).toList();
+      if (nonAtteints.isNotEmpty) {
+        nonAtteints.sort((a, b) => b.dateDebut.compareTo(a.dateDebut));
+        obj = nonAtteints.first;
+      }
+      final poids = obj.poidsActuel;
+      final tailleCm = obj.taille * 100.0;
+      final age = obj.age;
+      double bmr = 10 * poids + 6.25 * tailleCm - 5 * age + 5;
+      if (bmr < 800 || bmr.isNaN || bmr.isInfinite) bmr = 1500;
+      final niveau = obj.niveauActivite.toLowerCase();
+      double facteur = 1.2;
+      if (niveau.contains('leger') || niveau.contains('faible'))
+        facteur = 1.375;
+      else if (niveau.contains('mod'))
+        facteur = 1.55;
+      else if (niveau.contains('intense') || niveau.contains('fort'))
+        facteur = 1.725;
+      else if (niveau.contains('tres') || niveau.contains('super'))
+        facteur = 1.9;
+      double tdee = bmr * facteur;
+      final type = obj.typeObjectif.toLowerCase();
+      if (type.contains('perte') || type.contains('maigr'))
+        tdee *= 0.85;
+      else if (type.contains('prise') ||
+          type.contains('muscle') ||
+          type.contains('masse'))
+        tdee *= 1.10;
+      if (tdee < 1000) tdee = 1000;
+      if (tdee > 4000) tdee = 4000;
+      setState(() => _dailyGoal = tdee.roundToDouble());
+    } catch (_) {
+      setState(() => _dailyGoal = 2000); // fallback silencieux
+    }
   }
 
   // --- Logique de filtrage et de tri ---
@@ -232,6 +289,7 @@ class _RepasListScreenState extends State<RepasListScreen>
             total: totalToday,
             goal: _dailyGoal,
             progress: progress,
+            isDynamic: _objectifs.isNotEmpty,
           );
         },
       ),
@@ -1228,10 +1286,12 @@ class _SliverFilterDelegate extends SliverPersistentHeaderDelegate {
 
 class _TodayCaloriesBanner extends StatelessWidget {
   final double total, goal, progress;
+  final bool isDynamic;
   const _TodayCaloriesBanner({
     required this.total,
     required this.goal,
     required this.progress,
+    required this.isDynamic,
   });
 
   @override
@@ -1251,27 +1311,12 @@ class _TodayCaloriesBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: progress),
-              duration: const Duration(milliseconds: 800),
-              builder: (context, value, child) => CustomPaint(
-                painter: _CaloriesRingPainter(value),
-                child: Center(
-                  child: Text(
-                    '${(value * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textColor,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          const Icon(
+            Icons.local_fire_department,
+            color: AppColors.accentColor,
+            size: 28,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1301,12 +1346,68 @@ class _TodayCaloriesBanner extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
+                const SizedBox(height: 6),
+                _buildProgressRow(total, goal),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildProgressRow(double total, double goal) {
+    if (goal <= 0) return const SizedBox.shrink();
+    final pct = ((total / goal) * 100).clamp(0, 9999);
+    Color pctColor;
+    if (pct < 50) {
+      pctColor = Colors.orangeAccent;
+    } else if (pct < 90) {
+      pctColor = AppColors.accentColor;
+    } else if (pct <= 110) {
+      pctColor = Colors.green;
+    } else {
+      pctColor = Colors.redAccent;
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: (total / goal).clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: Colors.grey.withOpacity(0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(pctColor),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: pctColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: pctColor.withOpacity(0.5)),
+          ),
+          child: Text(
+            '${pct.toStringAsFixed(1)}%',
+            style: TextStyle(
+              color: _accessibleOnColor(pctColor),
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _accessibleOnColor(Color base) {
+    // Si couleur trop claire, utiliser textColor sinon la couleur elle-même
+    final brightness =
+        (base.red * 0.299 + base.green * 0.587 + base.blue * 0.114) / 255;
+    return brightness > 0.75 ? AppColors.textColor : base;
   }
 }
 

@@ -35,23 +35,10 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
 
   bool _isLoading = true;
   List<UserObjective> _userObjectives = [];
+  double _calorieGoal = 2000; // objectif calorique dynamique
 
-  // Données nutritionnelles simulées pour la page d'accueil
-  Map<String, double> _dailyNutrition = {
-    'calories': 1850,
-    'proteins': 120,
-    'carbs': 200,
-    'fats': 65,
-    'water': 1.8,
-  };
-
-  Map<String, double> _dailyGoals = {
-    'calories': 2000,
-    'proteins': 150,
-    'carbs': 250,
-    'fats': 70,
-    'water': 2.5,
-  };
+  // La carte affiche uniquement les calories ; supprimer les champs non utilisés pour éviter les lints
+  Map<String, double> _dailyGoals = {'calories': 0};
 
   double _caloriesToday = 0;
 
@@ -96,6 +83,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         _isLoading = false;
       });
 
+      _recomputeCalorieGoal();
+
       _animationController.forward();
     } catch (e) {
       setState(() => _isLoading = false);
@@ -109,6 +98,59 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         );
       }
     }
+  }
+
+  void _recomputeCalorieGoal() {
+    if (_userObjectives.isEmpty) {
+      setState(() => _calorieGoal = 2000);
+      return;
+    }
+    // Choix objectif actif (non atteint le plus récent) sinon premier
+    UserObjective obj = _userObjectives.first;
+    final nonAtteints = _userObjectives.where((o) => !o.estAtteint).toList();
+    if (nonAtteints.isNotEmpty) {
+      nonAtteints.sort((a, b) => b.dateDebut.compareTo(a.dateDebut));
+      obj = nonAtteints.first;
+    }
+    final poids = obj.poidsActuel;
+    final tailleCm = obj.taille * 100.0; // taille en mètres -> cm
+    final age = obj.age;
+    double bmr = 10 * poids + 6.25 * tailleCm - 5 * age + 5; // Mifflin simple
+    if (bmr < 800 || bmr.isNaN || bmr.isInfinite) bmr = 1500;
+    // Facteur activité basique
+    final niveau = obj.niveauActivite.toLowerCase();
+    double facteur = 1.2;
+    if (niveau.contains('leger') || niveau.contains('faible'))
+      facteur = 1.375;
+    else if (niveau.contains('mod'))
+      facteur = 1.55;
+    else if (niveau.contains('intense') || niveau.contains('fort'))
+      facteur = 1.725;
+    else if (niveau.contains('tres') || niveau.contains('super'))
+      facteur = 1.9;
+    double tdee = bmr * facteur;
+    final type = obj.typeObjectif.toLowerCase();
+    if (type.contains('perte') || type.contains('maigr'))
+      tdee *= 0.85; // déficit
+    else if (type.contains('prise') ||
+        type.contains('muscle') ||
+        type.contains('masse'))
+      tdee *= 1.10; // surplus
+    if (tdee < 1000) tdee = 1000;
+    if (tdee > 4000) tdee = 4000;
+    final finalGoal = tdee.roundToDouble();
+
+    // Détermination simple des macros dynamiques à partir du poids et des calories
+    // Protéines : 1.6 g/kg, Lipides : 0.9 g/kg, Glucides : reste
+    // Calories provenant protéines & lipides
+    // caloriesProt & caloriesFat non utilisés pour affichage actuel
+    // Calcul des glucides ignoré (non utilisé actuellement)
+
+    setState(() {
+      _calorieGoal = finalGoal;
+      _dailyGoals['calories'] = _calorieGoal;
+      // Macros calculées non affichées pour le moment
+    });
   }
 
   Future<void> _fetchCaloriesToday() async {
@@ -231,7 +273,10 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         _buildThemeToggleButton(),
         const SizedBox(width: 8),
         IconButton(
-          onPressed: _loadDashboardData,
+          onPressed: () async {
+            await _loadDashboardData();
+            await _fetchCaloriesToday();
+          },
           icon: const Icon(Icons.refresh, color: Colors.white),
         ),
       ],
@@ -283,56 +328,121 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.local_fire_department,
                   color: Colors.orange,
                   size: 28,
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  '${_caloriesToday.toStringAsFixed(0)} / 2000 kcal',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Total aujourd'hui",
+                        style: TextStyle(color: Colors.black87),
+                      ),
+                      Text(
+                        '${_caloriesToday.toStringAsFixed(0)} kcal',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Objectif: ${_calorieGoal.toStringAsFixed(0)} kcal',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      _buildCaloriesProgressRow(_caloriesToday, _calorieGoal),
+                    ],
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline, color: Colors.orange),
+                  tooltip:
+                      'Calcul basé sur objectif (BMR + activité + ajustement)',
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Objectif calorique'),
+                        content: const Text(
+                          'Votre objectif est estimé à partir de votre poids, taille, âge et niveau d\'activité. Il est ajusté selon le type d\'objectif (perte ou prise). Les macros sont distribuées automatiquement.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Fermer'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.fitness_center, color: Colors.red, size: 28),
-                const SizedBox(width: 10),
-                Text(
-                  '${_dailyNutrition['proteins']!.toInt()} / ${_dailyGoals['proteins']!.toInt()} g',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.water_drop, color: Colors.blue, size: 28),
-                const SizedBox(width: 10),
-                Text(
-                  '${(_dailyNutrition['water']! * 10).toInt() / 10} / ${_dailyGoals['water']!.toInt()} L',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
+            // Section simplifiée: affichage seulement des calories (proteines/eau retirés)
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildCaloriesProgressRow(double total, double goal) {
+    if (goal <= 0) return const SizedBox.shrink();
+    final pct = ((total / goal) * 100).clamp(0, 9999);
+    Color pctColor;
+    if (pct < 50) {
+      pctColor = Colors.orangeAccent;
+    } else if (pct < 90) {
+      pctColor = Colors.orange; // proche de l'accent
+    } else if (pct <= 110) {
+      pctColor = Colors.green;
+    } else {
+      pctColor = Colors.redAccent;
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: (total / goal).clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: Colors.grey.withOpacity(0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(pctColor),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: pctColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: pctColor.withOpacity(0.5)),
+          ),
+          child: Text(
+            '${pct.toStringAsFixed(1)}%',
+            style: TextStyle(
+              color: _accessibleOnColor(pctColor),
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _accessibleOnColor(Color base) {
+    final brightness =
+        (base.red * 0.299 + base.green * 0.587 + base.blue * 0.114) / 255;
+    return brightness > 0.75 ? Colors.black87 : base;
   }
 
   Widget _buildMyObjectivesSection(BuildContext context) {
@@ -348,7 +458,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
           ),
         ),
         const SizedBox(height: 16),
-        _buildEmptyObjectivesCard(),
+        _userObjectives.isEmpty
+            ? _buildEmptyObjectivesCard()
+            : _buildObjectivesList(),
       ],
     );
   }
@@ -438,18 +550,126 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     );
   }
 
+  Widget _buildObjectivesList() {
+    return Column(
+      children: _userObjectives.map((o) {
+        // Progression basée sur les calories consommées aujourd'hui par rapport à l'objectif du jour
+        final double ratio = (_calorieGoal <= 0)
+            ? 0.0
+            : (_caloriesToday / _calorieGoal);
+        final double ratioClamped = ratio.clamp(0.0, 1.0);
+        final String percentLabel = (ratio * 100)
+            .clamp(0, 200)
+            .toStringAsFixed(1);
+        final Color barColor = ratio <= 1.0
+            ? Colors.orangeAccent
+            : Colors.redAccent;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.flag, color: Colors.white.withOpacity(0.9)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      o.typeObjectif,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: Colors.white),
+                    onSelected: (val) {
+                      if (val == 'edit') {
+                        _editObjective(o);
+                      } else if (val == 'delete') {
+                        _deleteObjective(o);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Modifier'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Supprimer'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                o.description,
+                style: TextStyle(color: Colors.white.withOpacity(0.85)),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: ratioClamped,
+                        minHeight: 10,
+                        backgroundColor: Colors.white.withOpacity(0.25),
+                        valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '$percentLabel%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Aujourd\'hui: ${_caloriesToday.toStringAsFixed(0)} / ${_calorieGoal.toStringAsFixed(0)} kcal  •  Poids actuel: ${o.poidsActuel} kg  •  Cible: ${o.poidsCible} kg  •  Jours restants: ${o.joursRestants}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildMyMealsCard(BuildContext context) {
     return Card(
       elevation: 2.0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => const RepasModuleMainScreen(),
             ),
           );
+          // Au retour, recharger les calories du jour et l'objectif dynamique
+          await _fetchCaloriesToday();
+          _recomputeCalorieGoal();
         },
         borderRadius: BorderRadius.circular(15.0),
         child: Padding(

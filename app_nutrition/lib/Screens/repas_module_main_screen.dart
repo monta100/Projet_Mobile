@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'repas_list_screen.dart';
 import 'my_recettes_screen.dart';
 import 'recettes_global_screen.dart';
-import 'chatbot_repas_screen.dart';
 import 'analyze_image_test.dart';
 
 class RepasModuleMainScreen extends StatefulWidget {

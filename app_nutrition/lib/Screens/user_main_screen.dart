@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../Entites/utilisateur.dart';
 import 'user_dashboard_screen.dart';
 import 'user_achievements_screen.dart';
-import 'user_nutrition_tracking_screen.dart';
 import 'profil_screen.dart';
 import '../l10n/app_localizations.dart';
 
@@ -26,7 +25,6 @@ class _UserMainScreenState extends State<UserMainScreen> {
     _screens.addAll([
       UserDashboardScreen(utilisateur: widget.utilisateur),
       UserAchievementsScreen(utilisateurId: widget.utilisateur.id!),
-      UserNutritionTrackingScreen(utilisateur: widget.utilisateur),
       ProfilScreen(utilisateur: widget.utilisateur),
     ]);
   }
@@ -67,15 +65,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
                   Colors.amber,
                 ),
                 _buildNavItem(
-                  Icons.restaurant_menu,
-                  AppLocalizations.of(context)?.navNutrition ?? 'Nutrition',
-                  2,
-                  Colors.green,
-                ),
-                _buildNavItem(
                   Icons.person,
                   AppLocalizations.of(context)?.navProfile ?? 'Profil',
-                  3,
+                  2,
                   Colors.teal,
                 ),
               ],

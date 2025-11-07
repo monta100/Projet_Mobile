@@ -201,6 +201,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                           const SizedBox(height: 24),
                           _buildDailyNutritionCard(context),
                           const SizedBox(height: 24),
+                          _buildHealthJournalCard(context),
+                          const SizedBox(height: 24),
                           _buildMyMealsCard(context),
                           const SizedBox(height: 24),
                           _buildPhysicalActivitiesCard(context),
@@ -387,6 +389,53 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             const SizedBox(height: 16),
             // Section simplifiée: affichage seulement des calories (proteines/eau retirés)
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHealthJournalCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? Colors.white70 : Colors.black54;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () => Navigator.pushNamed(context, '/journal'),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(
+                Icons.health_and_safety,
+                color: Theme.of(context).primaryColor,
+                size: 30,
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Journal de santé',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Consignez vos mesures et indicateurs vitaux',
+                      style: TextStyle(fontSize: 14, color: secondaryTextColor),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );

@@ -61,7 +61,17 @@ class _AddEditRecordPageState extends ConsumerState<AddEditRecordPage> {
 
   @override
   void dispose() {
-    for (final c in [_systolic, _diastolic, _glucose, _sleep, _weight, _bpm, _customVal, _customUnit, _note]) {
+    for (final c in [
+      _systolic,
+      _diastolic,
+      _glucose,
+      _sleep,
+      _weight,
+      _bpm,
+      _customVal,
+      _customUnit,
+      _note,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -70,19 +80,29 @@ class _AddEditRecordPageState extends ConsumerState<AddEditRecordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.existing == null ? 'Ajouter entrée' : 'Modifier entrée')),
+      appBar: AppBar(
+        title: Text(
+          widget.existing == null ? 'Ajouter entrée' : 'Modifier entrée',
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             DropdownButtonFormField<HealthMetricType>(
               initialValue: _type,
-              items: [for (final t in HealthMetricType.values) DropdownMenuItem(value: t, child: Text(t.label))],
+              items: [
+                for (final t in HealthMetricType.values)
+                  DropdownMenuItem(value: t, child: Text(t.label)),
+              ],
               onChanged: (v) => setState(() => _type = v!),
               decoration: const InputDecoration(labelText: 'Type'),
             ),
             const SizedBox(height: 8),
-            _DateTimeField(value: _dateTime, onChange: (d) => setState(() => _dateTime = d)),
+            _DateTimeField(
+              value: _dateTime,
+              onChange: (d) => setState(() => _dateTime = d),
+            ),
             const SizedBox(height: 8),
             _buildFields(),
             const SizedBox(height: 8),
@@ -90,7 +110,10 @@ class _AddEditRecordPageState extends ConsumerState<AddEditRecordPage> {
               controller: _note,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: 'ملاحظة / Note', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'ملاحظة / Note',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -100,7 +123,7 @@ class _AddEditRecordPageState extends ConsumerState<AddEditRecordPage> {
                 label: const Text('حفظ / Enregistrer'),
                 onPressed: _save,
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -110,25 +133,73 @@ class _AddEditRecordPageState extends ConsumerState<AddEditRecordPage> {
   Widget _buildFields() {
     switch (_type) {
       case HealthMetricType.bloodPressure:
-        return Row(children: [
-          Expanded(child: TextField(controller: _systolic, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Systolic (mmHg)'))),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(controller: _diastolic, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Diastolic (mmHg)'))),
-        ]);
+        return Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _systolic,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Systolic (mmHg)'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _diastolic,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Diastolic (mmHg)',
+                ),
+              ),
+            ),
+          ],
+        );
       case HealthMetricType.glucose:
-        return TextField(controller: _glucose, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Glucose (mg/dL)'));
+        return TextField(
+          controller: _glucose,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Glucose (mg/dL)'),
+        );
       case HealthMetricType.sleep:
-        return TextField(controller: _sleep, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Heures de sommeil'));
+        return TextField(
+          controller: _sleep,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Heures de sommeil'),
+        );
       case HealthMetricType.weight:
-        return TextField(controller: _weight, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Poids (kg)'));
+        return TextField(
+          controller: _weight,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Poids (kg)'),
+        );
       case HealthMetricType.heartRate:
-        return TextField(controller: _bpm, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'BPM'));
+        return TextField(
+          controller: _bpm,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'BPM'),
+        );
       case HealthMetricType.custom:
-        return Row(children: [
-          Expanded(child: TextField(controller: _customVal, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Valeur'))),
-          const SizedBox(width: 8),
-          SizedBox(width: 120, child: TextField(controller: _customUnit, decoration: const InputDecoration(labelText: 'Unité'))),
-        ]);
+        return Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _customVal,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(labelText: 'Valeur'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 120,
+              child: TextField(
+                controller: _customUnit,
+                decoration: const InputDecoration(labelText: 'Unité'),
+              ),
+            ),
+          ],
+        );
     }
   }
 
@@ -156,14 +227,19 @@ class _AddEditRecordPageState extends ConsumerState<AddEditRecordPage> {
           break;
         case HealthMetricType.custom:
           values['value'] = num.parse(_customVal.text);
-          unit = _customUnit.text.trim().isEmpty ? null : _customUnit.text.trim();
+          unit = _customUnit.text.trim().isEmpty
+              ? null
+              : _customUnit.text.trim();
           break;
       }
     } catch (_) {
       if (mounted) {
-ScaffoldMessenger.of(context).showSnackBar(
-  const SnackBar(content: Text('Veuillez vérifier les valeurs saisies')),
-);      }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez vérifier les valeurs saisies'),
+          ),
+        );
+      }
       return;
     }
 
@@ -195,37 +271,58 @@ class _DateTimeField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(
-        child: InputDecorator(
-          decoration: const InputDecoration(labelText: 'Date'),
-          child: InkWell(
-            onTap: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: value,
-                firstDate: DateTime(2015),
-                lastDate: DateTime(2100),
-              );
-              if (d != null) onChange(DateTime(d.year, d.month, d.day, value.hour, value.minute));
-            },
-            child: Text('${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}'),
+    return Row(
+      children: [
+        Expanded(
+          child: InputDecorator(
+            decoration: const InputDecoration(labelText: 'Date'),
+            child: InkWell(
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: value,
+                  firstDate: DateTime(2015),
+                  lastDate: DateTime(2100),
+                );
+                if (d != null)
+                  onChange(
+                    DateTime(d.year, d.month, d.day, value.hour, value.minute),
+                  );
+              },
+              child: Text(
+                '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}',
+              ),
+            ),
           ),
         ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: InputDecorator(
-          decoration: const InputDecoration(labelText: 'Heure'),
-          child: InkWell(
-            onTap: () async {
-              final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(value));
-              if (t != null) onChange(DateTime(value.year, value.month, value.day, t.hour, t.minute));
-            },
-            child: Text('${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}'),
+        const SizedBox(width: 8),
+        Expanded(
+          child: InputDecorator(
+            decoration: const InputDecoration(labelText: 'Heure'),
+            child: InkWell(
+              onTap: () async {
+                final t = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(value),
+                );
+                if (t != null)
+                  onChange(
+                    DateTime(
+                      value.year,
+                      value.month,
+                      value.day,
+                      t.hour,
+                      t.minute,
+                    ),
+                  );
+              },
+              child: Text(
+                '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}',
+              ),
+            ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }

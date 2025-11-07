@@ -1,3 +1,4 @@
+import 'package:app_nutrition/journal_module.dart';
 import 'package:flutter/material.dart';
 import '../Screens/login_screen.dart';
 import '../Screens/register_screen.dart';
@@ -20,7 +21,7 @@ class AppRoutes {
   static const String forgotPassword = '/forgot-password';
 
   static Map<String, WidgetBuilder> getRoutes() {
-    return {
+    final routes = <String, WidgetBuilder>{
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
       home: (context) {
@@ -81,6 +82,9 @@ class AppRoutes {
       testDatabase: (context) => const TestDatabaseScreen(),
       forgotPassword: (context) => const ForgotPasswordScreen(),
     };
+
+    routes.addAll(JournalModule.routes());
+    return routes;
   }
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -162,6 +166,10 @@ class AppRoutes {
         );
 
       default:
+        final journalBuilder = JournalModule.routes()[settings.name];
+        if (journalBuilder != null) {
+          return MaterialPageRoute(builder: journalBuilder);
+        }
         return MaterialPageRoute(
           builder: (context) => Scaffold(
             body: Center(child: Text('Route inconnue: ${settings.name}')),

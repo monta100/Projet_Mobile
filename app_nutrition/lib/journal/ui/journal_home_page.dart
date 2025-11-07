@@ -5,87 +5,60 @@ import '../models/health_record.dart';
 import '../state/journal_providers.dart';
 import 'add_edit_record_page.dart';
 import 'record_detail_page.dart';
-import 'charts_page.dart';
 
 class JournalHomePage extends ConsumerWidget {
   const JournalHomePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final listAsync = ref.watch(journalListProvider);
-    final filter = ref.watch(journalFilterProvider);
-    
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('📒 Journal de Santé'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        actions: [
-          IconButton(
-            tooltip: 'Statistiques',
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.show_chart, 
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-            ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChartsPage()),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Filtrer',
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: _hasActiveFilter(filter) 
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.filter_list,
-                color: _hasActiveFilter(filter) 
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface,
-                size: 20,
-              ),
-            ),
-            onPressed: () async {
-              await showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                showDragHandle: true,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(80),
+        child: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Journal de Santé',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
-                builder: (_) => _FilterSheet(initial: filter),
-              );
-            },
+              ),
+              Text(
+                'Suivez vos données de santé',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withOpacity(0.8),
+                ),
+              ),
+            ],
           ),
-        ],
+          centerTitle: false,
+          backgroundColor: const Color(0xFF8BC34A), // Matching green shade
+          elevation: 6,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+          ),
+        ),
       ),
       body: Column(
         children: [
           // Quick Stats Header
           _buildQuickStats(context, ref),
-          
+
           // Records List
           Expanded(
-            child: listAsync.when(
-              data: (items) => items.isEmpty
-                  ? const _EmptyState()
-                  : _buildRecordsList(context, items),
-              error: (e, st) => _buildErrorState(context, e),
-              loading: () => const _LoadingState(),
-            ),
+            child: ref
+                .watch(journalListProvider)
+                .when(
+                  data: (items) => items.isEmpty
+                      ? const _EmptyState()
+                      : _buildRecordsList(context, items),
+                  error: (e, st) => _buildErrorState(context, e),
+                  loading: () => const _LoadingState(),
+                ),
           ),
         ],
       ),
@@ -97,17 +70,12 @@ class JournalHomePage extends ConsumerWidget {
           );
           ref.invalidate(journalListProvider);
         },
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: theme.colorScheme.primary,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.add, size: 28),
       ),
     );
-  }
-
-  bool _hasActiveFilter(JournalFilter filter) {
-    return filter.type != null || filter.from != null || filter.to != null || 
-           (filter.query != null && filter.query!.isNotEmpty);
   }
 
   Widget _buildQuickStats(BuildContext context, WidgetRef ref) {
@@ -123,7 +91,9 @@ class JournalHomePage extends ConsumerWidget {
               gradient: LinearGradient(
                 colors: [
                   Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  Theme.of(context).colorScheme.primaryContainer.withOpacity(0.05),
+                  Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withOpacity(0.05),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -133,14 +103,23 @@ class JournalHomePage extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatItem(context, 'Total', '${records.length}', Icons.assessment),
-                _buildStatItem(context, 'Aujourd\'hui', 
-                  '${records.where((r) => _isToday(r.dateTime)).length}', 
-                  Icons.today
+                _buildStatItem(
+                  context,
+                  'Total',
+                  '${records.length}',
+                  Icons.assessment,
                 ),
-                _buildStatItem(context, '7 jours', 
-                  '${records.where((r) => _isLast7Days(r.dateTime)).length}', 
-                  Icons.calendar_view_week
+                _buildStatItem(
+                  context,
+                  'Aujourd\'hui',
+                  '${records.where((r) => _isToday(r.dateTime)).length}',
+                  Icons.today,
+                ),
+                _buildStatItem(
+                  context,
+                  '7 jours',
+                  '${records.where((r) => _isLast7Days(r.dateTime)).length}',
+                  Icons.calendar_view_week,
                 ),
               ],
             ),
@@ -153,16 +132,24 @@ class JournalHomePage extends ConsumerWidget {
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 
   bool _isLast7Days(DateTime date) {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    return date.isAfter(sevenDaysAgo) && date.isBefore(now.add(const Duration(days: 1)));
+    return date.isAfter(sevenDaysAgo) &&
+        date.isBefore(now.add(const Duration(days: 1)));
   }
 
-  Widget _buildStatItem(BuildContext context, String label, String value, IconData icon) {
+  Widget _buildStatItem(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
     return Column(
       children: [
         Container(
@@ -254,7 +241,7 @@ class _RecordCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isToday = _isToday(record.dateTime);
-    
+
     return Card(
       elevation: 2,
       margin: EdgeInsets.zero,
@@ -264,7 +251,9 @@ class _RecordCard extends ConsumerWidget {
         onTap: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => RecordDetailPage(recordId: record.id!)),
+            MaterialPageRoute(
+              builder: (_) => RecordDetailPage(recordId: record.id!),
+            ),
           );
           ref.invalidate(journalListProvider);
         },
@@ -286,7 +275,7 @@ class _RecordCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // Content
               Expanded(
                 child: Column(
@@ -296,24 +285,31 @@ class _RecordCard extends ConsumerWidget {
                       children: [
                         Text(
                           record.type.label,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (isToday) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               'Aujourd\'hui',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                           ),
                         ],
@@ -333,7 +329,9 @@ class _RecordCard extends ConsumerWidget {
                       Text(
                         record.note!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant.withOpacity(0.7),
                           fontStyle: FontStyle.italic,
                         ),
                         maxLines: 1,
@@ -343,7 +341,7 @@ class _RecordCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              
+
               // Time and chevron
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -357,7 +355,9 @@ class _RecordCard extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Icon(
                     Icons.chevron_right,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withOpacity(0.5),
                     size: 20,
                   ),
                 ],
@@ -371,7 +371,9 @@ class _RecordCard extends ConsumerWidget {
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 
   String _formatTime(DateTime date) {
@@ -469,9 +471,9 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               'Commencez votre suivi santé ✨',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
@@ -554,15 +556,16 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
             children: [
               Text(
                 'Filtrer les données',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               if (_hasActiveFilter)
                 TextButton(
                   onPressed: () {
-                    ref.read(journalFilterProvider.notifier).state = const JournalFilter();
+                    ref.read(journalFilterProvider.notifier).state =
+                        const JournalFilter();
                     Navigator.pop(context);
                   },
                   child: Text(
@@ -571,33 +574,38 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
-                )
+                ),
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Type Filter
           Text(
             'Type de mesure',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<HealthMetricType?>(
             value: _type,
             items: [
-              const DropdownMenuItem(value: null, child: Text('Tous les types')),
-              ...HealthMetricType.values.map((e) => DropdownMenuItem(
-                value: e,
-                child: Row(
-                  children: [
-                    Icon(_getTypeIcon(e), size: 20, color: _getTypeColor(e)),
-                    const SizedBox(width: 8),
-                    Text(e.label),
-                  ],
+              const DropdownMenuItem(
+                value: null,
+                child: Text('Tous les types'),
+              ),
+              ...HealthMetricType.values.map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Row(
+                    children: [
+                      Icon(_getTypeIcon(e), size: 20, color: _getTypeColor(e)),
+                      const SizedBox(width: 8),
+                      Text(e.label),
+                    ],
+                  ),
                 ),
-              )),
+              ),
             ],
             onChanged: (v) => setState(() => _type = v),
             decoration: InputDecoration(
@@ -607,27 +615,32 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Search
           TextField(
             controller: _q,
             decoration: InputDecoration(
               labelText: 'Rechercher dans les notes',
-              prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: Icon(
+                Icons.search,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Date Range
           Text(
             'Période',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Row(
@@ -649,22 +662,28 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Apply Button
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: () {
-                ref.read(journalFilterProvider.notifier).state =
-                    JournalFilter(type: _type, from: _from, to: _to, query: _q.text);
+                ref.read(journalFilterProvider.notifier).state = JournalFilter(
+                  type: _type,
+                  from: _from,
+                  to: _to,
+                  query: _q.text,
+                );
                 ref.invalidate(journalListProvider);
                 Navigator.pop(context);
               },
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Appliquer les filtres'),
             ),
@@ -676,23 +695,35 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
 
   Color _getTypeColor(HealthMetricType type) {
     switch (type) {
-      case HealthMetricType.bloodPressure: return Colors.red;
-      case HealthMetricType.glucose: return Colors.orange;
-      case HealthMetricType.sleep: return Colors.blue;
-      case HealthMetricType.weight: return Colors.green;
-      case HealthMetricType.heartRate: return Colors.purple;
-      case HealthMetricType.custom: return Colors.grey;
+      case HealthMetricType.bloodPressure:
+        return Colors.red;
+      case HealthMetricType.glucose:
+        return Colors.orange;
+      case HealthMetricType.sleep:
+        return Colors.blue;
+      case HealthMetricType.weight:
+        return Colors.green;
+      case HealthMetricType.heartRate:
+        return Colors.purple;
+      case HealthMetricType.custom:
+        return Colors.grey;
     }
   }
 
   IconData _getTypeIcon(HealthMetricType type) {
     switch (type) {
-      case HealthMetricType.bloodPressure: return Icons.monitor_heart;
-      case HealthMetricType.glucose: return Icons.bakery_dining;
-      case HealthMetricType.sleep: return Icons.night_shelter;
-      case HealthMetricType.weight: return Icons.monitor_weight;
-      case HealthMetricType.heartRate: return Icons.favorite;
-      case HealthMetricType.custom: return Icons.photo_size_select_actual;
+      case HealthMetricType.bloodPressure:
+        return Icons.monitor_heart;
+      case HealthMetricType.glucose:
+        return Icons.bakery_dining;
+      case HealthMetricType.sleep:
+        return Icons.night_shelter;
+      case HealthMetricType.weight:
+        return Icons.monitor_weight;
+      case HealthMetricType.heartRate:
+        return Icons.favorite;
+      case HealthMetricType.custom:
+        return Icons.photo_size_select_actual;
     }
   }
 }
@@ -701,19 +732,22 @@ class _DatePickerTile extends StatelessWidget {
   final String label;
   final DateTime? initial;
   final ValueChanged<DateTime?> onPick;
-  const _DatePickerTile({required this.label, required this.initial, required this.onPick});
+  const _DatePickerTile({
+    required this.label,
+    required this.initial,
+    required this.onPick,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () async {
-        final now = DateTime.now();
         final d = await showDatePicker(
           context: context,
-          initialDate: initial ?? now,
-          firstDate: DateTime(now.year - 5),
-          lastDate: DateTime(now.year + 5),
+          initialDate: initial ?? DateTime.now(),
+          firstDate: DateTime(DateTime.now().year - 5),
+          lastDate: DateTime(DateTime.now().year + 5),
           builder: (context, child) {
             return Theme(
               data: Theme.of(context).copyWith(
@@ -730,7 +764,9 @@ class _DatePickerTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -743,11 +779,13 @@ class _DatePickerTile extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                initial == null ? label : DateFormat('dd/MM/yyyy').format(initial!),
+                initial == null
+                    ? label
+                    : DateFormat('dd/MM/yyyy').format(initial!),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: initial == null 
-                    ? Theme.of(context).colorScheme.onSurfaceVariant
-                    : Theme.of(context).colorScheme.onSurface,
+                  color: initial == null
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),

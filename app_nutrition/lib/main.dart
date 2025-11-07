@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'Widgets/floating_chat_bubble.dart';
 import 'Services/navigation_service.dart';
@@ -99,7 +100,7 @@ Future<void> main() async {
     print('Warning: failed to init test data: $e');
   }
 
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatefulWidget {
@@ -148,7 +149,10 @@ class _MyAppState extends State<MyApp> {
       themeMode: _themeMode,
       builder: (context, child) {
         return Stack(
-          children: [if (child != null) child, const _ChatBubbleOverlay()],
+          children: [
+            if (child != null) Positioned.fill(child: child),
+            const _ChatBubbleOverlay(),
+          ],
         );
       },
       home: const SessionGate(),

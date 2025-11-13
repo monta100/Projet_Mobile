@@ -2,25 +2,17 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../Entites/repas.dart';
-import '../Entites/recette.dart';
-import '../Entites/ingredient.dart';
-import 'repas_service.dart';
-import 'recette_service.dart';
-import 'ingredient_service.dart';
+// Imports supprimés (persistance déléguée à NutriBotBrain)
 
 class OpenRouterService {
   // 🔑 Ta clé API OpenRouter
   final String apiKey =
-      "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";
+      "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";
 
   // 🧠 Choix du modèle IA
   final String model = "openai/gpt-3.5-turbo";
 
-  // Services SQLite
-  final _repasService = RepasService();
-  final _recetteService = RecetteService();
-  final _ingredientService = IngredientService();
+  // Plus de persistance directe ici; NutriBotBrain gère l'insertion après confirmation.
 
   /// 🚀 Envoie un message à l’IA et traite la réponse
   Future<String> processUserMessage(
@@ -91,20 +83,8 @@ Message utilisateur: "$message"
       final content = data["choices"][0]["message"]["content"] ?? "";
       print("Réponse IA brute: $content");
 
-      // Essaie d’extraire un JSON valide
-      final start = content.indexOf("{");
-      final end = content.lastIndexOf("}");
-      if (start != -1 && end != -1 && end > start) {
-        final jsonPart = content.substring(start, end + 1);
-        try {
-          final Map<String, dynamic> parsed = jsonDecode(jsonPart);
-          return await _handleStructuredResponse(parsed);
-        } catch (e) {
-          print("Erreur JSON parsing: $e");
-        }
-      }
-
-      // Sinon, simple texte
+      // IMPORTANT: Ne pas insérer en base ici. On renvoie tel quel pour que
+      // NutriBotBrain décide quand et comment parser/ajouter (confirmation requise).
       return content;
     } catch (e) {
       print("Exception OpenRouter: $e");
@@ -112,50 +92,6 @@ Message utilisateur: "$message"
     }
   }
 
-  /// 💾 Interprète la réponse JSON et enregistre dans SQLite
-  Future<String> _handleStructuredResponse(Map<String, dynamic> json) async {
-    final type = json["type"]?.toString().toLowerCase();
-
-    if (type == "repas") {
-      final repas = Repas(
-        type: json["type_repas"] ?? "Repas",
-        date: DateTime.parse(json["date"] ?? DateTime.now().toIso8601String()),
-        caloriesTotales: (json["calories"] ?? 0).toDouble(),
-        nom: json["nom"] ?? "Repas sans nom",
-        utilisateurId: 1,
-      );
-      await _repasService.insertRepas(repas);
-      return "🍽️ Repas enregistré : ${repas.nom} (${repas.caloriesTotales} kcal)";
-    }
-
-    if (type == "recette") {
-      final recette = Recette(
-        nom: json["nom"] ?? "Recette sans nom",
-        description: json["description"] ?? "",
-        calories: (json["calories"] ?? 0).toDouble(),
-        publie: 1,
-        imageUrl: null,
-        utilisateurId: 1,
-      );
-      final recetteId = await _recetteService.insertRecette(recette);
-
-      // Ajout des ingrédients s’ils existent
-      if (json["ingredients"] != null && json["ingredients"] is List) {
-        for (final ing in json["ingredients"]) {
-          final ingredient = Ingredient(
-            nom: ing["nom"],
-            quantite: (ing["quantite"] ?? 0).toDouble(),
-            unite: ing["unite"] ?? "",
-            calories: (ing["calories"] ?? 0).toDouble(),
-            recetteId: recetteId,
-          );
-          await _ingredientService.insertIngredient(ingredient);
-        }
-      }
-
-      return "🥗 Recette enregistrée : ${recette.nom} (${recette.calories} kcal)";
-    }
-
-    return "Réponse non reconnue : ${json.toString()}";
-  }
+  // Ancienne logique d'insertion directe supprimée : la persistance est gérée
+  // par NutriBotBrain après confirmation de l'utilisateur.
 }

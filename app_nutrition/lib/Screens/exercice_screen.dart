@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import '../Entities/exercice.dart';
 import '../Services/exercice_service.dart';
@@ -21,6 +22,7 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
   final ExerciceService _service = ExerciceService();
   List<Exercice> _exercices = [];
   List<Exercice> _filtered = [];
+  final _formKeyExercice = GlobalKey<FormState>();
 
   final _nomCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -61,7 +63,8 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
     setState(() {
       _filtered = _exercices.where((e) {
         final matchText = e.nom.toLowerCase().contains(query.toLowerCase());
-        final matchMuscle = _selectedMuscle == "Tous" ||
+        final matchMuscle =
+            _selectedMuscle == "Tous" ||
             e.description.toLowerCase().contains(_selectedMuscle.toLowerCase());
         return matchText && matchMuscle;
       }).toList();
@@ -82,9 +85,13 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
   }
 
   Future<void> _addOrEditExercice({Exercice? existing}) async {
-    if (_nomCtrl.text.isEmpty || _repsCtrl.text.isEmpty) {
+    // Les champs sont validés via le Form, on revérifie rapidement ici
+    final reps = int.tryParse(_repsCtrl.text);
+    if (_nomCtrl.text.trim().isEmpty || reps == null || reps <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("⚠️ Remplis tous les champs nécessaires")),
+        const SnackBar(
+          content: Text("⚠️ Vérifie le nom et les répétitions (> 0)"),
+        ),
       );
       return;
     }
@@ -93,7 +100,7 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
       id: existing?.id,
       nom: _nomCtrl.text.trim(),
       description: _descCtrl.text.trim(),
-      repetitions: int.parse(_repsCtrl.text),
+      repetitions: reps,
       imagePath: _imagePath ?? existing?.imagePath ?? '',
       videoPath: _videoPath ?? existing?.videoPath ?? '',
       programmeId: 1,
@@ -102,11 +109,13 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
     if (existing == null) {
       await _service.insertExercice(exercice);
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Exercice ajouté avec succès !")));
+        const SnackBar(content: Text("✅ Exercice ajouté avec succès !")),
+      );
     } else {
       await _service.updateExercice(exercice);
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✏️ Exercice modifié avec succès !")));
+        const SnackBar(content: Text("✏️ Exercice modifié avec succès !")),
+      );
     }
 
     _nomCtrl.clear();
@@ -124,7 +133,10 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
         title: const Text("🗑 Supprimer cet exercice ?"),
         content: const Text("Cette action est irréversible."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Annuler")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Annuler"),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
@@ -158,50 +170,101 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
       context: ctx,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(existing == null ? "Nouvel exercice" : "Modifier l’exercice"),
+        title: Text(
+          existing == null ? "Nouvel exercice" : "Modifier l’exercice",
+        ),
         content: SingleChildScrollView(
-          child: Column(
-            children: [
-              _field("Nom", _nomCtrl),
-              _field("Description (ex: Bras, Jambes...)", _descCtrl),
-              _field("Répétitions", _repsCtrl, number: true),
-              const SizedBox(height: 10),
-              ElevatedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image, color: Colors.white),
-                label: const Text("Choisir une image", style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(backgroundColor: mainGreen),
-              ),
-              if (_imagePath != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Image.file(File(_imagePath!), width: 100, height: 100),
+          child: Form(
+            key: _formKeyExercice,
+            child: Column(
+              children: [
+                _field(
+                  "Nom",
+                  _nomCtrl,
+                  maxLength: 50,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return "Nom requis";
+                    if (v.trim().length > 50) return "50 caractères max";
+                    return null;
+                  },
                 ),
-              const SizedBox(height: 10),
-              ElevatedButton.icon(
-                onPressed: _pickVideo,
-                icon: const Icon(Icons.video_library, color: Colors.white),
-                label: const Text("Choisir une vidéo", style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(backgroundColor: darkGreen),
-              ),
-              if (_videoPath != null)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Icon(Icons.check_circle, color: mainGreen),
+                _field(
+                  "Description (ex: Bras, Jambes...)",
+                  _descCtrl,
+                  maxLength: 120,
+                  validator: (v) {
+                    if (v != null && v.trim().length > 120)
+                      return "120 caractères max";
+                    return null;
+                  },
                 ),
-            ],
+                _field(
+                  "Répétitions",
+                  _repsCtrl,
+                  number: true,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return "Répétitions requises";
+                    final n = int.tryParse(v);
+                    if (n == null || n <= 0) return "Doit être > 0";
+                    if (n > 500) return "Trop élevé (max 500)";
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: _pickImage,
+                  icon: const Icon(Icons.image, color: Colors.white),
+                  label: const Text(
+                    "Choisir une image",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: mainGreen),
+                ),
+                if (_imagePath != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Image.file(
+                      File(_imagePath!),
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: _pickVideo,
+                  icon: const Icon(Icons.video_library, color: Colors.white),
+                  label: const Text(
+                    "Choisir une vidéo",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: darkGreen),
+                ),
+                if (_videoPath != null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Icon(Icons.check_circle, color: mainGreen),
+                  ),
+              ],
+            ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Annuler")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Annuler"),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: mainGreen),
             onPressed: () {
+              final valid = _formKeyExercice.currentState?.validate() ?? false;
+              if (!valid) return;
               Navigator.pop(ctx);
               _addOrEditExercice(existing: existing);
             },
-            child: Text(existing == null ? "Ajouter" : "Modifier",
-                style: const TextStyle(color: Colors.white)),
+            child: Text(
+              existing == null ? "Ajouter" : "Modifier",
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -241,15 +304,54 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
               padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(colors: [mainGreen, darkGreen]),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(30),
+                ),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.fitness_center, color: Colors.white, size: 30),
-                  SizedBox(height: 8),
-                  Text("Mes Exercices 🏋️‍♀️",
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Icon(
+                        Icons.fitness_center,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            tooltip: 'Rafraîchir',
+                            onPressed: _loadExercices,
+                            icon: const Icon(
+                              Icons.refresh,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Accueil',
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(
+                              Icons.home,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Mes Exercices 🏋️‍♀️",
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -267,7 +369,10 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
                         prefixIcon: const Icon(Icons.search, color: mainGreen),
                         filled: true,
                         fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                       onChanged: _filterExercices,
                     ),
@@ -290,7 +395,15 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  for (var m in ["Tous", "Bras", "Jambes","Epaules", "Dos", "Abdos", "Poitrine"])
+                  for (var m in [
+                    "Tous",
+                    "Bras",
+                    "Jambes",
+                    "Epaules",
+                    "Dos",
+                    "Abdos",
+                    "Poitrine",
+                  ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
@@ -307,88 +420,147 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
               ),
             ),
 
-            // Liste
+            // Liste avec pull-to-refresh
             Expanded(
-              child: _filtered.isEmpty
-                  ? const Center(child: Text("Aucun exercice trouvé"))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _filtered.length,
-                      itemBuilder: (_, i) {
-                        final e = _filtered[i];
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black12.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 3))
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: e.imagePath.isNotEmpty
-                                        ? Image.file(File(e.imagePath),
-                                            width: 60, height: 60, fit: BoxFit.cover)
-                                        : Container(
-                                            width: 60,
-                                            height: 60,
-                                            color: Colors.grey.shade200,
-                                            child:
-                                                const Icon(Icons.image_outlined, color: Colors.grey)),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(e.nom,
+              child: RefreshIndicator(
+                onRefresh: _loadExercices,
+                child: _filtered.isEmpty
+                    ? ListView(
+                        children: const [
+                          SizedBox(height: 40),
+                          Center(child: Text("Aucun exercice trouvé")),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _filtered.length,
+                        itemBuilder: (_, i) {
+                          final e = _filtered[i];
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12.withOpacity(0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: e.imagePath.isNotEmpty
+                                          ? Image.file(
+                                              File(e.imagePath),
+                                              width: 60,
+                                              height: 60,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Container(
+                                              width: 60,
+                                              height: 60,
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(
+                                                Icons.image_outlined,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            e.nom,
                                             style: const TextStyle(
-                                                fontWeight: FontWeight.bold, color: darkGreen, fontSize: 17)),
-                                        Text(e.description, style: const TextStyle(fontSize: 13)),
-                                        Text("${e.repetitions} répétitions",
-                                            style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                                      ],
+                                              fontWeight: FontWeight.bold,
+                                              color: darkGreen,
+                                              fontSize: 17,
+                                            ),
+                                          ),
+                                          Text(
+                                            e.description,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          Text(
+                                            "${e.repetitions} répétitions",
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.orangeAccent,
+                                      ),
+                                      onPressed: () => _showAddOrEditDialog(
+                                        context,
+                                        existing: e,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.redAccent,
+                                      ),
+                                      onPressed: () => _deleteExercice(e.id!),
+                                    ),
+                                  ],
+                                ),
+                                if (e.videoPath.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: 8,
+                                      left: 5,
+                                    ),
+                                    child: GestureDetector(
+                                      onTap: () => _openVideo(e.videoPath),
+                                      child: const Text(
+                                        "🎬 Voir la vidéo",
+                                        style: TextStyle(
+                                          color: mainGreen,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                  IconButton(
-                                      icon: const Icon(Icons.edit, color: Colors.orangeAccent),
-                                      onPressed: () => _showAddOrEditDialog(context, existing: e)),
-                                  IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                      onPressed: () => _deleteExercice(e.id!)),
-                                ],
-                              ),
-                              if (e.videoPath.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8, left: 5),
-                                  child: GestureDetector(
-                                    onTap: () => _openVideo(e.videoPath),
-                                    child: const Text("🎬 Voir la vidéo",
-                                        style: TextStyle(
-                                            color: mainGreen,
-                                            decoration: TextDecoration.underline)),
+                                const SizedBox(height: 10),
+                                ElevatedButton.icon(
+                                  onPressed: () => _startTimer(e.nom),
+                                  icon: const Icon(
+                                    Icons.timer,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    "Démarrer le timer",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: mainGreen,
                                   ),
                                 ),
-                              const SizedBox(height: 10),
-                              ElevatedButton.icon(
-                                onPressed: () => _startTimer(e.nom),
-                                icon: const Icon(Icons.timer, color: Colors.white),
-                                label: const Text("Démarrer le timer",
-                                    style: TextStyle(color: Colors.white)),
-                                style: ElevatedButton.styleFrom(backgroundColor: mainGreen),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         ),
@@ -396,12 +568,27 @@ class _ExerciceScreenState extends State<ExerciceScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, {bool number = false}) {
+  Widget _field(
+    String label,
+    TextEditingController ctrl, {
+    bool number = false,
+    int? maxLength,
+    String? Function(String?)? validator,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
+      child: TextFormField(
         controller: ctrl,
         keyboardType: number ? TextInputType.number : TextInputType.text,
+        inputFormatters: number
+            ? <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ]
+            : <TextInputFormatter>[
+                LengthLimitingTextInputFormatter(maxLength ?? 120),
+              ],
+        validator: validator,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: const Icon(Icons.edit, color: mainGreen),
@@ -466,9 +653,16 @@ class __TimerDialogState extends State<_TimerDialog> {
       actions: [
         TextButton(onPressed: _reset, child: const Text("Réinitialiser")),
         TextButton(
-            onPressed: _startStop,
-            child: Text(running ? "Pause" : "Démarrer", style: const TextStyle(color: mainGreen))),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer")),
+          onPressed: _startStop,
+          child: Text(
+            running ? "Pause" : "Démarrer",
+            style: const TextStyle(color: mainGreen),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Fermer"),
+        ),
       ],
     );
   }
@@ -503,13 +697,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(title: const Text("🎥 Vidéo de l'exercice"), backgroundColor: mainGreen),
+      appBar: AppBar(
+        title: const Text("🎥 Vidéo de l'exercice"),
+        backgroundColor: mainGreen,
+      ),
       body: Center(
         child: _controller.value.isInitialized
             ? GestureDetector(
                 onTap: () {
                   setState(() {
-                    _controller.value.isPlaying ? _controller.pause() : _controller.play();
+                    _controller.value.isPlaying
+                        ? _controller.pause()
+                        : _controller.play();
                   });
                 },
                 child: AspectRatio(

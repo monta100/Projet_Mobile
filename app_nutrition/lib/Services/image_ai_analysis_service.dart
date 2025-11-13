@@ -39,10 +39,7 @@ class ImageAIAnalysisService {
 
     try {
       // 🤖 Utilise gemini-2.0-flash-exp (modèle expérimental le plus récent)
-      final model = GenerativeModel(
-        model: 'gemini-2.0-flash-exp',
-        apiKey: apiKey,
-      );
+      final model = GenerativeModel(model: 'gemini-2.0-flash', apiKey: apiKey);
 
       final prompt = TextPart(
         "Analyse cette image. Décris les aliments ou ingrédients visibles, "

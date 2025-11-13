@@ -100,50 +100,56 @@ class _RecettesGlobalScreenState extends State<RecettesGlobalScreen>
                   horizontal: 20,
                   vertical: 12,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.25),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Text(
-                            '🌍',
-                            style: TextStyle(fontSize: 26),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                'Délices Partagés',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                shape: BoxShape.circle,
                               ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Découvrez les meilleures recettes',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                              child: const Text(
+                                '🌍',
+                                style: TextStyle(fontSize: 26),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Délices Partagés',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Découvrez les meilleures recettes',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: _onRefreshPressed,
                     ),
                   ],
                 ),
@@ -188,7 +194,11 @@ class _RecettesGlobalScreenState extends State<RecettesGlobalScreen>
                       i % 2 == 0 ? 10 : -10,
                       0,
                     ),
-                    child: _RecetteCard(recette: list[i]),
+                    child: _RecetteCard(
+                      recette: list[i],
+                      heroTag:
+                          'recette-card-${list[i].id ?? 'idx-$i-${list[i].nom.hashCode}'}',
+                    ),
                   ),
                 ),
               );
@@ -217,12 +227,12 @@ class _RecettesGlobalScreenState extends State<RecettesGlobalScreen>
 
 class _RecetteCard extends StatelessWidget {
   final Recette recette;
+  final String heroTag;
 
-  const _RecetteCard({required this.recette});
+  const _RecetteCard({required this.recette, required this.heroTag});
 
   @override
   Widget build(BuildContext context) {
-    final isPublished = recette.publie == 1;
     final effectiveUrl =
         (recette.imageUrl != null && recette.imageUrl!.isNotEmpty)
         ? recette.imageUrl!
@@ -233,7 +243,8 @@ class _RecetteCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => RecetteDetailsScreen(recette: recette),
+            builder: (context) =>
+                RecetteDetailsScreen(recette: recette, heroTag: heroTag),
           ),
         );
       },
@@ -259,7 +270,7 @@ class _RecetteCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Hero(
-                tag: 'recette-image-${recette.id}',
+                tag: heroTag,
                 child: Image.network(
                   effectiveUrl,
                   fit: BoxFit.cover,
@@ -331,10 +342,9 @@ class _RecetteCard extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${recette.calories.toInt()} kcal',
+                                  '${recette.calories} kcal',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -342,35 +352,6 @@ class _RecetteCard extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          if (isPublished)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Publié',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                         ],
                       ),
                     ],

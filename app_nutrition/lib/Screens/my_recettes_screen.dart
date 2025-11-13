@@ -278,6 +278,8 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
                     final recette = recettes[index];
                     return _RecetteCard(
                       recette: recette,
+                      heroTag:
+                          'myrecette-card-$index-${recette.id ?? recette.nom.hashCode}',
                       onTogglePublish: () => _togglePublish(recette),
                       onEdit: () => _showEditRecette(recette),
                       onDelete: () => _deleteRecette(recette),
@@ -411,12 +413,14 @@ class _MyRecettesScreenState extends State<MyRecettesScreen> {
 
 class _RecetteCard extends StatelessWidget {
   final Recette recette;
+  final String heroTag;
   final VoidCallback onTogglePublish;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _RecetteCard({
     required this.recette,
+    required this.heroTag,
     required this.onTogglePublish,
     required this.onEdit,
     required this.onDelete,
@@ -440,7 +444,8 @@ class _RecetteCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => RecetteDetailsScreen(recette: recette),
+              builder: (context) =>
+                  RecetteDetailsScreen(recette: recette, heroTag: heroTag),
             ),
           );
         },
@@ -452,7 +457,7 @@ class _RecetteCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   Hero(
-                    tag: 'recette-image-${recette.id}',
+                    tag: heroTag,
                     child: Image.network(
                       effectiveUrl,
                       fit: BoxFit.cover,

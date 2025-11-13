@@ -39,9 +39,44 @@ class SessionService {
     final db = await _dbHelper.database;
     var data = session.toMap();
 
+    // Associer l'utilisateur connecté si disponible
+    try {
+      final user = await getLoggedInUser();
+      if (user?.id != null) {
+        data['user_id'] = user!.id;
+      }
+    } catch (_) {}
+
     // Ensure programme_id is valid
     if (data['programme_id'] == 0) {
       data['programme_id'] = 1; // Use default programme
+    }
+
+    // Validation minimale côté service (défense en profondeur)
+    final type = (data['type_activite'] as String?)?.trim() ?? '';
+    final duree = data['duree'];
+    final intensite = (data['intensite'] as String?)?.trim() ?? '';
+    final dateStr = (data['date'] as String?)?.trim() ?? '';
+    if (type.isEmpty || intensite.isEmpty) {
+      throw Exception('Type et intensité requis');
+    }
+    if (duree is int) {
+      if (duree <= 0 || duree > 600) {
+        throw Exception('Durée invalide (1-600)');
+      }
+    }
+    if (dateStr.isEmpty) {
+      throw Exception('Date requise');
+    }
+    try {
+      DateTime.parse(dateStr);
+    } catch (_) {
+      throw Exception('Format de date invalide (attendu yyyy-MM-dd)');
+    }
+    // Calories peuvent être calculées, mais on évite valeurs négatives
+    final calories = data['calories'];
+    if (calories is int && calories < 0) {
+      data['calories'] = 0;
     }
 
     return await db.insert(
@@ -53,11 +88,19 @@ class SessionService {
 
   Future<List<Session>> getAllSessions() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> data = await db.query(
-      Session.tableName,
-      orderBy: 'id DESC',
-    );
-    return data.map((map) => Session.fromMap(map)).toList();
+    final user = await getLoggedInUser();
+    List<Map<String, dynamic>> rows;
+    if (user?.id != null) {
+      rows = await db.query(
+        Session.tableName,
+        where: 'user_id = ? OR user_id IS NULL',
+        whereArgs: [user!.id],
+        orderBy: 'id DESC',
+      );
+    } else {
+      rows = await db.query(Session.tableName, orderBy: 'id DESC');
+    }
+    return rows.map((map) => Session.fromMap(map)).toList();
   }
 
   Future<Session?> getSessionById(int id) async {
@@ -77,9 +120,33 @@ class SessionService {
     }
 
     final db = await _dbHelper.database;
+    final data = session.toMap();
+    final type = (data['type_activite'] as String?)?.trim() ?? '';
+    final duree = data['duree'];
+    final intensite = (data['intensite'] as String?)?.trim() ?? '';
+    final dateStr = (data['date'] as String?)?.trim() ?? '';
+    if (type.isEmpty || intensite.isEmpty) {
+      throw Exception('Type et intensité requis');
+    }
+    if (duree is int) {
+      if (duree <= 0 || duree > 600) {
+        throw Exception('Durée invalide (1-600)');
+      }
+    }
+    if (dateStr.isEmpty) {
+      throw Exception('Date requise');
+    }
+    try {
+      DateTime.parse(dateStr);
+    } catch (_) {
+      throw Exception('Format de date invalide (attendu yyyy-MM-dd)');
+    }
+    if (data['calories'] is int && (data['calories'] as int) < 0) {
+      data['calories'] = 0;
+    }
     return await db.update(
       Session.tableName,
-      session.toMap(),
+      data,
       where: 'id = ?',
       whereArgs: [session.id],
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -93,9 +160,15 @@ class SessionService {
 
   Future<int> getTotalCalories() async {
     final db = await _dbHelper.database;
-    final result = await db.rawQuery(
-      'SELECT SUM(calories) as total FROM ${Session.tableName}',
-    );
+    final user = await getLoggedInUser();
+    final result = user?.id != null
+        ? await db.rawQuery(
+            'SELECT SUM(calories) as total FROM ${Session.tableName} WHERE user_id = ? OR user_id IS NULL',
+            [user!.id],
+          )
+        : await db.rawQuery(
+            'SELECT SUM(calories) as total FROM ${Session.tableName}',
+          );
     final value = result.first['total'];
     if (value == null) return 0;
     if (value is int) return value;
@@ -105,9 +178,15 @@ class SessionService {
 
   Future<int> getTotalDuree() async {
     final db = await _dbHelper.database;
-    final result = await db.rawQuery(
-      'SELECT SUM(duree) as total FROM ${Session.tableName}',
-    );
+    final user = await getLoggedInUser();
+    final result = user?.id != null
+        ? await db.rawQuery(
+            'SELECT SUM(duree) as total FROM ${Session.tableName} WHERE user_id = ? OR user_id IS NULL',
+            [user!.id],
+          )
+        : await db.rawQuery(
+            'SELECT SUM(duree) as total FROM ${Session.tableName}',
+          );
     final value = result.first['total'];
     if (value == null) return 0;
     if (value is int) return value;
@@ -117,10 +196,13 @@ class SessionService {
 
   Future<List<Session>> getSessionsByType(String type) async {
     final db = await _dbHelper.database;
+    final user = await getLoggedInUser();
     final List<Map<String, dynamic>> data = await db.query(
       Session.tableName,
-      where: 'type_activite LIKE ?',
-      whereArgs: ['%$type%'],
+      where: user?.id != null
+          ? '(type_activite LIKE ?) AND (user_id = ? OR user_id IS NULL)'
+          : 'type_activite LIKE ?',
+      whereArgs: user?.id != null ? ['%$type%', user!.id] : ['%$type%'],
     );
     return data.map((map) => Session.fromMap(map)).toList();
   }

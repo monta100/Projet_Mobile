@@ -43,6 +43,20 @@ class RecetteService {
     }
   }
 
+  // Récupérer la recette la plus récente par nom (utile quand l'id est nul)
+  Future<Recette?> getMostRecentByName(String nom) async {
+    final db = await dbHelper.database;
+    final maps = await db.query(
+      'recettes',
+      where: 'nom = ?',
+      whereArgs: [nom],
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return Recette.fromMap(maps.first);
+  }
+
   // Récupérer toutes les recettes
   Future<List<Recette>> getAllRecettes() async {
     final db = await dbHelper.database;

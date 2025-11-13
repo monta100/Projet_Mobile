@@ -20,8 +20,8 @@ class DatabaseHelper {
 
   // --- Configuration ---
   static const String _dbName = 'app_nutrition13.db';
-  static const int _dbVersion = 14;
-  // v14: Ajout des tables training_plans et expenses pour gestion des dépenses
+  static const int _dbVersion = 15;
+  // v15: Ajout user_id sur programmes/sessions/exercices pour données par utilisateur
 
   // Table names
   static const String tableUtilisateurs = 'utilisateurs';
@@ -90,7 +90,9 @@ class DatabaseHelper {
           nom TEXT NOT NULL,
           objectif TEXT NOT NULL,
           date_debut TEXT NOT NULL,
-          date_fin TEXT NOT NULL
+          date_fin TEXT NOT NULL,
+          user_id INTEGER NULL,
+          FOREIGN KEY (user_id) REFERENCES $tableUtilisateurs (id) ON DELETE SET NULL
         )
       ''');
 
@@ -115,7 +117,9 @@ class DatabaseHelper {
           calories INTEGER NOT NULL,
           date TEXT NOT NULL,
           programme_id INTEGER DEFAULT 1,
-          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+          user_id INTEGER NULL,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT,
+          FOREIGN KEY (user_id) REFERENCES $tableUtilisateurs (id) ON DELETE SET NULL
         )
       '''); // Table exercices
     await db.execute('''
@@ -127,7 +131,9 @@ class DatabaseHelper {
           image_path TEXT NOT NULL,
           video_path TEXT NOT NULL,
           programme_id INTEGER DEFAULT 1,
-          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+          user_id INTEGER NULL,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT,
+          FOREIGN KEY (user_id) REFERENCES $tableUtilisateurs (id) ON DELETE SET NULL
         )
       ''');
 
@@ -270,6 +276,16 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_repas_utilisateur ON repas(utilisateur_id)',
     );
+    // Index pour les entités d'activité par utilisateur
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_programmes_user ON programmes(user_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_exercices_user ON exercices(user_id)',
+    );
     await db.execute('CREATE INDEX idx_recettes_repas ON recettes(repas_id)');
     await db.execute(
       'CREATE INDEX idx_recettes_user ON recettes(utilisateur_id)',
@@ -284,6 +300,54 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // v15: Ajout des colonnes user_id aux tables programmes/sessions/exercices et index
+    if (oldVersion < 15) {
+      try {
+        // Add user_id to programmes
+        final progCols = await db.rawQuery("PRAGMA table_info(programmes)");
+        final hasProgUser = progCols.any(
+          (c) => (c['name'] as String?) == 'user_id',
+        );
+        if (!hasProgUser) {
+          await db.execute(
+            'ALTER TABLE programmes ADD COLUMN user_id INTEGER NULL',
+          );
+        }
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_programmes_user ON programmes(user_id)',
+        );
+
+        // Add user_id to sessions
+        final sessCols = await db.rawQuery("PRAGMA table_info(sessions)");
+        final hasSessUser = sessCols.any(
+          (c) => (c['name'] as String?) == 'user_id',
+        );
+        if (!hasSessUser) {
+          await db.execute(
+            'ALTER TABLE sessions ADD COLUMN user_id INTEGER NULL',
+          );
+        }
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
+        );
+
+        // Add user_id to exercices
+        final exCols = await db.rawQuery("PRAGMA table_info(exercices)");
+        final hasExUser = exCols.any(
+          (c) => (c['name'] as String?) == 'user_id',
+        );
+        if (!hasExUser) {
+          await db.execute(
+            'ALTER TABLE exercices ADD COLUMN user_id INTEGER NULL',
+          );
+        }
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_exercices_user ON exercices(user_id)',
+        );
+      } catch (e) {
+        print('Migration to v15 (user_id columns) failed: $e');
+      }
+    }
     // v14: Création des tables training_plans et expenses
     if (oldVersion < 14) {
       try {
@@ -815,7 +879,9 @@ class DatabaseHelper {
           calories INTEGER NOT NULL,
           date TEXT NOT NULL,
           programme_id INTEGER DEFAULT 1,
-          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+          user_id INTEGER NULL,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT,
+          FOREIGN KEY (user_id) REFERENCES $tableUtilisateurs (id) ON DELETE SET NULL
         )
       ''');
 
@@ -825,7 +891,9 @@ class DatabaseHelper {
           nom TEXT NOT NULL,
           objectif TEXT NOT NULL,
           date_debut TEXT NOT NULL,
-          date_fin TEXT NOT NULL
+          date_fin TEXT NOT NULL,
+          user_id INTEGER NULL,
+          FOREIGN KEY (user_id) REFERENCES $tableUtilisateurs (id) ON DELETE SET NULL
         )
       ''');
 
@@ -838,9 +906,45 @@ class DatabaseHelper {
           image_path TEXT NOT NULL,
           video_path TEXT NOT NULL,
           programme_id INTEGER DEFAULT 1,
-          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT
+          user_id INTEGER NULL,
+          FOREIGN KEY (programme_id) REFERENCES programmes (id) ON DELETE SET DEFAULT,
+          FOREIGN KEY (user_id) REFERENCES $tableUtilisateurs (id) ON DELETE SET NULL
         )
       ''');
+      // Ensure user_id column exists on activity tables
+      try {
+        final progCols = await db.rawQuery('PRAGMA table_info(programmes)');
+        if (!progCols.any((c) => (c['name'] as String?) == 'user_id')) {
+          await db.execute(
+            'ALTER TABLE programmes ADD COLUMN user_id INTEGER NULL',
+          );
+        }
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_programmes_user ON programmes(user_id)',
+        );
+      } catch (_) {}
+      try {
+        final sessCols = await db.rawQuery('PRAGMA table_info(sessions)');
+        if (!sessCols.any((c) => (c['name'] as String?) == 'user_id')) {
+          await db.execute(
+            'ALTER TABLE sessions ADD COLUMN user_id INTEGER NULL',
+          );
+        }
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
+        );
+      } catch (_) {}
+      try {
+        final exCols = await db.rawQuery('PRAGMA table_info(exercices)');
+        if (!exCols.any((c) => (c['name'] as String?) == 'user_id')) {
+          await db.execute(
+            'ALTER TABLE exercices ADD COLUMN user_id INTEGER NULL',
+          );
+        }
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_exercices_user ON exercices(user_id)',
+        );
+      } catch (_) {}
       await db.execute('''
         CREATE TABLE IF NOT EXISTS progressions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

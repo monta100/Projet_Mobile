@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 import '../Entities/session.dart';
 import '../Services/session_service.dart';
+import '../Entites/utilisateur.dart';
 
 const Color mainGreen = Color(0xFF2ECC71);
 const Color darkGreen = Color(0xFF1E8449);
@@ -18,11 +20,14 @@ class _SessionScreenState extends State<SessionScreen> {
   final SessionService _service = SessionService();
   List<Session> _sessions = [];
   List<Session> _filtered = [];
+  final _formKeySession = GlobalKey<FormState>();
+  Utilisateur? _user; // utilisateur connecté
 
   final _typeCtrl = TextEditingController();
   final _dureeCtrl = TextEditingController();
   final _intensiteCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+  DateTime? _dateSeance;
 
   double userWeight = 70;
   String _sortOption = "Aucun";
@@ -35,17 +40,60 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   Future<void> _load() async {
+    final user = await _service.getLoggedInUser();
     final data = await _service.getAllSessions();
     setState(() {
       _sessions = data;
       _filtered = data;
       _generateConseil();
+      _user = user;
     });
   }
 
+  Future<void> _pickSessionDate() async {
+    final now = DateTime.now();
+    final initial = _dateSeance ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 3),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: mainGreen,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _dateSeance = picked);
+    }
+  }
+
+  Widget _datePickerRow() {
+    final label = _dateSeance == null
+        ? "Date de la séance"
+        : DateFormat('dd/MM/yyyy').format(_dateSeance!);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: _pickSessionDate,
+        icon: const Icon(Icons.calendar_today, color: mainGreen, size: 18),
+        label: Text(label),
+      ),
+    );
+  }
+
   double _calculateCalories(String intensite, int duree, double poids) {
-    double facteur =
-        intensite == "Forte" ? 8 : intensite == "Moyenne" ? 6 : 4;
+    double facteur = intensite == "Forte"
+        ? 8
+        : intensite == "Moyenne"
+        ? 6
+        : 4;
     return poids * facteur * duree / 60;
   }
 
@@ -65,20 +113,35 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   Future<void> _addOrEdit({Session? existing}) async {
-    if (_typeCtrl.text.isEmpty ||
-        _dureeCtrl.text.isEmpty ||
+    // Champs validés via Form; double-check parsing
+    final duree = int.tryParse(_dureeCtrl.text);
+    if (_typeCtrl.text.trim().isEmpty ||
+        duree == null ||
+        duree <= 0 ||
         _intensiteCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("⚠️ Veuillez remplir tous les champs")),
+        const SnackBar(
+          content: Text(
+            "⚠️ Vérifiez les champs: durée > 0, type et intensité requis",
+          ),
+        ),
       );
       return;
     }
+    if (_dateSeance == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("⚠️ Sélectionnez une date")));
+      return;
+    }
+    double calories = _calculateCalories(
+      _intensiteCtrl.text,
+      duree,
+      userWeight,
+    );
 
-    int duree = int.parse(_dureeCtrl.text);
-    double calories = _calculateCalories(_intensiteCtrl.text, duree, userWeight);
-
-    // ✅ Ajout automatique de la date du jour et programme par défaut
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    // ✅ Utilise la date choisie
+    final dateStr = DateFormat('yyyy-MM-dd').format(_dateSeance!);
 
     final session = Session(
       id: existing?.id,
@@ -86,7 +149,7 @@ class _SessionScreenState extends State<SessionScreen> {
       duree: duree,
       intensite: _intensiteCtrl.text.trim(),
       calories: calories.round(),
-      date: existing?.date ?? today,
+      date: dateStr,
       programmeId: existing?.programmeId ?? 0,
     );
 
@@ -101,9 +164,12 @@ class _SessionScreenState extends State<SessionScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content: Text(existing == null
+        content: Text(
+          existing == null
               ? "✅ Séance ajoutée avec succès !"
-              : "✏️ Séance modifiée avec succès !")),
+              : "✏️ Séance modifiée avec succès !",
+        ),
+      ),
     );
   }
 
@@ -131,36 +197,86 @@ class _SessionScreenState extends State<SessionScreen> {
       _typeCtrl.text = existing.typeActivite;
       _dureeCtrl.text = existing.duree.toString();
       _intensiteCtrl.text = existing.intensite;
+      try {
+        _dateSeance = DateTime.parse(existing.date);
+      } catch (_) {
+        _dateSeance = DateTime.now();
+      }
     } else {
       _clearFields();
+      _dateSeance = null;
     }
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(existing == null ? "Nouvelle séance" : "Modifier séance",
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _field("Type d’activité", _typeCtrl),
-            _field("Durée (min)", _dureeCtrl, number: true),
-            _dropdownIntensity(),
-          ],
+        title: Text(
+          existing == null ? "Nouvelle séance" : "Modifier séance",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _formKeySession,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _field(
+                  "Type d’activité",
+                  _typeCtrl,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return "Type requis";
+                    if (v.trim().length > 50) return "50 caractères max";
+                    return null;
+                  },
+                ),
+                _field(
+                  "Durée (min)",
+                  _dureeCtrl,
+                  number: true,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return "Durée requise";
+                    final n = int.tryParse(v);
+                    if (n == null || n <= 0) return "Doit être > 0";
+                    if (n > 600) return "Trop élevé (max 600)";
+                    return null;
+                  },
+                ),
+                _dropdownIntensity(),
+                const SizedBox(height: 10),
+                _datePickerRow(),
+                if (_dateSeance == null)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        "Date requise",
+                        style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Annuler")),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Annuler"),
+          ),
           ElevatedButton.icon(
             icon: const Icon(Icons.check, color: Colors.white),
             label: Text(existing == null ? "Ajouter" : "Modifier"),
             style: ElevatedButton.styleFrom(
-                backgroundColor: mainGreen,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
+              backgroundColor: mainGreen,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () {
+              final valid = _formKeySession.currentState?.validate() ?? false;
+              if (!valid) return;
               Navigator.pop(context);
               _addOrEdit(existing: existing);
             },
@@ -173,9 +289,11 @@ class _SessionScreenState extends State<SessionScreen> {
   void _filterSessions(String query) {
     setState(() {
       _filtered = _sessions
-          .where((s) =>
-              s.typeActivite.toLowerCase().contains(query.toLowerCase()) ||
-              s.intensite.toLowerCase().contains(query.toLowerCase()))
+          .where(
+            (s) =>
+                s.typeActivite.toLowerCase().contains(query.toLowerCase()) ||
+                s.intensite.toLowerCase().contains(query.toLowerCase()),
+          )
           .toList();
     });
   }
@@ -188,8 +306,10 @@ class _SessionScreenState extends State<SessionScreen> {
       } else if (option == "Calories") {
         _filtered.sort((a, b) => a.calories.compareTo(b.calories));
       } else if (option == "Intensité") {
-        _filtered.sort((a, b) =>
-            a.intensite.toLowerCase().compareTo(b.intensite.toLowerCase()));
+        _filtered.sort(
+          (a, b) =>
+              a.intensite.toLowerCase().compareTo(b.intensite.toLowerCase()),
+        );
       } else {
         _filtered = List.from(_sessions);
       }
@@ -212,27 +332,36 @@ class _SessionScreenState extends State<SessionScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-              color: Colors.black12.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 3))
+            color: Colors.black12.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Résumé de vos séances",
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold, color: darkGreen)),
+          const Text(
+            "Résumé de vos séances",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: darkGreen,
+            ),
+          ),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _summaryItem(Icons.timer, "$totalMinutes min", "Durée totale"),
-              _summaryItem(Icons.local_fire_department, "$totalCalories kcal",
-                  "Calories totales"),
+              _summaryItem(
+                Icons.local_fire_department,
+                "$totalCalories kcal",
+                "Calories totales",
+              ),
               _summaryItem(Icons.fitness_center, "$count", "Séances"),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -243,9 +372,13 @@ class _SessionScreenState extends State<SessionScreen> {
       children: [
         Icon(icon, color: mainGreen),
         const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );
@@ -262,212 +395,316 @@ class _SessionScreenState extends State<SessionScreen> {
         icon: const Icon(Icons.add),
       ),
       body: SafeArea(
-        child: ListView(
-          children: [
-            // 🌿 HEADER
-            Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [mainGreen, darkGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            children: [
+              // 🌿 HEADER
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 25,
+                  horizontal: 20,
                 ),
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(30)),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.fitness_center,
-                      color: Colors.white, size: 30),
-                  const SizedBox(height: 8),
-                  const Text("Mes Séances 🏋️‍♀️",
-                      style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
-                  const SizedBox(height: 6),
-                  Text(_conseil,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white)),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text("Modifier le poids"),
-                          content: TextField(
-                            keyboardType: TextInputType.number,
-                            decoration:
-                                const InputDecoration(labelText: "Poids (kg)"),
-                            onSubmitted: (v) {
-                              setState(() {
-                                userWeight = double.tryParse(v) ?? userWeight;
-                              });
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.monitor_weight, color: Colors.white),
-                    label: Text("$userWeight kg",
-                        style: const TextStyle(color: Colors.white)),
-                  )
-                ],
-              ),
-            ),
-
-            // ✅ Résumé des séances
-            _buildSummaryCard(),
-
-            // 🔍 Recherche et tri
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      decoration: InputDecoration(
-                        hintText: "Rechercher une séance...",
-                        prefixIcon:
-                            const Icon(Icons.search, color: mainGreen),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onChanged: _filterSessions,
-                    ),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [mainGreen, darkGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(width: 8),
-                  DropdownButton<String>(
-                    value: _sortOption,
-                    items: ["Aucun", "Durée", "Calories", "Intensité"]
-                        .map((e) =>
-                            DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: (val) => _sortSessions(val!),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(30),
                   ),
-                ],
-              ),
-            ),
-
-            // 📋 Liste des séances
-            _filtered.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 30),
-                      child: Text("Aucune séance trouvée",
-                          style:
-                              TextStyle(color: Colors.grey, fontSize: 16)),
-                    ),
-                  )
-                : Column(
-                    children: _filtered.map((s) {
-                      final color = _colorByIntensity(s.intensite);
-                      IconData icon = s.intensite == "Forte"
-                          ? Icons.fitness_center
-                          : s.intensite == "Moyenne"
-                              ? Icons.directions_run
-                              : Icons.self_improvement;
-
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                            vertical: 6, horizontal: 16),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Icon(
+                          Icons.fitness_center,
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                                color: Colors.black12.withOpacity(0.08),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3))
-                          ],
+                          size: 30,
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                        Row(
                           children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                  color: color.withOpacity(0.15),
-                                  shape: BoxShape.circle),
-                              child: Icon(icon, color: color, size: 26),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(s.typeActivite,
-                                      style: TextStyle(
-                                          color: color,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16)),
-                                  const SizedBox(height: 4),
-                                  Text("${s.duree} min • ${s.calories} kcal",
-                                      style:
-                                          const TextStyle(fontSize: 13)),
-                                  Text("Intensité : ${s.intensite}",
-                                      style: TextStyle(
-                                          color: color, fontSize: 13)),
-                                  Text("Date : ${s.date}",
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black54)),
-                                ],
+                            IconButton(
+                              tooltip: 'Rafraîchir',
+                              onPressed: _load,
+                              icon: const Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: 24,
                               ),
                             ),
                             IconButton(
-                                icon: const Icon(Icons.edit,
-                                    color: Colors.orangeAccent),
-                                onPressed: () =>
-                                    _showAddDialog(existing: s)),
-                            IconButton(
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.redAccent),
+                              tooltip: 'Accueil',
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: const Icon(
+                                Icons.home,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _user != null
+                          ? "Mes Séances • ${_user!.prenom}"
+                          : "Mes Séances 🏋️‍♀️",
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _conseil,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white),
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text("Modifier le poids"),
+                                content: TextField(
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: "Poids (kg)",
+                                  ),
+                                  onSubmitted: (v) {
+                                    setState(() {
+                                      userWeight =
+                                          double.tryParse(v) ?? userWeight;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.monitor_weight,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            "$userWeight kg",
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        if (_user != null)
+                          Chip(
+                            backgroundColor: Colors.white24,
+                            label: Text(
+                              _user!.email,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            avatar: const Icon(
+                              Icons.person,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // ✅ Résumé des séances
+              _buildSummaryCard(),
+
+              // 🔍 Recherche et tri
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchCtrl,
+                        decoration: InputDecoration(
+                          hintText: "Rechercher une séance...",
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: mainGreen,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onChanged: _filterSessions,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      value: _sortOption,
+                      items: ["Aucun", "Durée", "Calories", "Intensité"]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                      onChanged: (val) => _sortSessions(val!),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 📋 Liste des séances
+              _filtered.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 30),
+                        child: Text(
+                          "Aucune séance trouvée",
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: _filtered.map((s) {
+                        final color = _colorByIntensity(s.intensite);
+                        IconData icon = s.intensite == "Forte"
+                            ? Icons.fitness_center
+                            : s.intensite == "Moyenne"
+                            ? Icons.directions_run
+                            : Icons.self_improvement;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 16,
+                          ),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12.withOpacity(0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(icon, color: color, size: 26),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.typeActivite,
+                                      style: TextStyle(
+                                        color: color,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "${s.duree} min • ${s.calories} kcal",
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    Text(
+                                      "Intensité : ${s.intensite}",
+                                      style: TextStyle(
+                                        color: color,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      "Date : ${s.date}",
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.orangeAccent,
+                                ),
+                                onPressed: () => _showAddDialog(existing: s),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.redAccent,
+                                ),
                                 onPressed: () async {
                                   await _service.deleteSession(s.id!);
                                   _load();
-                                }),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ],
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl,
-      {bool number = false}) {
+  Widget _field(
+    String label,
+    TextEditingController ctrl, {
+    bool number = false,
+    String? Function(String?)? validator,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
+      child: TextFormField(
         controller: ctrl,
         keyboardType: number ? TextInputType.number : TextInputType.text,
+        inputFormatters: number
+            ? <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ]
+            : <TextInputFormatter>[LengthLimitingTextInputFormatter(60)],
+        validator: validator,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: const Icon(Icons.edit, color: mainGreen),
           filled: true,
           fillColor: lightGray,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
@@ -490,6 +727,7 @@ class _SessionScreenState extends State<SessionScreen> {
             .map((val) => DropdownMenuItem(value: val, child: Text(val)))
             .toList(),
         onChanged: (val) => _intensiteCtrl.text = val ?? "",
+        validator: (v) => (v == null || v.isEmpty) ? "Sélection requise" : null,
       ),
     );
   }

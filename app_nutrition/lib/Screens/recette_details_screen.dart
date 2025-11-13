@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import '../Entites/recette.dart';
 import '../Entites/ingredient.dart';
 import '../Services/ingredient_service.dart';
+import '../Services/recette_service.dart';
 import '../Theme/app_colors.dart';
 
 class RecetteDetailsScreen extends StatefulWidget {
   final Recette recette;
+  final String? heroTag;
 
-  const RecetteDetailsScreen({super.key, required this.recette});
+  const RecetteDetailsScreen({super.key, required this.recette, this.heroTag});
 
   @override
   State<RecetteDetailsScreen> createState() => _RecetteDetailsScreenState();
@@ -15,6 +17,7 @@ class RecetteDetailsScreen extends StatefulWidget {
 
 class _RecetteDetailsScreenState extends State<RecetteDetailsScreen> {
   final IngredientService _ingredientService = IngredientService();
+  final RecetteService _recetteService = RecetteService();
   late Future<List<Ingredient>> _ingredientsFuture;
 
   @override
@@ -29,8 +32,15 @@ class _RecetteDetailsScreenState extends State<RecetteDetailsScreen> {
         widget.recette.id!,
       );
     } else {
-      // Si la recette n'a pas d'ID, il n'y a pas d'ingrédients à charger
-      _ingredientsFuture = Future.value([]);
+      // Fallback: retrouver l'ID par nom (dernière recette insérée avec ce nom)
+      _ingredientsFuture = _recetteService
+          .getMostRecentByName(widget.recette.nom)
+          .then((r) async {
+            if (r?.id != null) {
+              return _ingredientService.getIngredientsByRecette(r!.id!);
+            }
+            return <Ingredient>[];
+          });
     }
   }
 
@@ -46,7 +56,9 @@ class _RecetteDetailsScreenState extends State<RecetteDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Hero(
-              tag: 'recette-image-${widget.recette.id}',
+              tag:
+                  widget.heroTag ??
+                  'recette-card-${widget.recette.id ?? 'name-${widget.recette.nom.hashCode}'}',
               child: Image.network(
                 widget.recette.imageUrl ??
                     _UnsplashHelper.urlFor(widget.recette.nom),

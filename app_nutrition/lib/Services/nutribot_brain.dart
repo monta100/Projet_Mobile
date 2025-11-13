@@ -194,6 +194,7 @@ class NutriBotBrain {
         for (final l in bulletLines) {
           var cleaned = l.replaceFirst(RegExp(r'^[-*]\s*'), '').trim();
           if (cleaned.isEmpty) continue;
+          if (!_isProbablyIngredientLine(cleaned)) continue;
           final lower = cleaned.toLowerCase();
           if (stopWords.contains(lower)) continue;
           // Extraction avancée : "4 pièces de Tortillas" ou "Tortillas (4 pièces)"
@@ -227,38 +228,18 @@ class NutriBotBrain {
           });
         }
       }
-      // 5. Ajout en base
-      // Extraction de l'image si présente dans la réponse IA
-      String? imageUrl;
-      final imageMatch = RegExp(
-        r'(https?://[^\s)]+\.(jpg|jpeg|png|webp|gif))',
-        caseSensitive: false,
-      ).firstMatch(ingText);
-      if (imageMatch != null) {
-        imageUrl = imageMatch.group(1);
+      // Dernière chance: parsing flexible si toujours vide
+      if (ingredients.isEmpty) {
+        ingredients = _parseIngredientsFlexible(ingText);
       }
-      final recette = Recette(
-        nom: nom,
-        description: desc.trim(),
-        calories: _estimerCalories(nom),
-        publie: 1,
-        imageUrl: imageUrl, // Ajout de l'image IA si trouvée
-        utilisateurId: 3, // Fixé pour test
-      );
-      final recetteId = await _recetteService.insertRecette(recette);
-      for (final ing in ingredients) {
-        await _ingredientService.insertIngredient(
-          Ingredient(
-            nom: ing['nom'],
-            quantite: ing['quantite'],
-            unite: ing['unite'],
-            calories: ing['calories'],
-            recetteId: recetteId,
-          ),
-        );
-      }
-      _resetContext();
-      return "Excellent choix ! Votre recette **$nom** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
+      // 5. Stocker en mémoire et demander confirmation d'ajout
+      _lastSuggestion = nom;
+      _lastRecipeDetails = desc.trim();
+      _lastCalories = _estimerCalories(nom);
+      _lastIngredients = ingredients;
+      final resume =
+          "Résumé de la recette :\n- Nom : $nom\n- Description : ${_lastRecipeDetails}\n- Calories estimées : ${_lastCalories!.toStringAsFixed(0)}\n- Ingrédients : ${ingredients.isNotEmpty ? ingredients.map((i) => i['nom']).join(', ') : 'Aucun'}\n\nSouhaitez-vous que je l'ajoute à votre carnet ? Dites 'ajouter la'.";
+      return resume;
     }
 
     // 0) Salutation
@@ -323,6 +304,32 @@ class NutriBotBrain {
           "vas y",
         ]))) {
       if (_lastSuggestion != null) {
+        // 🔄 Si nous n'avons pas d'ingrédients (premier appel IA non conforme), tenter une récupération JSON complète maintenant
+        if (_lastIngredients == null || _lastIngredients!.isEmpty) {
+          print(
+            '[NutriBotBrain][CONFIRM] Aucune liste d\'ingrédients en mémoire, tentative de récupération JSON pour ${_lastSuggestion}',
+          );
+          final fetchRaw = await _openRouter.processUserMessage(
+            "IMPORTANT: Réponds uniquement avec un objet JSON valide, sans aucun texte avant ou après. Donne le JSON complet de la recette pour '${_lastSuggestion}' avec les clés nom, description, calories, ingredients (nom, quantite, unite, calories), imageUrl.",
+            structured: true,
+          );
+          final reparsed = _tryParseAndFormatRecipeResponse(fetchRaw);
+          if (reparsed != null) {
+            print(
+              '[NutriBotBrain][CONFIRM] JSON récupéré juste avant insertion: ${_lastIngredients?.length ?? 0} ingrédients',
+            );
+          } else {
+            // Dernier recours : essayer parse flexible sur tout le texte
+            final flex = _parseIngredientsFlexible(fetchRaw);
+            if (flex.isNotEmpty) {
+              _lastIngredients = flex;
+              print(
+                '[NutriBotBrain][CONFIRM] Parse flexible de secours a trouvé ${flex.length} ingrédients',
+              );
+            }
+          }
+        }
+
         final recette = Recette(
           nom: _lastSuggestion!,
           description: _lastRecipeDetails ?? "",
@@ -331,9 +338,40 @@ class NutriBotBrain {
           imageUrl: null,
           utilisateurId: 3, // Fixé pour test
         );
-        await _recetteService.insertRecette(recette);
+        final recetteId = await _recetteService.insertRecette(recette);
+        // ✅ Ajout des ingrédients (y compris ceux récupérés à la volée)
+        if (_lastIngredients != null && _lastIngredients!.isNotEmpty) {
+          for (final ing in _lastIngredients!) {
+            try {
+              await _ingredientService.insertIngredient(
+                Ingredient(
+                  nom: ing['nom'] ?? 'Ingrédient',
+                  quantite: (ing['quantite'] is num)
+                      ? (ing['quantite'] as num).toDouble()
+                      : double.tryParse(ing['quantite']?.toString() ?? '1') ??
+                            1.0,
+                  unite: ing['unite']?.toString() ?? '',
+                  calories: (ing['calories'] is num)
+                      ? (ing['calories'] as num).toDouble()
+                      : double.tryParse(ing['calories']?.toString() ?? '0') ??
+                            0.0,
+                  recetteId: recetteId,
+                ),
+              );
+            } catch (e) {
+              print(
+                '[NutriBotBrain][CONFIRM][ERREUR] Insertion ingrédient: $e',
+              );
+            }
+          }
+        } else {
+          print(
+            '[NutriBotBrain][CONFIRM] Aucun ingrédient disponible après tentative de récupération.',
+          );
+        }
+        final nbIng = _lastIngredients?.length ?? 0;
         _resetContext();
-        return "Excellent choix ! Votre recette **${recette.nom}** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
+        return "Excellent choix ! Votre recette **${recette.nom}** (${nbIng} ingrédient${nbIng > 1 ? 's' : ''}) a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
       }
 
       // 🔸 Proposer automatiquement une recette si aucune n'est en mémoire
@@ -581,6 +619,7 @@ Ta mission :
         for (final l in bulletLines) {
           var cleaned = l.replaceFirst(RegExp(r'^[-*]\s*'), '').trim();
           if (cleaned.isEmpty) continue;
+          if (!_isProbablyIngredientLine(cleaned)) continue;
           final lower = cleaned.toLowerCase();
           if (stopWords.contains(lower)) continue;
           // Extraction avancée : "4 pièces de Tortillas" ou "Tortillas (4 pièces)"
@@ -614,38 +653,18 @@ Ta mission :
           });
         }
       }
-      // 5. Ajout en base
-      // Extraction de l'image si présente dans la réponse IA
-      String? imageUrl;
-      final imageMatch = RegExp(
-        r'(https?://[^\s)]+\.(jpg|jpeg|png|webp|gif))',
-        caseSensitive: false,
-      ).firstMatch(ingText);
-      if (imageMatch != null) {
-        imageUrl = imageMatch.group(1);
+      // Dernière chance: parsing flexible si toujours vide
+      if (ingredients.isEmpty) {
+        ingredients = _parseIngredientsFlexible(ingText);
       }
-      final recette = Recette(
-        nom: nom,
-        description: desc.trim(),
-        calories: _estimerCalories(nom),
-        publie: 1,
-        imageUrl: imageUrl, // Ajout de l'image IA si trouvée
-        utilisateurId: 3, // Fixé pour test
-      );
-      final recetteId = await _recetteService.insertRecette(recette);
-      for (final ing in ingredients) {
-        await _ingredientService.insertIngredient(
-          Ingredient(
-            nom: ing['nom'],
-            quantite: ing['quantite'],
-            unite: ing['unite'],
-            calories: ing['calories'],
-            recetteId: recetteId,
-          ),
-        );
-      }
-      _resetContext();
-      return "Excellent choix ! Votre recette **$nom** a bien été ajoutée. Vous pouvez la consulter dans votre carnet de recettes.";
+      // 5. Stocker en mémoire et demander confirmation d'ajout
+      _lastSuggestion = nom;
+      _lastRecipeDetails = desc.trim();
+      _lastCalories = _estimerCalories(nom);
+      _lastIngredients = ingredients;
+      final resume =
+          "Résumé de la recette :\n- Nom : $nom\n- Description : ${_lastRecipeDetails}\n- Calories estimées : ${_lastCalories!.toStringAsFixed(0)}\n- Ingrédients : ${ingredients.isNotEmpty ? ingredients.map((i) => i['nom']).join(', ') : 'Aucun'}\n\nSouhaitez-vous que je l'ajoute à votre carnet ? Dites 'ajouter la'.";
+      return resume;
     }
 
     // 5) —— Etapes de preparation
@@ -783,6 +802,41 @@ Ta mission :
         x == "le";
   }
 
+  // Heuristique pour ignorer les lignes qui ne sont pas des ingrédients
+  bool _isProbablyIngredientLine(String line) {
+    final l = line.toLowerCase().trim();
+    if (l.isEmpty) return false;
+    // Exclure les sections et métadonnées
+    final blocked = [
+      'resume',
+      'résumé',
+      'nom :',
+      'description',
+      'calories',
+      'ingredient',
+      'ingrédient',
+      'souhaite',
+      'souhaitez',
+      'ajoute',
+      'ajouter',
+      'recette enregistree',
+      'recette enregistrée',
+      'etape',
+      'étape',
+      'etapes',
+      'étapes',
+      'preparation',
+      'instructions',
+    ];
+    for (final b in blocked) {
+      if (l.contains(b)) return false;
+    }
+    // Exclure les emojis fréquents de sections
+    if (l.contains('🍲') || l.contains('🍽') || l.contains('👨‍🍳'))
+      return false;
+    return true;
+  }
+
   // Parse un JSON recette (même cassé), formate en paragraphe, et enregistre en mémoire (pas en DB)
   String? _tryParseAndFormatRecipeResponse(
     String response, {
@@ -792,39 +846,186 @@ Ta mission :
         .replaceAll('""', '"')
         .replaceAll("”", '"')
         .replaceAll("“", '"')
+        .replaceAll("’", "'")
+        // retirer les éventuels code fences ```json ... ```
+        .replaceAll(RegExp(r"```\s*json\s*", caseSensitive: false), '')
+        .replaceAll(RegExp(r"```"), '')
         .trim();
 
-    // Essai de parsing JSON
+    // Essai de parsing JSON avec tolérance
     try {
       final start = txt.indexOf("{");
-      final end = txt.lastIndexOf("}");
-      if (start == -1 || end == -1)
-        throw const FormatException("No JSON object found");
+      // Fonction pour trouver l'accolade fermante correspondante même avec du texte après
+      int _findMatchingBrace(String s, int openIndex) {
+        bool inString = false;
+        bool escape = false;
+        int depth = 0;
+        for (int i = openIndex; i < s.length; i++) {
+          final ch = s[i];
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (ch == '\\') {
+            escape = true;
+            continue;
+          }
+          if (ch == '"') {
+            inString = !inString;
+            continue;
+          }
+          if (inString) continue;
+          if (ch == '{') depth++;
+          if (ch == '}') {
+            depth--;
+            if (depth == 0) return i;
+          }
+        }
+        return -1;
+      }
+
+      if (start == -1) {
+        print('[NutriBotBrain][JSON] Aucun "{" trouvé');
+        return null;
+      }
+      int end = _findMatchingBrace(txt, start);
+      if (end == -1) {
+        // Heuristique: si on a un tableau ingredients fermé par ']' mais pas '}', on ferme nous-même
+        final lastBracket = txt.lastIndexOf(']');
+        if (lastBracket != -1 && lastBracket > start) {
+          print(
+            '[NutriBotBrain][JSON] Fermeture } manquante, tentative de réparation',
+          );
+          final candidate = txt.substring(start, lastBracket + 1) + '}';
+          try {
+            jsonDecode(candidate);
+            txt = candidate; // on remplace pour la suite
+            end = candidate.length - 1;
+          } catch (_) {
+            print('[NutriBotBrain][JSON] Réparation échouée');
+            return null;
+          }
+        } else {
+          print('[NutriBotBrain][JSON] Aucun objet JSON détecté');
+          return null;
+        }
+      }
 
       final jsonPart = txt.substring(start, end + 1);
-      final Map<String, dynamic> r = jsonDecode(jsonPart);
+      Map<String, dynamic> r = {};
+      try {
+        r = jsonDecode(jsonPart) as Map<String, dynamic>;
+      } catch (e) {
+        // Tentative de réparation basique : retirer trailing commas
+        final repaired = jsonPart
+            .replaceAll(RegExp(r',\s*}'), '}')
+            .replaceAll(RegExp(r',\s*]'), ']');
+        r = jsonDecode(repaired) as Map<String, dynamic>;
+      }
 
-      final nom = (r["nom"] ?? "Recette").toString();
-      final description = (r["description"] ?? "Pas de description").toString();
-      final calories = (r["calories"] ?? 0).toDouble();
-      final ingredients = List<Map<String, dynamic>>.from(
-        r["ingredients"] ?? [],
-      );
-      final imageUrl = r["imageUrl"]?.toString();
+      String nom = (r['nom'] ?? 'Recette').toString();
+      String description = (r['description'] ?? 'Pas de description')
+          .toString();
+
+      // Calories robustes (nombre ou string)
+      double calories = 0.0;
+      if (r.containsKey('calories')) {
+        final c = r['calories'];
+        if (c is num) {
+          calories = c.toDouble();
+        } else if (c is String) {
+          calories =
+              double.tryParse(
+                c.replaceAll(RegExp(r'[^0-9\.,]'), '').replaceAll(',', '.'),
+              ) ??
+              0.0;
+        }
+      }
+
+      // Ingrédients : accepter List<dynamic>, ou objet {ingredients: [...]}
+      List<Map<String, dynamic>> ingredients = [];
+      dynamic ingrRaw = r['ingredients'];
+      if (ingrRaw is List) {
+        for (final e in ingrRaw) {
+          if (e is Map) {
+            ingredients.add({
+              'nom': e['nom']?.toString() ?? '',
+              'quantite': (e['quantite'] is num)
+                  ? (e['quantite'] as num).toDouble()
+                  : double.tryParse(e['quantite']?.toString() ?? '1') ?? 1.0,
+              'unite': e['unite']?.toString() ?? '',
+              'calories': (e['calories'] is num)
+                  ? (e['calories'] as num).toDouble()
+                  : double.tryParse(e['calories']?.toString() ?? '0') ?? 0.0,
+            });
+          } else if (e is String) {
+            // ligne texte -> tentative parse rapide "200 g poulet" etc.
+            final parsed = _parseIngredientsFlexible(e);
+            if (parsed.isNotEmpty) ingredients.addAll(parsed);
+          }
+        }
+      } else if (ingrRaw is String) {
+        ingredients = _parseIngredientsFlexible(ingrRaw);
+      } else if (r.length == 1 && r.values.first is List) {
+        // Cas pathologique: le JSON est déjà un tableau sous clé inconnue
+        final firstList = r.values.first;
+        if (firstList is List) {
+          for (final e in firstList) {
+            if (e is Map) {
+              ingredients.add({
+                'nom': e['nom']?.toString() ?? '',
+                'quantite': (e['quantite'] is num)
+                    ? (e['quantite'] as num).toDouble()
+                    : double.tryParse(e['quantite']?.toString() ?? '1') ?? 1.0,
+                'unite': e['unite']?.toString() ?? '',
+                'calories': (e['calories'] is num)
+                    ? (e['calories'] as num).toDouble()
+                    : double.tryParse(e['calories']?.toString() ?? '0') ?? 0.0,
+              });
+            }
+          }
+        }
+      }
+
+      // Filtrer items vides ou non ingrédients
+      ingredients = ingredients
+          .where(
+            (m) =>
+                (m['nom'] as String).trim().isNotEmpty &&
+                _isProbablyIngredientLine(m['nom'] as String),
+          )
+          .toList();
+
+      final imageUrl = r['imageUrl']?.toString();
 
       _lastSuggestion = nom;
       _lastRecipeDetails = description;
       _lastCalories = calories;
       _lastIngredients = ingredients;
 
-      // Affichage avec image si présente
+      print(
+        '[NutriBotBrain][JSON] nom=$nom calories=$calories ingredients=${ingredients.length}',
+      );
+      if (ingredients.isEmpty) {
+        print(
+          '[NutriBotBrain][JSON] Aucun ingrédient récupéré depuis le JSON brut, tentative parse flexible sur la réponse complète',
+        );
+        final flex = _parseIngredientsFlexible(txt);
+        if (flex.isNotEmpty) {
+          _lastIngredients = flex;
+          print(
+            '[NutriBotBrain][JSON] Parse flexible a trouvé ${flex.length} ingrédients',
+          );
+        }
+      }
+
       String imageSection = imageUrl != null && imageUrl.isNotEmpty
           ? "\n![Image du plat]($imageUrl)\n"
           : "";
 
-      return "Résumé de la recette :\n- Nom : $nom\n- Description : $description\n- Calories : ${calories.toStringAsFixed(0)}\n$imageSection- Ingrédients : ${ingredients.isNotEmpty ? ingredients.map((i) => i['nom']).join(', ') : 'Aucun'}\n- Pour voir les étapes ou ajouter, dites 'oui' ou 'ajouter la'.";
-    } catch (_) {
-      // Fallback amélioré : on tente de générer description et ingrédients si manquants
+      return "Résumé de la recette :\n- Nom : $nom\n- Description : $description\n- Calories : ${calories.toStringAsFixed(0)}\n$imageSection- Ingrédients : ${_lastIngredients != null && _lastIngredients!.isNotEmpty ? _lastIngredients!.map((i) => i['nom']).join(', ') : 'Aucun'}\n- Pour voir les étapes ou ajouter, dites 'oui' ou 'ajouter la'.";
+    } catch (e) {
+      print('[NutriBotBrain][JSON][ERREUR] $e');
       return null; // On gère ce cas dans process
     }
   }
@@ -860,6 +1061,140 @@ Ta mission :
     if (h < 11) return "petit dejeuner";
     if (h < 17) return "dejeuner";
     return "diner";
+  }
+
+  // Parse résiliente d'une liste d'ingrédients venant en texte libre
+  // Prend en charge :
+  // - JSON (tableau d'objets ou objet {ingredients: [...]})
+  // - listes à puces '-', '*', '•'
+  // - listes numérotées '1. ...', '2) ...'
+  // - lignes séparées par virgules
+  // - formats "200 g de pâtes", "pâtes (200 g)", "2 gousses d'ail", "2 oeufs"
+  List<Map<String, dynamic>> _parseIngredientsFlexible(String ingText) {
+    List<Map<String, dynamic>> out = [];
+
+    String text = ingText.trim();
+    if (text.isEmpty) return out;
+
+    // 1) Tentative JSON stricte
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is List) {
+        for (final e in decoded) {
+          if (e is Map) {
+            out.add({
+              'nom': e['nom']?.toString() ?? '',
+              'quantite': (e['quantite'] is num)
+                  ? (e['quantite'] as num).toDouble()
+                  : double.tryParse(e['quantite']?.toString() ?? '1') ?? 1.0,
+              'unite': e['unite']?.toString() ?? '',
+              'calories': (e['calories'] is num)
+                  ? (e['calories'] as num).toDouble()
+                  : double.tryParse(e['calories']?.toString() ?? '0') ?? 0.0,
+            });
+          }
+        }
+        if (out.isNotEmpty) return out;
+      } else if (decoded is Map) {
+        final ingr = decoded['ingredients'];
+        if (ingr is List) {
+          for (final e in ingr) {
+            if (e is Map) {
+              out.add({
+                'nom': e['nom']?.toString() ?? '',
+                'quantite': (e['quantite'] is num)
+                    ? (e['quantite'] as num).toDouble()
+                    : double.tryParse(e['quantite']?.toString() ?? '1') ?? 1.0,
+                'unite': e['unite']?.toString() ?? '',
+                'calories': (e['calories'] is num)
+                    ? (e['calories'] as num).toDouble()
+                    : double.tryParse(e['calories']?.toString() ?? '0') ?? 0.0,
+              });
+            }
+          }
+          if (out.isNotEmpty) return out;
+        }
+      }
+    } catch (_) {
+      // not JSON, continue
+    }
+
+    // 2) Normalisation des puces et numérotations
+    final rawLines = text
+        .replaceAll('\r', '')
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+
+    List<String> lines = [];
+    if (rawLines.length <= 2) {
+      // peut-être une phrase séparée par des virgules
+      if (rawLines.length == 1 && rawLines.first.contains(',')) {
+        lines = rawLines.first.split(',').map((e) => e.trim()).toList();
+      } else {
+        lines = rawLines;
+      }
+    } else {
+      lines = rawLines;
+    }
+
+    for (var l in lines) {
+      String cleaned = l;
+      cleaned = cleaned
+          .replaceFirst(RegExp(r'^[\-\*•]\s*'), '')
+          .replaceFirst(RegExp(r'^\d+[\.)]\s*'), '')
+          .trim();
+      if (cleaned.isEmpty) continue;
+      if (!_isProbablyIngredientLine(cleaned)) continue;
+
+      // patterns communs (apostrophe droite normalisée en simple quote)
+      final reDe = RegExp(
+        r"^(\d+[\.,]?\d*)\s*([A-Za-zéèêûîôàçù]+)\s*(?:de|d['`])\s+(.+)$",
+      );
+      final reParen = RegExp(
+        r"^(.+?)\s*\((\d+[\.,]?\d*)\s*([A-Za-zéèêûîôàçù]+)\)$",
+      );
+      final reNumName = RegExp(r"^(\d+[\.,]?\d*)\s+(.+)$");
+      final reNameColon = RegExp(
+        r"^(.+?)\s*:\s*(\d+[\.,]?\d*)\s*([A-Za-zéèêûîôàçù]+)$",
+      );
+
+      double quantite = 1.0;
+      String unite = '';
+      String nom = cleaned;
+
+      RegExpMatch? m = reDe.firstMatch(cleaned);
+      if (m != null) {
+        quantite = double.tryParse(m.group(1)!.replaceAll(',', '.')) ?? 1.0;
+        unite = m.group(2) ?? '';
+        nom = m.group(3) ?? cleaned;
+      } else if ((m = reParen.firstMatch(cleaned)) != null) {
+        nom = m!.group(1) ?? cleaned;
+        quantite = double.tryParse(m.group(2)!.replaceAll(',', '.')) ?? 1.0;
+        unite = m.group(3) ?? '';
+      } else if ((m = reNameColon.firstMatch(cleaned)) != null) {
+        nom = m!.group(1) ?? cleaned;
+        quantite = double.tryParse(m.group(2)!.replaceAll(',', '.')) ?? 1.0;
+        unite = m.group(3) ?? '';
+      } else if ((m = reNumName.firstMatch(cleaned)) != null) {
+        quantite = double.tryParse(m!.group(1)!.replaceAll(',', '.')) ?? 1.0;
+        nom = m.group(2) ?? cleaned;
+        unite = '';
+      }
+
+      final nomClean = nom.trim();
+      if (_isProbablyIngredientLine(nomClean)) {
+        out.add({
+          'nom': nomClean,
+          'quantite': quantite,
+          'unite': unite,
+          'calories': 0.0,
+        });
+      }
+    }
+
+    return out;
   }
 
   // Extrait proprement le nom du plat après le verbe
